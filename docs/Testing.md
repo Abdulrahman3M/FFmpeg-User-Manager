@@ -34,10 +34,16 @@ be provoked in the current environment (with the reason printed). FFmpeg + ffpro
 | Unit | `Core.Tests.ps1` | validation, paths, argument quoting round-trips with awkward file names, injection safety, filter escaping proven against the real filter parser, encoders, atempo chains, progress parsing, capability parsing/discovery, ffprobe model |
 | Unit | `Manager.Tests.ps1` | detection (installed / missing / no ffprobe / stale PATH), update states with mocked winget text, install and update flows through the UI, failure and unmanaged cases |
 | Unit | `Tui.Tests.ps1` | menu (numbers, letters, arrows, Enter, Esc, Q, scrolling, disabled items), main-menu definition, narrow/normal/wide layout, icons and ASCII fallback, theme centralization, line editor, wizard (validation, Back, Goto, multi-select, file list, summary, build errors), dialogs |
-| Unit | `Static.Tests.ps1` | parse check, no `Invoke-Expression`, no network/telemetry code, no shell launching, no recursive deletion, PS-5.1 syntax/API scan, ASCII-only sources, closure rule, module/wiring/documentation presence |
+| Unit | `Static.Tests.ps1` | version (`VERSION` is SemVer, README badge/CHANGELOG/tags consistent), README/docs link and image check, README commands vs real launcher switches, release-package contents, secret and machine-path scan, `.gitignore`, parse check, no `Invoke-Expression`, no network/telemetry code, no shell launching, no recursive deletion, PS-5.1 syntax/API scan, ASCII-only sources, closure rule, module/wiring/documentation presence |
 | Smoke | `Workflows1-4.Tests.ps1` | every workflow end-to-end through the real wizard with real FFmpeg; outputs are verified with ffprobe (codec, size, fps, duration, streams) and, where meaningful, by measurement (volume, LUFS, brightness/saturation, PSNR) |
 | Smoke | `Failures.Tests.ps1` | bad input, output-name rules, unsupported combinations, non-zero FFmpeg exit + details + retry, cancellation, source protection, simulated unwritable folder |
+| Smoke | `Launcher.Tests.ps1` | `FFmpeg-User-Manager.bat` with a real `cmd` interpreter (native on Windows, Wine's `cmd.exe` on Linux): runtime preference (pwsh.exe over powershell.exe), fallback, no-PowerShell error, missing entry script, paths with spaces/parentheses/ampersand, argument pass-through, exit-code propagation. Double-click detection (`%CMDCMDLINE%`) is `UNVERIFIED` under Wine |
 | Smoke | `App.Tests.ps1` | launcher in child processes: startup/exit codes, non-interactive refusal, ANSI vs non-ANSI, terminal restoration after normal exit and after an error, missing/stale FFmpeg with a real PATH sandbox, main-menu integration, error containment |
+
+## Launcher tests and Wine
+
+`tests/Smoke/Launcher.Tests.ps1` runs the batch file in a sandbox with dummy `pwsh.exe` / `powershell.exe` files on `PATH` (detection) and a `.cmd` stub selected through `FFUM_POWERSHELL` (execution and exit codes).
+On Windows it uses `cmd.exe`; on Linux it uses Wine if installed (`apt install wine64`), otherwise the cases are reported `UNVERIFIED`. Running the real PowerShell application through the launcher on Windows remains a manual check.
 
 ## Fixture strategy
 

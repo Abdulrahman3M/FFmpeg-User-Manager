@@ -73,9 +73,9 @@ function Show-Menu {
 
             Start-Frame
             if ($ShowHeader) { Write-Header; Write-UiBlank }
+            if ($InfoRenderer) { & $InfoRenderer }
             if ($Title) { Write-UiSegments @(, @($Title, 'Title')); Write-UiBlank }
             if ($Subtitle) { Write-UiSegments @(, @($Subtitle, 'DimText')); Write-UiBlank }
-            if ($InfoRenderer) { & $InfoRenderer }
             $b = Get-BoxChars
             if ($top -gt 0) { Write-UiSegments @(, @(('  ' + $b.Up + ' more'), 'DimText')) }
             $end = [math]::Min($list.Count, $top + $visible)

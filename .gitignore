@@ -1,0 +1,31 @@
+# Release packages and generated output
+dist/
+*.zip
+
+# Test output and scratch files
+tests/_*.ps1
+tests/output/
+TestResults/
+fftui-tests-*/
+*.log
+*.tmp
+*.bak
+
+# Temporary files created by the application
+fftui_*.txt
+
+# Editor / IDE state
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+*.local

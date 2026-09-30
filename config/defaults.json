@@ -1,5 +1,5 @@
 {
-  "appName": "FFmpeg TUI",
+  "appName": "FFmpeg User Manager",
   "winget": {
     "packageId": "Gyan.FFmpeg",
     "source": "winget"

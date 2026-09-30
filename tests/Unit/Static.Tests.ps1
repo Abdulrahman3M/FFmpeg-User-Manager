@@ -154,3 +154,73 @@ $t = $null; $e = $null; $mast = [System.Management.Automation.Language.Parser]::
 $mb = $mast.Find({ param($n) $n -is [System.Management.Automation.Language.ScriptBlockExpressionAst] }, $true)
 $mfree = @($mb.ScriptBlock.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] }, $true) | ForEach-Object { $_.VariablePath.UserPath })
 Assert-True 'closure rule self-check: an unclosed block reading $p is recognizable (test scaffolding sanity)' (($mfree -contains 'p') -and -not ($mb.Parent -is [System.Management.Automation.Language.InvokeMemberExpressionAst]))
+
+Set-TestGroup 'Repository presentation: version, links, launcher docs, release package, public-release hygiene'
+$versionText = (Get-Content -LiteralPath (Join-Path $root 'VERSION') -TotalCount 1).Trim()
+Assert-True "VERSION holds a valid Semantic Version ($versionText)" (Test-SemVer $versionText)
+Assert-Equal 'application reads the canonical version' $versionText (Get-AppVersion)
+$readme = Get-Content -LiteralPath (Join-Path $root 'README.md') -Raw
+Assert-True 'README version badge matches VERSION' ($readme -match [regex]::Escape("badge/version-$versionText-"))
+$changelog = Get-Content -LiteralPath (Join-Path $root 'CHANGELOG.md') -Raw
+Assert-True 'CHANGELOG has an [Unreleased] section and Keep-a-Changelog/SemVer references' ($changelog -match '(?m)^## \[Unreleased\]' -and $changelog -match 'keepachangelog' -and $changelog -match 'semver')
+$released = @([regex]::Matches($changelog, '(?m)^## \[(\d+\.\d+\.\d+[^\]]*)\] - \d{4}-\d{2}-\d{2}') | ForEach-Object { $_.Groups[1].Value })
+if ($released.Count -gt 0) { Assert-Equal 'newest released CHANGELOG version equals VERSION' $versionText $released[0] } else { Assert-True 'no release is recorded yet, so none is claimed in the README' ($readme -match 'No official release has been published yet') }
+$tags = Invoke-ExternalCapture -FilePath 'git' -Arguments @('-C', $root, 'tag', '--list') -TimeoutSec 20
+if ($tags.Started -and $tags.ExitCode -eq 0) { $bad = @($tags.StdOut -split "`r?`n" | Where-Object { $_ -and $_ -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(alpha|beta|rc)\.\d+)?$' }); Assert-True 'all existing Git tags use the vMAJOR.MINOR.PATCH[-alpha|beta|rc.N] format' ($bad.Count -eq 0) ($bad -join ', ') }
+# README/docs: every relative link and image must exist
+$linkIssues = @()
+foreach ($md in @('README.md', 'CHANGELOG.md', 'AGENTS.md', 'docs/Architecture.md', 'docs/Workflows.md', 'docs/Testing.md', 'docs/Versioning-and-Releases.md', 'docs/images/README.md', 'tests/Fixtures/README.md')) {
+    $mdPath = Join-Path $root $md
+    $text = Get-Content -LiteralPath $mdPath -Raw
+    $dir = Split-Path -Parent $mdPath
+    $targets = @([regex]::Matches($text, '\]\(([^)\s]+)\)') | ForEach-Object { $_.Groups[1].Value }) + @([regex]::Matches($text, '(?:src|href)="([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+    foreach ($t in $targets) {
+        if ($t -match '^(https?:|mailto:)') { continue }
+        $file = ($t -split '#')[0]
+        if (-not $file) {
+            $anchor = $t.TrimStart('#')
+            $heads = @([regex]::Matches($text, '(?m)^#{1,6}\s+(.+)$') | ForEach-Object { ($_.Groups[1].Value.ToLowerInvariant() -replace '[^a-z0-9 \-]', '' -replace ' ', '-') })
+            if ($heads -notcontains $anchor) { $linkIssues += "$md -> #$anchor (no such heading)" }
+            continue
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $dir $file))) { $linkIssues += "$md -> $t" }
+    }
+}
+Assert-True 'all relative links, images and in-page anchors in README/docs resolve' ($linkIssues.Count -eq 0) ($linkIssues -join "`n")
+foreach ($img in 'main-menu', 'ffmpeg-status', 'conversion-wizard', 'video-to-gif', 'processing', 'completed') { Assert-True "screenshot exists and is a PNG: $img.png" ((Test-Path -LiteralPath (Join-Path $root "docs/images/$img.png")) -and ([System.IO.File]::ReadAllBytes((Join-Path $root "docs/images/$img.png"))[1] -eq 80)) }
+# README commands must match the real launcher
+$ast = $asts[(Join-Path $root 'Start-FFmpegTUI.ps1')]
+$launcherParams = @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
+$documented = @([regex]::Matches($readme, '(?m)Start-FFmpegTUI\.ps1\s+-([A-Za-z]+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+Assert-True ("README documents only real launcher switches ($($documented -join ', '))") (@($documented | Where-Object { $launcherParams -notcontains $_ }).Count -eq 0)
+Assert-True 'README mentions the BAT launcher as the primary Quick Start' ($readme -match '(?s)## Quick Start.*?FFmpeg-User-Manager\.bat')
+$vo = Invoke-ExternalCapture -FilePath (Get-Process -Id $PID).Path -Arguments @('-NoProfile', '-File', (Join-Path $root 'Start-FFmpegTUI.ps1'), '-Version') -TimeoutSec 60
+Assert-Equal '.\Start-FFmpegTUI.ps1 -Version prints the product name and version' "FFmpeg User Manager v$versionText" $vo.StdOut.Trim()
+Assert-True 'README project-structure tree lists files that exist' (@('FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'CHANGELOG.md', 'AGENTS.md', 'config/defaults.json', 'tools/New-ReleasePackage.ps1') | ForEach-Object { Test-Path -LiteralPath (Join-Path $root $_) } | Where-Object { -not $_ } | Measure-Object | ForEach-Object { $_.Count -eq 0 })
+Assert-True 'AGENTS.md exists with the core rules' ((Test-Path -LiteralPath (Join-Path $root 'AGENTS.md')) -and ((Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw) -match 'Private' -and (Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw) -match 'COMPLETE'))
+# release package
+$pkgDir = Join-Path (Get-TestWork) 'pkg'
+$zipPath = (& (Join-Path $root 'tools/New-ReleasePackage.ps1') -OutputDirectory $pkgDir) | Select-Object -Last 1
+Assert-Equal 'release package name follows FFmpeg-User-Manager-vX.Y.Z.zip' "FFmpeg-User-Manager-v$versionText.zip" ([System.IO.Path]::GetFileName($zipPath))
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zf = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+try {
+    $names = @($zf.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
+    Assert-True 'package contains the launcher, entry script, version and sources' (($names -contains 'FFmpeg-User-Manager/FFmpeg-User-Manager.bat') -and ($names -contains 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') -and ($names -contains 'FFmpeg-User-Manager/VERSION') -and ($names -contains 'FFmpeg-User-Manager/src/Core/App.psm1'))
+    Assert-True 'package excludes tests, Git data, dist output and development files' (@($names | Where-Object { $_ -match '/tests/|/\.git|/dist/|/tools/|AGENTS\.md' }).Count -eq 0)
+} finally { $zf.Dispose() }
+# public-release hygiene
+$tracked = Invoke-ExternalCapture -FilePath 'git' -Arguments @('-C', $root, 'ls-files') -TimeoutSec 30
+$files = @($tracked.StdOut -split "`r?`n" | Where-Object { $_ -and $_ -notmatch '\.png$' })
+$secretHits = @(); $pathHits = @()
+foreach ($f in $files) {
+    $p = Join-Path $root $f
+    if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { continue }
+    $t = [System.IO.File]::ReadAllText($p)
+    if ($t -match '(?i)(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|password\s*[:=]\s*[''"][^''"\s]{4,})') { $secretHits += $f }
+    if ($f -notmatch '^tests/' -and $t -cmatch 'C:\\Users\\[A-Za-z0-9_.-]+|/home/[a-z0-9_-]+/|/Users/[A-Za-z0-9_-]+/|/root/') { $pathHits += $f }
+}
+Assert-True 'no credentials, tokens or private keys in tracked files' ($secretHits.Count -eq 0) ($secretHits -join ', ')
+Assert-True 'no developer-machine absolute paths in tracked documentation or source' ($pathHits.Count -eq 0) ($pathHits -join ', ')
+$gi = Get-Content -LiteralPath (Join-Path $root '.gitignore') -Raw
+Assert-True '.gitignore covers dist/, logs, temp, editor and local env files without hiding sources' (($gi -match '(?m)^dist/') -and ($gi -match '\*\.log') -and ($gi -match '\.vscode/') -and ($gi -match '\.env') -and ($gi -notmatch '(?m)^\*\.ps1|^\*\.psm1|^src/|^docs/|^\*\.md'))

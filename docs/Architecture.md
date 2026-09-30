@@ -15,6 +15,8 @@ Start-FFmpegTUI.ps1 --> src/Import-Modules.ps1 --> Core/App.psm1 (Start-FFmpegTu
         +--------------------+ Core: Environment Paths Validation ProcessRunner
 ```
 
+`FFmpeg-User-Manager.bat` (repository root) is a thin Windows launcher: it finds `Start-FFmpegTUI.ps1`, prefers `pwsh.exe`, falls back to `powershell.exe`, and forwards arguments and the exit code. The application version comes from the root `VERSION` file (`Get-AppVersion`).
+
 All modules are imported into the global session state by `Import-FFTuiModules` (ordered, fail-fast), so exported
 functions can call each other. Module-private state uses `$script:` variables.
 
