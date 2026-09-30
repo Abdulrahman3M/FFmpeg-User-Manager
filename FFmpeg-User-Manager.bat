@@ -30,6 +30,12 @@ set "FFUM_RC=2"
 goto :finish
 
 :have_entry
+rem --- the console is switched to UTF-8 (code page 65001) while the app runs so its icons are drawn correctly; the original code page is restored afterwards
+set "FFUM_CP="
+for /f "tokens=2 delims=:." %%C in ('chcp 2^>nul') do set "FFUM_CP=%%C"
+if defined FFUM_CP set "FFUM_CP=%FFUM_CP: =%"
+chcp 65001 >nul 2>&1
+
 rem --- runtime: FFUM_POWERSHELL (optional override) > PowerShell 7 (pwsh.exe) > Windows PowerShell 5.1 (powershell.exe)
 set "FFUM_PS=%FFUM_POWERSHELL%"
 if defined FFUM_PS goto :run
@@ -51,6 +57,7 @@ if defined FFUM_TRACE echo Launcher runtime: %FFUM_PS%
 set "FFUM_RC=%ERRORLEVEL%"
 
 :finish
+if defined FFUM_CP chcp %FFUM_CP% >nul 2>&1
 if "%FFUM_RC%"=="0" goto :done
 if not defined FFUM_DBLCLICK goto :done
 echo.

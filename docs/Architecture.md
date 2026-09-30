@@ -9,7 +9,7 @@ Start-FFmpegTUI.ps1 --> src/Import-Modules.ps1 --> Core/App.psm1 (Start-FFmpegTu
         | TUI (screens)      | FFmpeg (engine)       | Workflows          |
         | Theme  Renderer    | FFmpegManager         | WorkflowCommon     |
         | Input  Menu Dialog | FFmpegCapabilities    | ConvertVideo ...   |
-        | Wizard ProgressView| MediaProbe            | (18 workflow files)|
+        | Wizard ProgressView| MediaProbe            | (27 workflow files)|
         |                    | FFmpegCommandBuilder  |                    |
         |                    | FFmpegProgress        |                    |
         +--------------------+ Core: Environment Paths Validation ProcessRunner
@@ -33,29 +33,32 @@ functions can call each other. Module-private state uses `$script:` variables.
 ## TUI
 
 * **Theme** - the only place with color values. Semantic roles: `PrimaryAccent SecondaryAccent Title NormalText DimText
-  Success Warning Error Border Selected Muted`, each with an ANSI code and a legacy `ConsoleColor`. Icons have Unicode and
-  ASCII variants (`[VIDEO]`, `[GIF]`, ...).
+  Success Warning Error Border Selected Muted`, each with an ANSI code and a legacy `ConsoleColor`. It also owns the **icons** (see
+  [Icons](#icons-why-they-always-appear)).
 * **Renderer** - all output. Three modes: ANSI (cursor-home redraw, alternate screen), legacy (`Clear-Host` + `Write-Host` colors)
   and a memory buffer used by tests. Provides header, rules, key/value panels, key hints, progress bar, width-aware truncation and
   compact layout (< 72 columns).
 * **Input** - one key reader for the real console or a scripted queue/provider (automation hook), plus the single-line editor
   (`Read-TuiLine`: Left/Right/Home/End/Backspace/Delete, `Esc` = Back, `Tab` = Browse, `Ctrl+U` = clear).
-* **Menu** - reusable list: arrows, digits, letters, disabled items with a reason, scrolling viewport, description under each
-  item (or only for the selected item when the window is short). Item hotkeys take precedence over Back/Quit (so main-menu `B` = Subtitle Tools).
-* **Dialog** - notices, yes/no confirmations, scrollable text viewer.
+* **Menu** - the one reusable list (main menu, submenus and every multiple-choice question). Rows read **Number, Icon, Name**; numbers are
+  assigned automatically, two digits minimum and zero-padded (`01` ... `09`, `10` ... `99`, `100` ...), never hand-written. Keys: digits (quick select,
+  `Resolve-NumberInput`), arrows, `Enter`, `Esc` (back), `Ctrl+C` (quit) - there are no letter keys. A description sits under every option; only when the
+  window is very short is it shown for the selected option alone. Disabled items show their reason.
+* **Dialog** - notices and yes/no confirmations (also numbered lists: `01`, `02` ...; an action id such as `R` is only an internal return value), scrollable text viewer.
 * **ProgressView** - job progress (percentage only when the duration is known, otherwise spinner + elapsed time).
 * **Wizard** - see below.
 
 ### Wizard system
 
 Steps are data (hashtables). `Invoke-Wizard -Steps ... -Build {...}` renders them, keeps answers in `$W.Answers`, supports Back
-(answers are kept), conditional steps (`When`), jumps (`$W.Goto`), info panels (`Set-WizardPanel`), a final summary and `[V]` command view.
+(answers are kept), conditional steps (`When`), jumps (`$W.Goto`), info panels (`Set-WizardPanel`), a final summary (a numbered menu: Start, View command, Back).
+Every choice carries a description and every question help text (and an example for typed answers); static tests enforce it.
 
 | Field | Meaning |
 |---|---|
 | `Id`, `Type`, `Prompt`, `Help`, `Example`, `Default` | Identification and text. `Default`/`Choices` may be scriptblocks `param($W)`. |
 | `Type` | `File`, `Files` (ordered list), `Directory`, `Text`, `Integer`, `Decimal`, `Timestamp`, `Bitrate`, `FrameRate`, `Color`, `Resolution`, `YesNo`, `Choice`, `MultiChoice`, `Info`, `Custom`. `Optional = $true` allows empty. |
-| `Choices` | `@{Value; Label; Desc; Enabled; Reason}`; `AllowCustom = @{Type; Prompt; Min; Max; ...}` adds a "Custom..." entry that opens a validated text question. |
+| `Choices` | `@{Value; Label; Desc; Enabled; Reason}` (`New-Choice value label DESCRIPTION`); `AllowCustom = @{Type; Prompt; Min; Max; ...}` adds a "Custom..." entry that opens a validated text question. |
 | `Validate` | `param($value,$W)` -> `$null` or an error message. |
 | `When` | Step is skipped (and its stale answer dropped) when false. |
 | `OnAnswer` | Side effects after acceptance, e.g. probing or `$W.Goto = 'stepId'`. |
@@ -66,6 +69,20 @@ The `Build` scriptblock turns answers into a **job**: `Summary` rows, `Stages` (
 **Scoping rule:** step scriptblocks run later inside the Wizard module. A block that reads a local variable of the function that
 created it must end with `.GetNewClosure()` (enforced by a static test). Never name a local `$w`: variable names are
 case-insensitive and it would overwrite the wizard state `$W`.
+
+### Icons: why they always appear
+
+Icons are plain characters, not image files, so the only way one can fail to show is when the terminal cannot draw the glyph. `Theme.psm1` therefore keeps three forms of
+every icon and `Get-IconTier` (decision logic in `Resolve-IconTier`, unit tested) picks the one the terminal can draw:
+
+| Tier | Used when | Glyphs |
+|---|---|---|
+| **Emoji** | Windows Terminal, VS Code, ConEmu (`WT_SESSION`, `TERM_PROGRAM`, `ConEmuANSI`), UTF-8 terminals on Linux/macOS | Wide, emoji-presentation characters (two columns) |
+| **Symbol** | The classic Windows console (conhost / the Windows PowerShell 5.1 window) and any other Windows console | Single-column glyphs from the Windows Glyph List 4 (for example a play triangle, note, arrows), which Consolas, Lucida Console and Courier New all contain - so there is always an icon, never a blank or a box |
+| **Ascii** | Redirected output, or `FFTUI_ASCII=1` | Bracketed tags such as `[VIDEO]` |
+
+On Windows the console output encoding is switched to UTF-8 at startup (`Set-ConsoleUtf8Output`) and the `.bat` launcher selects code page 65001 while the app runs and restores it afterwards.
+`FFTUI_ICONS=emoji|symbol|ascii` overrides the detection. The Status screen shows which set is in use. The box-drawing characters follow the same tier.
 
 ## FFmpeg engine
 
@@ -82,6 +99,10 @@ case-insensitive and it would overwrite the wizard state `$W`.
   not of what exists), container catalog, target-size bitrate calculation.
 * **FFmpegProgress** - runs one stage as a child process with `-progress pipe:1`, parses time/speed/size, supports cooperative cancel
   (`q` on stdin, then kill), collects stderr for the details view.
+* **Workflow modules** (`src/Workflows/`) - one module per tool group: the original conversion/editing tools plus `RemuxStreams`, `MetadataChapters`, `ImagesAndVisuals`, `AudioEffects`,
+  `VideoEnhance`, `CaptureMedia`, `AnalyzeMedia`, `BatchConvert` and `AdvancedTools` (see [Workflows.md](Workflows.md) for the category map). Read-only analysis runs FFmpeg to a null
+  output and parses its log (pure parsers, unit tested); batch conversion reuses the single-file job builders; the custom command splits typed options into tokens (`ConvertFrom-ArgumentText`) and validates
+  encoders/formats against the installed build.
 * **WorkflowCommon** - shared steps (input+probe, output folder/name/collision, container, video/audio encode, time range, resolution, frame rate),
   shared job builders (`New-VideoProcessJob`, `New-AudioProcessJob`) and the job runner/result screens.
 
@@ -92,6 +113,7 @@ progress, cancel) -> success screen / failure screen (short reason + technical d
 
 ## Automation hooks (tests)
 
-`Start-FFmpegTUI.ps1 -ScriptedInput '1{Enter}' -BufferOutput` feeds keys and renders into a buffer;
+`Start-FFmpegTUI.ps1 -ScriptedInput '01{Enter}' -BufferOutput` feeds keys and renders into a buffer;
 `Set-TuiScriptedProvider` supplies keys on demand from the current screen text. Tokens: `{Enter} {Esc} {Up} {Down} {Left} {Right} {Home} {End} {Del} {BS} {Tab} {PgUp} {PgDn} {CtrlC} {Clear}`.
-Environment switches: `FFTUI_FORCE_ANSI`, `FFTUI_NO_ANSI`, `NO_COLOR`, `FFTUI_ASCII`, `FFTUI_UNICODE`, `FFTUI_NO_PICKER`, `FFTUI_SKIP_UPDATE`.
+Environment switches: `FFTUI_FORCE_ANSI`, `FFTUI_NO_ANSI`, `NO_COLOR`, `FFTUI_ICONS` (`emoji`, `symbol`, `ascii`), `FFTUI_ASCII`, `FFTUI_UNICODE`, `FFTUI_NO_PICKER`, `FFTUI_SKIP_UPDATE`.
+Numbers are typed as two-digit keys (`08` = Video to GIF). Test-only key macros in `tests/TestHelpers.ps1` resolve against the screen: `{#label}` types the number of the option whose text contains *label*, `{#LAST}` the last number.

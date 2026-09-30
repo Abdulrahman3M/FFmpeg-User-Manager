@@ -47,6 +47,59 @@ function Get-ContainerIdFromPath {
     switch ($ext) { 'mp4' { return 'mp4' } 'm4v' { return 'mp4' } 'mkv' { return 'mkv' } 'webm' { return 'webm' } 'mov' { return 'mov' } 'avi' { return 'avi' } 'ts' { return 'ts' } 'flv' { return 'flv' } default { return '' } }
 }
 
+# ---- descriptions for numeric / preset choices ------------------------------------------------------
+
+function Get-SpeedDescription {
+    param([double]$Speed)
+    if ($Speed -lt 0.5) { return 'Very slow motion; the clip becomes several times longer.' }
+    if ($Speed -lt 1.0) { return 'Slow motion; the clip becomes longer.' }
+    if ($Speed -eq 1.0) { return 'No change in speed.' }
+    if ($Speed -le 1.5) { return 'A little faster; the clip becomes shorter.' }
+    return 'Fast forward; the clip becomes much shorter.'
+}
+
+function Get-FpsDescription {
+    param([double]$Fps)
+    if ($Fps -le 12) { return 'Choppy, small file; fine for simple animations.' }
+    if ($Fps -lt 24) { return 'Light on file size; slightly less smooth.' }
+    if ($Fps -lt 25) { return 'Cinema film rate.' }
+    if ($Fps -eq 25) { return 'Standard PAL television rate.' }
+    if ($Fps -lt 30) { return 'Standard rate for NTSC-style video (29.97).' }
+    if ($Fps -eq 30) { return 'Smooth, widely supported rate.' }
+    if ($Fps -lt 50) { return 'Smoother motion; larger file.' }
+    if ($Fps -eq 50) { return 'Smooth PAL high frame rate.' }
+    return 'Very smooth motion for games and sports; larger file.'
+}
+
+function Get-SampleRateDescription {
+    param([int]$Hz)
+    switch ($Hz) {
+        8000 { return 'Telephone quality; speech only.' }
+        16000 { return 'Wideband speech; voice recordings.' }
+        22050 { return 'Low quality music; small files.' }
+        32000 { return 'Broadcast and some digital radio.' }
+        44100 { return 'CD quality; standard for music.' }
+        48000 { return 'Standard for video and film.' }
+        96000 { return 'High-resolution audio for editing; large files.' }
+        default { return 'Samples per second of the sound.' }
+    }
+}
+
+function Get-EncoderPresetDescription {
+    param([string]$Preset)
+    switch -Regex ($Preset) {
+        '^(ultrafast|p1)$' { return 'Fastest encoding; largest file for the quality.' }
+        '^(superfast|p2)$' { return 'Very fast encoding; large file.' }
+        '^(veryfast|p3)$' { return 'Fast encoding; somewhat large file.' }
+        '^(faster|fast|p4)$' { return 'Quick encoding with a reasonable file size.' }
+        '^(medium|p5)$' { return 'Balanced speed and file size. The usual choice.' }
+        '^(slow|p6)$' { return 'Slower encoding; smaller file for the same quality.' }
+        '^(slower|veryslow|placebo|p7)$' { return 'Very slow encoding; smallest file for the quality.' }
+        '^[0-9]+$' { return 'Lower numbers are slower and produce smaller files.' }
+        default { return 'Trades encoding time for file size: slower presets give smaller files.' }
+    }
+}
+
 # ---- input steps ---------------------------------------------------------------
 
 function Get-InputFileStep {
@@ -122,13 +175,13 @@ function Get-OutputSteps {
     }
     $steps += @{
         Id = "${pfx}mkdir"; Type = 'YesNo'; Prompt = 'The output folder does not exist. Create it?'; Help = 'The folder is created only when the job starts.'
-        Default = $true; YesLabel = 'Create the folder'; NoLabel = 'Choose a different folder'
+        Default = $true; YesLabel = 'Create the folder'; NoLabel = 'Choose a different folder'; YesDesc = 'The folder is made when the job starts.'; NoDesc = 'Go back and pick a folder that already exists.'
         When = { param($W) -not (Test-Path -LiteralPath (Get-Answer $W "${pfx}dir") -PathType Container) }.GetNewClosure()
         OnAnswer = { param($v, $W) if (-not $v) { $W.Goto = "${pfx}dir" } }.GetNewClosure()
     }
     if (-not $folderOnly) {
         $steps += @{
-            Id = "${pfx}name"; Type = 'Text'; Prompt = $prompt; Label = 'File name'
+            Id = "${pfx}name"; Type = 'Text'; Prompt = $prompt; Label = 'File name'; Example = 'my movie.mp4'
             Help = 'The extension is added automatically if you leave it out.'
             Default = {
                 param($W)
@@ -158,7 +211,7 @@ function Get-OutputSteps {
         }
         $steps += @{
             Id = "${pfx}overwrite"; Type = 'Choice'; Prompt = 'That output file already exists'; Help = 'Existing files are never replaced without your confirmation.'
-            Choices = { param($W) @( (New-Choice 'rename' 'Choose a different name'), (New-Choice 'overwrite' 'Overwrite the existing file' 'The existing file will be replaced.') ) }
+            Choices = { param($W) @( (New-Choice 'rename' 'Choose a different name' 'Go back and type another file name so nothing is replaced.'), (New-Choice 'overwrite' 'Overwrite the existing file' 'The existing file will be replaced.') ) }
             Default = 'rename'
             When = { param($W) (Get-OutputFile $W -Prefix $pfx).Exists }.GetNewClosure()
             OnAnswer = { param($v, $W) if ($v -eq 'rename') { $W.Goto = "${pfx}name" } }.GetNewClosure()
@@ -240,7 +293,7 @@ function Get-VideoEncodeSteps {
     $steps += @{
         Id = "${p}preset"; Type = 'Choice'; Prompt = 'Encoding speed / preset'; Help = 'Slower presets create smaller files at the same quality but take longer.'
         When = { param($W) (& $isEnc $W) -and ((Get-EncoderProfile ([string](Get-Answer $W "${p}codec"))).ContainsKey('Presets')) }.GetNewClosure()
-        Choices = { param($W) $pr = Get-EncoderProfile ([string](Get-Answer $W "${p}codec")); @($pr.Presets | ForEach-Object { New-Choice $_ ($_ + $(if ($_ -eq $pr.DefaultPreset) { '  (Recommended)' } else { '' })) }) }.GetNewClosure()
+        Choices = { param($W) $pr = Get-EncoderProfile ([string](Get-Answer $W "${p}codec")); @($pr.Presets | ForEach-Object { New-Choice $_ ($_ + $(if ($_ -eq $pr.DefaultPreset) { '  (Recommended)' } else { '' })) (Get-EncoderPresetDescription $_) }) }.GetNewClosure()
         Default = { param($W) (Get-EncoderProfile ([string](Get-Answer $W "${p}codec"))).DefaultPreset }.GetNewClosure()
     }
     return $steps
@@ -311,7 +364,7 @@ function Get-AudioEncodeSteps {
         $steps += @{
             Id = "${p}vbr"; Type = 'Choice'; Prompt = 'VBR quality level'; Help = 'Higher quality creates larger files.'
             When = { param($W) (& $lossy $W) -and ((Get-Answer $W "${p}qm" 'Bitrate') -eq 'Quality') }.GetNewClosure()
-            Choices = { param($W) if ((& $encoderOf $W) -eq 'libmp3lame') { @( (New-Choice 0 'Best (V0, ~245 kbps)'), (New-Choice 2 'High (V2, ~190 kbps)'), (New-Choice 4 'Standard (V4, ~165 kbps)'), (New-Choice 6 'Small (V6, ~130 kbps)') ) } else { @( (New-Choice 8 'Best (8)'), (New-Choice 6 'High (6)'), (New-Choice 4 'Standard (4)'), (New-Choice 2 'Small (2)') ) } }.GetNewClosure()
+            Choices = { param($W) if ((& $encoderOf $W) -eq 'libmp3lame') { @( (New-Choice 0 'Best (V0, ~245 kbps)' 'Highest MP3 quality; largest files.'), (New-Choice 2 'High (V2, ~190 kbps)' 'Excellent quality; the usual choice for music.'), (New-Choice 4 'Standard (V4, ~165 kbps)' 'Good quality at a smaller size.'), (New-Choice 6 'Small (V6, ~130 kbps)' 'Smallest files; fine for speech.') ) } else { @( (New-Choice 8 'Best (8)' 'Highest quality; largest files.'), (New-Choice 6 'High (6)' 'High quality at a moderate size.'), (New-Choice 4 'Standard (4)' 'Good quality for most uses.'), (New-Choice 2 'Small (2)' 'Smallest files; lower quality.') ) } }.GetNewClosure()
             Default = { param($W) if ((& $encoderOf $W) -eq 'libmp3lame') { 2 } else { 6 } }.GetNewClosure()
         }
     }
@@ -327,14 +380,14 @@ function Get-AudioEncodeSteps {
         $steps += @{
             Id = "${p}sr"; Type = 'Choice'; Prompt = 'Sample rate'; Help = 'Keep original unless you need a specific rate.'
             When = $isEnc
-            Choices = { param($W) @(New-Choice 0 'Keep original') + @($srList | ForEach-Object { New-Choice $_ ("{0:N0} Hz" -f $_) }) }.GetNewClosure()
+            Choices = { param($W) @(New-Choice 0 'Keep original' 'Leave this setting as it is in the source file.') + @($srList | ForEach-Object { New-Choice $_ ("{0:N0} Hz" -f $_) (Get-SampleRateDescription ([int]$_)) }) }.GetNewClosure()
             AllowCustom = @{ Label = 'Custom...'; Type = 'Integer'; Min = 8000; Max = 192000; Prompt = 'Custom sample rate (Hz)'; Help = 'Between 8000 and 192000.'; Example = '44100'; ValueLabel = 'Sample rate' }
             Default = 0
         }
         $steps += @{
             Id = "${p}ch"; Type = 'Choice'; Prompt = 'Channels'; Help = 'Mono has one channel, stereo has two (left/right).'
             When = $isEnc
-            Choices = { param($W) @( (New-Choice 0 'Keep original'), (New-Choice 1 'Mono'), (New-Choice 2 'Stereo'), (New-Choice 6 '5.1 surround') ) }
+            Choices = { param($W) @( (New-Choice 0 'Keep original' 'Leave this setting as it is in the source file.'), (New-Choice 1 'Mono' 'One channel; smallest size, good for speech.'), (New-Choice 2 'Stereo' 'Left and right channels; standard for music.'), (New-Choice 6 '5.1 surround' 'Six channels for home cinema.') ) }
             AllowCustom = @{ Label = 'Custom count...'; Type = 'Integer'; Min = 1; Max = 8; Prompt = 'Number of channels'; Help = 'Between 1 and 8.'; Example = '2'; ValueLabel = 'Channels' }
             Default = 0
         }
@@ -475,10 +528,10 @@ function Get-SubtitleMapping {
 }
 
 function Get-ResolutionChoices {
-    $out = @( (New-Choice 'keep' 'Keep original') )
+    $out = @( (New-Choice 'keep' 'Keep original' 'Leave this setting as it is in the source file.') )
     foreach ($h in (Get-PresetList 'resolutions' @(2160, 1440, 1080, 720, 480))) {
         $n = switch ([int]$h) { 2160 { '4K (2160p)' } 1440 { '1440p' } 1080 { '1080p (Full HD)' } 720 { '720p (HD)' } 480 { '480p' } default { "${h}p" } }
-        $out += , (New-Choice ("h$h") $n)
+        $out += , (New-Choice ("h$h") $n "Scale to $h pixels high; the width follows automatically.")
     }
     return $out
 }
@@ -508,7 +561,7 @@ function Get-FrameRateStep {
     $list = Get-PresetList 'frameRates' @(24, 25, 30, 50, 60)
     return @{
         Id = $Id; Type = 'Choice'; Prompt = $Prompt; Help = $Help
-        Choices = { param($W) @(New-Choice 0 'Keep original') + @($list | ForEach-Object { New-Choice ([double]$_) ("{0:0.##} FPS" -f $_) }) }.GetNewClosure()
+        Choices = { param($W) @(New-Choice 0 'Keep original' 'Leave this setting as it is in the source file.') + @($list | ForEach-Object { New-Choice ([double]$_) ("{0:0.##} FPS" -f $_) (Get-FpsDescription ([double]$_)) }) }.GetNewClosure()
         AllowCustom = @{ Label = 'Custom...'; Type = 'FrameRate'; Prompt = 'Custom frame rate'; Help = 'Frames per second between 0.1 and 240.'; Example = '29.97'; Desc = 'For example 29.97.' }
         Default = 0
     }
@@ -520,7 +573,7 @@ function Get-SubtitleBehaviorStep {
     return @{
         Id = $Id; Type = 'Choice'; Prompt = 'Subtitles'; Help = 'Text subtitles can be carried into MP4/MKV/WebM/MOV. Bitmap subtitles cannot be converted.'
         When = { param($W) $m = Get-Media $W $iid; [bool]($m -and $m.HasSubtitles) }.GetNewClosure()
-        Choices = { param($W) @( (New-Choice 'copy' 'Copy compatible subtitles'), (New-Choice 'remove' 'Remove subtitles') ) }
+        Choices = { param($W) @( (New-Choice 'copy' 'Copy compatible subtitles' 'Keep the subtitle tracks that this file type can hold.'), (New-Choice 'remove' 'Remove subtitles' 'The result has no subtitle tracks.') ) }
         Default = 'copy'
     }
 }
@@ -528,7 +581,7 @@ function Get-SubtitleBehaviorStep {
 function Get-MetadataStep {
     param([string]$Id = 'metadata')
     return @{ Id = $Id; Type = 'Choice'; Prompt = 'Metadata'; Help = 'Titles, dates and similar tags stored inside the file.'
-        Choices = { param($W) @( (New-Choice 'keep' 'Preserve metadata'), (New-Choice 'strip' 'Strip metadata' 'Remove tags and chapters.') ) }; Default = 'keep' }
+        Choices = { param($W) @( (New-Choice 'keep' 'Preserve metadata' 'Keep titles, dates and similar tags from the source.'), (New-Choice 'strip' 'Strip metadata' 'Remove tags and chapters.') ) }; Default = 'keep' }
 }
 
 function Get-MetadataTokens {
@@ -541,7 +594,7 @@ function Get-MetadataTokens {
 
 function Get-AdvancedGateStep {
     param([string]$Id = 'advanced', [string]$Prompt = 'Configure advanced options?')
-    return @{ Id = $Id; Type = 'YesNo'; Prompt = $Prompt; Help = 'Expert settings such as pixel format, keyframe interval and hardware decoding. Recommended defaults are used when you choose No.'; Default = $false; YesLabel = 'Yes, show advanced options'; NoLabel = 'No, use recommended defaults' }
+    return @{ Id = $Id; Type = 'YesNo'; Prompt = $Prompt; Help = 'Expert settings such as pixel format, keyframe interval and hardware decoding. Recommended defaults are used when you choose No.'; Default = $false; YesLabel = 'Yes, show advanced options'; NoLabel = 'No, use recommended defaults'; YesDesc = 'You will be asked about pixel format, keyframes and hardware decoding.'; NoDesc = 'Safe, well-tested defaults are used. Best for most people.' }
 }
 
 # ---- failure reasons --------------------------------------------------------------
@@ -587,7 +640,7 @@ function Invoke-FFJob {
         $stageResults = @()
         $existedBefore = $false
         $outPath = [string]$Job.OutputPath
-        if ($outPath -and $Job.OutputKind -ne 'Folder') { $existedBefore = Test-Path -LiteralPath $outPath }
+        if ($outPath -and @('Folder', 'Network') -notcontains $Job.OutputKind) { $existedBefore = Test-Path -LiteralPath $outPath }
         try {
             foreach ($d in @($Job.EnsureDirs)) { if ($d -and -not (Test-Path -LiteralPath $d -PathType Container)) { [void](New-Item -ItemType Directory -Path $d -Force -ErrorAction Stop) } }
         } catch {
@@ -612,7 +665,7 @@ function Invoke-FFJob {
                 Show-JobProgress -Title $(if ($Job.Title) { [string]$Job.Title } else { 'Processing' }) -StageText $(if (@($Job.Stages).Count -gt 1) { $stageText } else { '' }) -Percent $state.Percent -OutTime $state.OutTime -TotalSec $state.TotalSec -Speed $state.Speed -Elapsed $swAll.Elapsed -Tick $script:JobTick -Status $stageName
                 if (Test-TuiKeyAvailable) {
                     $k = Read-TuiKey
-                    $isQ = ($k.Name -eq 'CtrlC') -or ($k.Name -eq 'Esc') -or ($k.Name -eq 'Char' -and $k.Char.ToUpperInvariant() -eq 'Q')
+                    $isQ = ($k.Name -eq 'CtrlC') -or ($k.Name -eq 'Esc')
                     if ($isQ) {
                         $yes = Show-Confirm -Title 'Cancel this job?' -Lines @('FFmpeg will be stopped. The output file may be incomplete.') -Default $false -YesLabel 'Yes, cancel the job' -NoLabel 'No, keep going'
                         if ($yes) { return $true }
@@ -635,12 +688,13 @@ function Invoke-FFJob {
         Remove-JobTempFiles $Job
         if ($cancelled) {
             $lines = @('The job was cancelled.')
-            if ($outPath -and (Test-Path -LiteralPath $outPath)) { $lines += 'A partial output file may exist and is potentially incomplete:'; $lines += $outPath }
-            $null = Show-Notice -Title 'Job cancelled' -Lines $lines -Kind Warning -Actions @(@('M', 'Main menu'), @('R', 'Run again'))
+            if ($outPath -and $Job.OutputKind -ne 'Network' -and (Test-Path -LiteralPath $outPath)) { $lines += 'A partial output file may exist and is potentially incomplete:'; $lines += $outPath }
+            $ca = Show-Notice -Title 'Job cancelled' -Lines $lines -Kind Warning -Actions @(@('M', 'Main menu'), @('R', 'Run again'))
+            if ($ca -eq 'R') { return 'Again' }
             return 'Menu'
         }
         if ($null -ne $failure) {
-            if ($outPath -and $Job.OutputKind -ne 'Folder' -and -not $existedBefore -and (Test-Path -LiteralPath $outPath)) {
+            if ($outPath -and @('Folder', 'Network') -notcontains $Job.OutputKind -and -not $existedBefore -and (Test-Path -LiteralPath $outPath)) {
                 try { if ((New-Object System.IO.FileInfo($outPath)).Length -eq 0) { Remove-Item -LiteralPath $outPath -Force } } catch { }
             }
             $reason = if ($failure.Error) { $failure.Error } else { Get-FFmpegFailureReason $failure.StdErr $failure.ExitCode }
@@ -664,6 +718,8 @@ function Invoke-FFJob {
             if ($Job.ContainsKey('CountOutputs') -and $Job.CountOutputs) { $count = [int](& $Job.CountOutputs) }
             $lines += $outPath
             if ($count -gt 0) { $lines += ''; $lines += "Files created: $count" }
+        } elseif ($Job.OutputKind -eq 'Network') {
+            $lines = @('Sent to:', [string]$Job.OutputDisplay)
         } else {
             $lines += $outPath
             if (Test-Path -LiteralPath $outPath) {
@@ -678,7 +734,9 @@ function Invoke-FFJob {
         $lines += ''; $lines += ('Elapsed: ' + (Format-Duration $swAll.Elapsed.TotalSeconds))
         if ($Job.ContainsKey('ResultNotes')) { foreach ($n in @($Job.ResultNotes)) { $lines += ''; $lines += [string]$n } }
         while ($true) {
-            $act = Show-Notice -Title 'Completed successfully' -Lines $lines -Kind Success -Actions @(@('O', 'Open output folder'), @('R', 'Run again'), @('M', 'Main menu'))
+            $doneActions = @(@('O', 'Open output folder'), @('R', 'Run again'), @('M', 'Main menu'))
+            if ($Job.OutputKind -eq 'Network') { $doneActions = @(@('R', 'Run again'), @('M', 'Main menu')) }
+            $act = Show-Notice -Title 'Completed successfully' -Lines $lines -Kind Success -Actions $doneActions
             if ($act -eq 'O') { $target = $outPath; [void](Open-OutputFolder -Path $target); continue }
             if ($act -eq 'R') { return 'Again' }
             return 'Menu'
@@ -873,4 +931,4 @@ function Show-WorkflowSubmenu {
     }
 }
 
-Export-ModuleMember -Function Get-VideoTailSteps, New-VideoProcessJob, Get-AudioToolTailSteps, New-AudioProcessJob, Show-WorkflowSubmenu, Get-VideoFamily, Get-AudioFamily, Test-CopyAllowed, Get-SubtitleMapping, Get-ResolutionChoices, Get-ResolutionFilter, Get-ResolutionStep, Get-FrameRateStep, Get-SubtitleBehaviorStep, Get-MetadataStep, Get-MetadataTokens, New-Choice, Get-Answer, Get-Media, Get-PresetList, Get-NumberChoices, Get-ContainerIdFromPath, Get-InputFileStep, Get-OutputFile, Get-OutputSteps, Get-ContainerStep, Get-VideoEncodeSteps, Resolve-VideoEncode, Get-AudioEncodeSteps, Resolve-AudioEncode, Get-TimeRangeSteps, Resolve-TimeRange, Get-RangeInputOptions, Get-AdvancedGateStep, Get-FFmpegFailureReason, Invoke-FFJob, Remove-JobTempFiles, New-TempTextFile, Start-StandardWorkflow, Get-InputPathList, New-JobObject, Get-FileSizeSafe
+Export-ModuleMember -Function Get-SpeedDescription, Get-FpsDescription, Get-SampleRateDescription, Get-EncoderPresetDescription, Get-VideoTailSteps, New-VideoProcessJob, Get-AudioToolTailSteps, New-AudioProcessJob, Show-WorkflowSubmenu, Get-VideoFamily, Get-AudioFamily, Test-CopyAllowed, Get-SubtitleMapping, Get-ResolutionChoices, Get-ResolutionFilter, Get-ResolutionStep, Get-FrameRateStep, Get-SubtitleBehaviorStep, Get-MetadataStep, Get-MetadataTokens, New-Choice, Get-Answer, Get-Media, Get-PresetList, Get-NumberChoices, Get-ContainerIdFromPath, Get-InputFileStep, Get-OutputFile, Get-OutputSteps, Get-ContainerStep, Get-VideoEncodeSteps, Resolve-VideoEncode, Get-AudioEncodeSteps, Resolve-AudioEncode, Get-TimeRangeSteps, Resolve-TimeRange, Get-RangeInputOptions, Get-AdvancedGateStep, Get-FFmpegFailureReason, Invoke-FFJob, Remove-JobTempFiles, New-TempTextFile, Start-StandardWorkflow, Get-InputPathList, New-JobObject, Get-FileSizeSafe

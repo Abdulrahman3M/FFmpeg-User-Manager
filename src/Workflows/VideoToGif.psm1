@@ -10,19 +10,19 @@ function Get-GifSteps {
     $steps += Get-InputFileStep -Id 'input' -Prompt 'Input video' -Require Video
     $steps += Get-TimeRangeSteps -Prefix 't' -InputId 'input' -Prompt 'Clip range'
     $steps += @{ Id = 'fps'; Type = 'Choice'; Prompt = 'Frame rate'; Help = 'Higher FPS looks smoother but increases GIF size.'
-        Choices = { param($W) @($fpsList | ForEach-Object { New-Choice ([double]$_) (("{0:0.##} FPS" -f $_) + $(if ($_ -eq 15) { '  (Recommended)' } else { '' })) }) }.GetNewClosure()
+        Choices = { param($W) @($fpsList | ForEach-Object { New-Choice ([double]$_) (("{0:0.##} FPS" -f $_) + $(if ($_ -eq 15) { '  (Recommended)' } else { '' })) (Get-FpsDescription $_) }) }.GetNewClosure()
         AllowCustom = @{ Label = 'Custom...'; Type = 'FrameRate'; Prompt = 'Custom GIF frame rate'; Help = 'Frames per second between 0.1 and 240 (GIFs above 30 FPS rarely play smoothly).'; Example = '12'; Desc = 'For example 12.' }
         Default = 15.0 }
     $steps += @{ Id = 'maxframes'; Type = 'Integer'; Prompt = 'Maximum number of frames'; Help = 'Optional. Stops the GIF after this many frames.'; Example = '150'; Optional = $true; Min = 1; Max = 100000; Label = 'Frame limit' }
     $steps += @{ Id = 'speed'; Type = 'Choice'; Prompt = 'GIF speed'; Help = '1.0x keeps the original speed. Faster speeds shorten the GIF.'
-        Choices = { param($W) @($speedList | ForEach-Object { New-Choice ([double]$_) (("{0:0.0#}x" -f $_) + $(if ($_ -eq 1.0) { '  (Original speed)' } else { '' })) }) }.GetNewClosure()
+        Choices = { param($W) @($speedList | ForEach-Object { New-Choice ([double]$_) (("{0:0.0#}x" -f $_) + $(if ($_ -eq 1.0) { '  (Original speed)' } else { '' })) (Get-SpeedDescription $_) }) }.GetNewClosure()
         AllowCustom = @{ Label = 'Custom...'; Type = 'Decimal'; Min = 0.1; Max = 8; Prompt = 'Custom speed'; Help = 'A multiplier between 0.1 and 8.'; Example = '1.75'; ValueLabel = 'Speed'; Desc = 'For example 1.75.' }
         Default = 1.0 }
     $steps += @{ Id = 'width'; Type = 'Choice'; Prompt = 'Width'; Help = 'Smaller dimensions reduce file size significantly.'
-        Choices = { param($W) $m = Get-Media $W 'input'; @(New-Choice 0 'Keep original size') + @($widthList | ForEach-Object { New-Choice ([int]$_) (("{0} px" -f $_) + $(if ($_ -eq 480) { '  (Recommended)' } else { '' })) }) }.GetNewClosure()
+        Choices = { param($W) $m = Get-Media $W 'input'; @(New-Choice 0 'Keep original size' 'Use the video width; larger file.') + @($widthList | ForEach-Object { New-Choice ([int]$_) (("{0} px" -f $_) + $(if ($_ -eq 480) { '  (Recommended)' } else { '' })) ("Make the GIF $_ pixels wide; the height follows. Smaller widths give much smaller files.") }) }.GetNewClosure()
         AllowCustom = @{ Label = 'Custom...'; Type = 'Integer'; Min = 16; Max = 4096; Prompt = 'Custom width'; Help = 'Enter a positive pixel value, e.g. 1280.'; Example = '1280'; ValueLabel = 'Width'; Desc = 'Enter a pixel value.' }
         Default = 480 }
-    $steps += @{ Id = 'keepaspect'; Type = 'YesNo'; Prompt = 'Preserve the aspect ratio?'; Help = 'Recommended: the height is calculated automatically so the picture is not distorted.'; Default = $true
+    $steps += @{ Id = 'keepaspect'; Type = 'YesNo'; Prompt = 'Preserve the aspect ratio?'; Help = 'Recommended: the height is calculated automatically so the picture is not distorted.'; YesDesc = 'Only the width is used; the height follows so nothing looks stretched.'; NoDesc = 'You set both width and height; the picture may look stretched.'; Default = $true
         YesLabel = 'Yes, keep the proportions'; NoLabel = 'No, set the height myself'; When = { param($W) [int](Get-Answer $W 'width' 0) -gt 0 } }
     $steps += @{ Id = 'height'; Type = 'Integer'; Prompt = 'Height'; Help = 'Enter a positive pixel value.'; Example = '360'; Min = 16; Max = 4096; Label = 'Height'
         When = { param($W) ([int](Get-Answer $W 'width' 0) -gt 0) -and -not (Get-Answer $W 'keepaspect' $true) } }
@@ -30,14 +30,14 @@ function Get-GifSteps {
         Choices = { param($W) $ok = Test-FFAllFilters @('palettegen', 'paletteuse'); @( (New-Choice 'high' 'High Quality / Recommended' 'Generates an optimized palette (best colors).' $ok 'Your FFmpeg build lacks palettegen/paletteuse.'), (New-Choice 'fast' 'Fast' 'Uses the default palette; quicker but lower color quality.') ) }
         Default = { param($W) if (Test-FFAllFilters @('palettegen', 'paletteuse')) { 'high' } else { 'fast' } } }
     $steps += @{ Id = 'colors'; Type = 'Choice'; Prompt = 'Number of colors'; Help = 'Fewer colors make smaller files. 256 is the GIF maximum.'; When = $hq
-        Choices = { param($W) @( (New-Choice 256 '256 colors (Recommended)'), (New-Choice 128 '128 colors'), (New-Choice 64 '64 colors'), (New-Choice 32 '32 colors'), (New-Choice 16 '16 colors') ) }
+        Choices = { param($W) @( (New-Choice 256 '256 colors (Recommended)' 'Best GIF quality.'), (New-Choice 128 '128 colors' 'Slightly smaller file with little visible change.'), (New-Choice 64 '64 colors' 'Smaller file; some banding.'), (New-Choice 32 '32 colors' 'Small file; visible banding.'), (New-Choice 16 '16 colors' 'Smallest file; a retro look.') ) }
         AllowCustom = @{ Label = 'Custom...'; Type = 'Integer'; Min = 2; Max = 256; Prompt = 'Custom color count'; Help = 'A number between 2 and 256.'; Example = '200'; ValueLabel = 'Colors'; Desc = 'Between 2 and 256.' }
         Default = 256 }
     $steps += @{ Id = 'dither'; Type = 'Choice'; Prompt = 'Dithering method'; Help = 'Dithering smooths color transitions. Recommended works well for most videos.'; When = $hq
         Choices = { param($W) @( (New-Choice 'sierra2_4a' 'Recommended (Sierra 2-4A)' 'Smooth results with modest size.'), (New-Choice 'floyd_steinberg' 'Floyd-Steinberg' 'Classic error diffusion.'), (New-Choice 'bayer' 'Bayer (ordered)' 'Patterned, smaller files.'), (New-Choice 'none' 'None' 'No dithering; smallest, may show banding.') ) }
         Default = 'sierra2_4a' }
     $steps += @{ Id = 'loop'; Type = 'Choice'; Prompt = 'Loop behavior'; Help = 'How many times the animation repeats.'
-        Choices = { param($W) @( (New-Choice 0 'Infinite loop (Recommended)'), (New-Choice -1 'Play once (no loop)') ) }
+        Choices = { param($W) @( (New-Choice 0 'Infinite loop (Recommended)' 'The GIF repeats forever.'), (New-Choice -1 'Play once (no loop)' 'The GIF plays one time and stops.') ) }
         AllowCustom = @{ Label = 'Repeat a set number of times...'; Type = 'Integer'; Min = 1; Max = 1000; Prompt = 'Number of repeats'; Help = 'How many extra times the GIF repeats after the first play.'; Example = '3'; ValueLabel = 'Repeats'; Desc = 'For example 3.' }
         Default = 0 }
     $steps += Get-OutputSteps -Prefix 'out' -InputId 'input' -Suffix 'gif' -Extension { param($W) '.gif' }

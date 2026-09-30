@@ -23,7 +23,7 @@ function Show-MediaInfoScreen {
             $l = $lines[$i]
             if ($l.Type -eq 'rule') { Write-Rule -Title $l.Text } else { Write-KeyValueTable -Rows @(, $l.Row) -LabelWidth 18 -Indent 1 }
         }
-        $hints = @(@('T', 'Technical details'), @('N', 'Inspect another'), @('Esc', 'Back'))
+        $hints = @(@('Enter', 'More actions'), @('Esc', 'Back'))
         if ($lines.Count -gt $page) { $hints = @(@('Up/Down', 'Scroll')) + $hints }
         Write-KeyHints $hints
         Stop-Frame
@@ -35,11 +35,19 @@ function Show-MediaInfoScreen {
             'PageDown' { $top = [math]::Max(0, [math]::Min($lines.Count - $page, $top + $page)) }
             'Esc' { return 'Back' }
             'CtrlC' { return 'Back' }
-            'Char' {
-                switch ($k.Char.ToUpperInvariant()) {
-                    'T' { Show-TextViewer -Title 'Technical details' -Lines (Get-TechnicalDetailLines $Info) }
-                    'N' { return 'Another' }
-                    'B' { return 'Back' }
+            'Enter' {
+                $items = @(
+                    @{ Label = 'Technical details'; Icon = 'Details'; Desc = 'Every field ffprobe reports for the container and each stream.'; Value = 'tech' },
+                    @{ Label = 'Inspect another file'; Icon = 'Search'; Desc = 'Choose a different media file to read.'; Value = 'another' },
+                    @{ Label = 'Back'; Icon = 'Back'; Desc = 'Return to the previous menu.'; Value = 'back' }
+                )
+                $m = Show-Menu -Title 'Media information - what next?' -Items $items -AllowBack -ShowHeader
+                if ($m.Action -eq 'Select') {
+                    switch ($m.Item.Value) {
+                        'tech' { Show-TextViewer -Title 'Technical details' -Lines (Get-TechnicalDetailLines $Info) }
+                        'another' { return 'Another' }
+                        'back' { return 'Back' }
+                    }
                 }
             }
         }

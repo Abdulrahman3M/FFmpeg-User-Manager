@@ -81,14 +81,14 @@ Set-TestGroup 'Static: structure'
 foreach ($m in @('Core/App', 'Core/Environment', 'Core/ProcessRunner', 'Core/Validation', 'Core/Paths', 'FFmpeg/FFmpegManager', 'FFmpeg/FFmpegCapabilities', 'FFmpeg/FFmpegCommandBuilder', 'FFmpeg/FFmpegProgress', 'FFmpeg/MediaProbe', 'TUI/Theme', 'TUI/Renderer', 'TUI/Input', 'TUI/Menu', 'TUI/Wizard', 'TUI/Dialog', 'TUI/ProgressView')) {
     Assert-True "module exists: $m" (Test-Path -LiteralPath (Join-Path (Join-Path $root 'src') ($m + '.psm1')))
 }
-foreach ($m in @('ConvertVideo', 'ConvertAudio', 'ExtractAudio', 'TrimMedia', 'MergeMedia', 'CompressMedia', 'ResizeVideo', 'VideoToGif', 'ExtractFrames', 'AudioTools', 'SubtitleTools', 'FrameRate', 'Filters', 'TransformVideo', 'OverlayTools', 'PlaybackSpeed', 'StreamingHls', 'MediaInfo')) {
+foreach ($m in @('ConvertVideo', 'ConvertAudio', 'ExtractAudio', 'TrimMedia', 'MergeMedia', 'CompressMedia', 'ResizeVideo', 'VideoToGif', 'ExtractFrames', 'AudioTools', 'SubtitleTools', 'FrameRate', 'Filters', 'TransformVideo', 'OverlayTools', 'PlaybackSpeed', 'RemuxStreams', 'MetadataChapters', 'ImagesAndVisuals', 'AudioEffects', 'VideoEnhance', 'CaptureMedia', 'AnalyzeMedia', 'BatchConvert', 'AdvancedTools', 'StreamingHls', 'MediaInfo')) {
     Assert-True "workflow module exists: $m" (Test-Path -LiteralPath (Join-Path (Join-Path (Join-Path $root 'src') 'Workflows') ($m + '.psm1')))
 }
-foreach ($fn in @('Start-ConvertVideoWorkflow', 'Start-ConvertAudioWorkflow', 'Start-ExtractAudioWorkflow', 'Start-TrimWorkflow', 'Start-MergeWorkflow', 'Start-CompressWorkflow', 'Start-ResizeWorkflow', 'Start-GifWorkflow', 'Start-ExtractFramesWorkflow', 'Start-AudioToolsWorkflow', 'Start-SubtitleToolsWorkflow', 'Start-FrameRateWorkflow', 'Start-FiltersWorkflow', 'Start-TransformWorkflow', 'Start-OverlayWorkflow', 'Start-SpeedWorkflow', 'Start-StreamingWorkflow', 'Start-MediaInfoWorkflow', 'Show-FFmpegStatus')) {
+foreach ($fn in @('Start-ConvertVideoWorkflow', 'Start-ConvertAudioWorkflow', 'Start-ExtractAudioWorkflow', 'Start-TrimWorkflow', 'Start-MergeWorkflow', 'Start-CompressWorkflow', 'Start-ResizeWorkflow', 'Start-GifWorkflow', 'Start-ExtractFramesWorkflow', 'Start-AudioToolsWorkflow', 'Start-SubtitleToolsWorkflow', 'Start-FrameRateWorkflow', 'Start-FiltersWorkflow', 'Start-TransformWorkflow', 'Start-OverlayWorkflow', 'Start-SpeedWorkflow', 'Start-StreamingWorkflow', 'Start-MediaInfoWorkflow', 'Start-RemuxStreamsWorkflow', 'Start-MetadataChaptersWorkflow', 'Start-ImagesAndVisualsWorkflow', 'Start-VideoEnhanceWorkflow', 'Start-CaptureWorkflow', 'Start-AnalyzeWorkflow', 'Start-BatchWorkflow', 'Start-AdvancedWorkflow', 'Show-FFmpegStatus')) {
     Assert-True "menu target is wired: $fn" ($null -ne (Get-Command $fn -ErrorAction SilentlyContinue))
 }
 $wired = @(Get-MainMenuItems | Where-Object { $_.Value -ne 'Quit' } | ForEach-Object { $_.Value })
-Assert-Equal 'every main-menu item maps to an action' 19 $wired.Count
+Assert-Equal 'every main-menu item maps to an action' 27 $wired.Count
 $cfg = Get-Content -LiteralPath (Join-Path $root 'config/defaults.json') -Raw | ConvertFrom-Json
 Assert-True 'config/defaults.json is valid and holds only defaults' ($cfg.winget.packageId -eq 'Gyan.FFmpeg' -and $cfg.presets.gifFps.Count -gt 3)
 Assert-True 'config stores no secrets or user paths' ((Get-Content -LiteralPath (Join-Path $root 'config/defaults.json') -Raw) -notmatch '(?i)password|token|secret|apikey|C:\\Users')
@@ -169,7 +169,7 @@ $tags = Invoke-ExternalCapture -FilePath 'git' -Arguments @('-C', $root, 'tag', 
 if ($tags.Started -and $tags.ExitCode -eq 0) { $bad = @($tags.StdOut -split "`r?`n" | Where-Object { $_ -and $_ -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(alpha|beta|rc)\.\d+)?$' }); Assert-True 'all existing Git tags use the vMAJOR.MINOR.PATCH[-alpha|beta|rc.N] format' ($bad.Count -eq 0) ($bad -join ', ') }
 # README/docs: every relative link and image must exist
 $linkIssues = @()
-foreach ($md in @('README.md', 'CHANGELOG.md', 'AGENTS.md', 'docs/Architecture.md', 'docs/Workflows.md', 'docs/Testing.md', 'docs/Versioning-and-Releases.md', 'docs/images/README.md', 'tests/Fixtures/README.md')) {
+foreach ($md in @('README.md', 'CHANGELOG.md', 'AGENTS.md', 'docs/Architecture.md', 'docs/Workflows.md', 'docs/Testing.md', 'docs/Versioning-and-Releases.md', 'docs/Licensing.md', 'docs/images/README.md', 'tests/Fixtures/README.md')) {
     $mdPath = Join-Path $root $md
     $text = Get-Content -LiteralPath $mdPath -Raw
     $dir = Split-Path -Parent $mdPath
@@ -187,7 +187,7 @@ foreach ($md in @('README.md', 'CHANGELOG.md', 'AGENTS.md', 'docs/Architecture.m
     }
 }
 Assert-True 'all relative links, images and in-page anchors in README/docs resolve' ($linkIssues.Count -eq 0) ($linkIssues -join "`n")
-foreach ($img in 'main-menu', 'ffmpeg-status', 'conversion-wizard', 'video-to-gif', 'processing', 'completed') { Assert-True "screenshot exists and is a PNG: $img.png" ((Test-Path -LiteralPath (Join-Path $root "docs/images/$img.png")) -and ([System.IO.File]::ReadAllBytes((Join-Path $root "docs/images/$img.png"))[1] -eq 80)) }
+foreach ($img in 'main-menu', 'main-menu-console-safe', 'ffmpeg-status', 'conversion-wizard', 'video-to-gif', 'processing', 'completed') { Assert-True "screenshot exists and is a PNG: $img.png" ((Test-Path -LiteralPath (Join-Path $root "docs/images/$img.png")) -and ([System.IO.File]::ReadAllBytes((Join-Path $root "docs/images/$img.png"))[1] -eq 80)) }
 # README commands must match the real launcher
 $ast = $asts[(Join-Path $root 'Start-FFmpegTUI.ps1')]
 $launcherParams = @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
@@ -196,8 +196,25 @@ Assert-True ("README documents only real launcher switches ($($documented -join 
 Assert-True 'README mentions the BAT launcher as the primary Quick Start' ($readme -match '(?s)## Quick Start.*?FFmpeg-User-Manager\.bat')
 $vo = Invoke-ExternalCapture -FilePath (Get-Process -Id $PID).Path -Arguments @('-NoProfile', '-File', (Join-Path $root 'Start-FFmpegTUI.ps1'), '-Version') -TimeoutSec 60
 Assert-Equal '.\Start-FFmpegTUI.ps1 -Version prints the product name and version' "FFmpeg User Manager v$versionText" $vo.StdOut.Trim()
-Assert-True 'README project-structure tree lists files that exist' (@('FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'CHANGELOG.md', 'AGENTS.md', 'config/defaults.json', 'tools/New-ReleasePackage.ps1') | ForEach-Object { Test-Path -LiteralPath (Join-Path $root $_) } | Where-Object { -not $_ } | Measure-Object | ForEach-Object { $_.Count -eq 0 })
+Assert-True 'README project-structure tree lists files that exist' (@('FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'CHANGELOG.md', 'AGENTS.md', 'LICENSE', 'NOTICE', 'config/defaults.json', 'tools/New-ReleasePackage.ps1') | ForEach-Object { Test-Path -LiteralPath (Join-Path $root $_) } | Where-Object { -not $_ } | Measure-Object | ForEach-Object { $_.Count -eq 0 })
 Assert-True 'AGENTS.md exists with the core rules' ((Test-Path -LiteralPath (Join-Path $root 'AGENTS.md')) -and ((Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw) -match 'Private' -and (Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw) -match 'COMPLETE'))
+# licensing
+$licPath = Join-Path $root 'LICENSE'; $noticePath = Join-Path $root 'NOTICE'
+Assert-True 'LICENSE and NOTICE exist at the repository root' ((Test-Path -LiteralPath $licPath) -and (Test-Path -LiteralPath $noticePath))
+$sha = [System.Security.Cryptography.SHA256]::Create()
+$licHash = ([System.BitConverter]::ToString($sha.ComputeHash([System.IO.File]::ReadAllBytes($licPath))) -replace '-', '').ToLowerInvariant()
+Assert-Equal 'LICENSE is the unmodified standard Apache-2.0 text (SHA-256 of the text published at apache.org/licenses/LICENSE-2.0.txt)' 'cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30' $licHash
+$noticeText = Get-Content -LiteralPath $noticePath -Raw
+Assert-True 'NOTICE carries the product name, a copyright line with a year and owner, and the third-party statement' (($noticeText -match 'FFmpeg User Manager') -and ($noticeText -match 'Copyright 20\d\d \S+') -and ($noticeText -match 'NOT part of this product'))
+Assert-True 'README has a License section naming Apache-2.0 and linking LICENSE and NOTICE' (($readme -match '(?m)^## License') -and ($readme -match 'Apache License 2\.0') -and ($readme -match '\]\(LICENSE\)') -and ($readme -match '\]\(NOTICE\)'))
+Assert-True 'README no longer claims the repository has no license' ($readme -notmatch 'no license file')
+$trackedNow = Invoke-ExternalCapture -FilePath 'git' -Arguments @('-C', $root, 'ls-files') -TimeoutSec 30
+$allText = @(@($trackedNow.StdOut -split "`r?`n") | Where-Object { $_ -match '\.(md|ps1|psm1|bat|json)$' -and $_ -notmatch '^tests/|^AGENTS\.md$|^docs/Licensing\.md$' -and (Test-Path -LiteralPath (Join-Path $root $_)) } | ForEach-Object { [System.IO.File]::ReadAllText((Join-Path $root $_)) }) -join "`n"
+Assert-True 'no "All Rights Reserved" wording in the project files conflicts with the open license (AGENTS.md and docs/Licensing.md mention it only to forbid it)' ($allText -notmatch '(?i)all rights reserved')
+$agents = Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw
+Assert-True 'AGENTS.md has the permanent dependency-aware change-sync rule with its flow' (($agents -match 'Dependency-aware change sync') -and ($agents -match 'Identify Affected Dependencies & Artifacts') -and ($agents -match 'Final Verification') -and ($agents -match 'Screenshots and project images') -and ($agents -match 'Changelog') -and ($agents -match 'Release information'))
+Assert-True 'AGENTS.md states that the rule does not mean bumping versions or regenerating images blindly' ($agents -match 'Not\*\* what this rule means')
+Assert-True 'AGENTS.md has the licensing / third-party notice rule (compatibility, third-party notices, copyright/attribution)' (($agents -match 'License compatibility') -and ($agents -match 'Third-party notices') -and ($agents -match 'Copyright/attribution') -and ($agents -match 'never delete or weaken a required legal notice'))
 # release package
 $pkgDir = Join-Path (Get-TestWork) 'pkg'
 $zipPath = (& (Join-Path $root 'tools/New-ReleasePackage.ps1') -OutputDirectory $pkgDir) | Select-Object -Last 1
@@ -206,7 +223,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zf = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
 try {
     $names = @($zf.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
-    Assert-True 'package contains the launcher, entry script, version and sources' (($names -contains 'FFmpeg-User-Manager/FFmpeg-User-Manager.bat') -and ($names -contains 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') -and ($names -contains 'FFmpeg-User-Manager/VERSION') -and ($names -contains 'FFmpeg-User-Manager/src/Core/App.psm1'))
+    Assert-True 'package contains the launcher, entry script, version and sources' (($names -contains 'FFmpeg-User-Manager/FFmpeg-User-Manager.bat') -and ($names -contains 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') -and ($names -contains 'FFmpeg-User-Manager/VERSION') -and ($names -contains 'FFmpeg-User-Manager/LICENSE') -and ($names -contains 'FFmpeg-User-Manager/NOTICE') -and ($names -contains 'FFmpeg-User-Manager/src/Core/App.psm1'))
     Assert-True 'package excludes tests, Git data, dist output and development files' (@($names | Where-Object { $_ -match '/tests/|/\.git|/dist/|/tools/|AGENTS\.md' }).Count -eq 0)
 } finally { $zf.Dispose() }
 # public-release hygiene

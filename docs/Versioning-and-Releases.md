@@ -10,6 +10,9 @@ The project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.h
 | **MINOR** | New backward-compatible features: new workflows, menu functions, options, notable UI improvements. PATCH resets to `0` | `0.1.3` -> `0.2.0` |
 | **MAJOR** | Breaking changes: removed or incompatible behavior, incompatible configuration changes, anything users must adapt to. MINOR and PATCH reset to `0` | `1.3.4` -> `2.0.0` |
 
+`VERSION` changes only when a release is prepared (checklist below). Work done after the last release, or before the first one, is collected under `[Unreleased]` in the changelog and does **not** bump the
+version on its own; the increment is decided once, for the whole set of changes, when the release is cut. (The work recorded so far is still part of the unreleased `0.1.0`.)
+
 While the major version is `0` the project is pre-release: anything may change between MINOR versions.
 `1.0.0` is reserved for the point where the full application is implemented, tested on Windows under both PowerShell runtimes,
 documented and judged stable for general users - it is never assigned for appearance.
@@ -47,22 +50,23 @@ in `Added / Changed / Fixed / Removed` (omit empty sections). On release, rename
 
 1. Complete the intended release scope.
 2. Run the tests on **both** runtimes on Windows: `powershell.exe -NoProfile -File .\tests\Run-Tests.ps1` and `pwsh -NoProfile -File .\tests\Run-Tests.ps1`.
-3. Verify the launcher: double-click `FFmpeg-User-Manager.bat`, run it from another folder and from a path with spaces (the automated launcher tests cover the logic).
-4. Update `CHANGELOG.md` (move `[Unreleased]` entries into the new version section with today's date).
-5. Decide the SemVer increment from the rules above.
-6. Update `VERSION`.
-7. Verify the application shows the new version (`.\Start-FFmpegTUI.ps1 -Version`, header, Status screen).
-8. Verify the README badge and any version mentions match `VERSION` (the static test checks this).
-9. Commit the release changes (`Release vX.Y.Z`).
-10. Create the tag: `git tag -a vX.Y.Z -m "FFmpeg User Manager vX.Y.Z"` and push it (`git push origin vX.Y.Z`).
-11. Build the package: `.\tools\New-ReleasePackage.ps1` -> `dist\FFmpeg-User-Manager-vX.Y.Z.zip`; inspect its contents (launcher included; no `.git`, tests output, logs or secrets).
-12. Prepare the GitHub Release titled `FFmpeg User Manager vX.Y.Z` from the tag, with the changelog section as notes (summary, features, fixes, breaking changes, update notes, known limitations) and attach the zip. **Publish only after the owner approves.**
-13. Verify the downloadable archive starts correctly after extraction (including into a folder with spaces).
-14. Confirm the repository visibility is unchanged (it stays Private unless the owner explicitly decides otherwise).
+3. Review licensing: `LICENSE` is unchanged, `NOTICE` and the third-party statement still match reality (see [Licensing.md](Licensing.md) and section 8 of `AGENTS.md`), and any new dependency was reviewed (compatibility, third-party notices, attribution).
+4. Verify the launcher: double-click `FFmpeg-User-Manager.bat`, run it from another folder and from a path with spaces (the automated launcher tests cover the logic).
+5. Update `CHANGELOG.md` (move `[Unreleased]` entries into the new version section with today's date).
+6. Decide the SemVer increment from the rules above.
+7. Update `VERSION`.
+8. Verify the application shows the new version (`.\Start-FFmpegTUI.ps1 -Version`, header, Status screen).
+9. Verify the README badge and any version mentions match `VERSION` (the static test checks this).
+10. Commit the release changes (`Release vX.Y.Z`).
+11. Create the tag: `git tag -a vX.Y.Z -m "FFmpeg User Manager vX.Y.Z"` and push it (`git push origin vX.Y.Z`).
+12. Build the package: `.\tools\New-ReleasePackage.ps1` -> `dist\FFmpeg-User-Manager-vX.Y.Z.zip`; inspect its contents (launcher, `LICENSE` and `NOTICE` included; no `.git`, tests output, logs or secrets).
+13. Prepare the GitHub Release titled `FFmpeg User Manager vX.Y.Z` from the tag, with the changelog section as notes (summary, features, fixes, breaking changes, update notes, known limitations) and attach the zip. **Publish only after the owner approves.**
+14. Verify the downloadable archive starts correctly after extraction (including into a folder with spaces).
+15. Confirm the repository visibility is unchanged (it stays Private unless the owner explicitly decides otherwise).
 
 Official releases are never published automatically for every commit.
 
 ## Release package
 
 `tools/New-ReleasePackage.ps1` creates `dist/FFmpeg-User-Manager-v<VERSION>.zip` containing only what end users need:
-`FFmpeg-User-Manager.bat`, `Start-FFmpegTUI.ps1`, `VERSION`, `README.md`, `CHANGELOG.md`, `config/`, `src/`, `docs/`. Tests, `.git`, local output and `dist/` are excluded. No installer is provided.
+`FFmpeg-User-Manager.bat`, `Start-FFmpegTUI.ps1`, `VERSION`, `README.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, `config/`, `src/`, `docs/`. Tests, `.git`, local output and `dist/` are excluded. No installer is provided.

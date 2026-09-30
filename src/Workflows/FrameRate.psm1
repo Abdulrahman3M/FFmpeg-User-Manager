@@ -6,7 +6,7 @@ function Get-FrameRateSteps {
     $steps = @()
     $steps += Get-InputFileStep -Id 'input' -Prompt 'Input video' -Require Video
     $steps += @{ Id = 'fps'; Type = 'Choice'; Prompt = 'Target frame rate'; Help = 'The current frame rate is shown in the Source panel above.'
-        Choices = { param($W) @($list | ForEach-Object { New-Choice ([double]$_) ("{0:0.##} FPS" -f $_) }) }.GetNewClosure()
+        Choices = { param($W) @($list | ForEach-Object { New-Choice ([double]$_) ("{0:0.##} FPS" -f $_) (Get-FpsDescription $_) }) }.GetNewClosure()
         AllowCustom = @{ Label = 'Custom...'; Type = 'FrameRate'; Prompt = 'Custom frame rate'; Help = 'Frames per second between 0.1 and 240.'; Example = '29.97'; Desc = 'For example 29.97.' }
         Default = 30.0
         Validate = { param($v, $W) $cur = (Get-Media $W 'input').Video[0].Fps; if ($cur -and [math]::Abs($cur - $v) -lt 0.01) { return ('The video already runs at {0:0.##} FPS. Choose a different rate.' -f $cur) }; $null } }

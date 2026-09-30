@@ -64,7 +64,7 @@ function Get-TestResults { return $script:Results.ToArray() }
 
 function Invoke-Ui {
     # Runs a scriptblock with scripted keys in the buffered renderer. Returns @{ Output; Error; Remaining }.
-    param([scriptblock]$Action, [string]$Keys, [int]$Width = 100, [int]$Height = 40, [bool]$Unicode = $true)
+    param([scriptblock]$Action, [string]$Keys, [int]$Width = 100, [int]$Height = 40, $Unicode = $true)
     Initialize-Renderer -Ansi $false -Unicode $Unicode -Sink Buffer -Width $Width -Height $Height
     Clear-CapturedOutput
     Set-TuiScriptedInput $Keys
@@ -115,6 +115,29 @@ function Test-ValidMediaFile {
     return $true
 }
 
+function Expand-KeyMacros {
+    <#
+      Test-only key macros resolved against the screen that is currently displayed:
+        {#LAST}    number of the last numbered option on screen (for example the Custom... entry or Continue)
+        {#label}   number of the first numbered option whose text contains "label" (case-insensitive)
+      Options are shown as "NN icon label"; the macro types their number, exactly like a user would.
+    #>
+    param([string]$Keys, [string]$Frame)
+    if ($Keys -notmatch '\{#') { return $Keys }
+    $items = @()
+    foreach ($line in ($Frame -split "`r?`n")) {
+        $m = [regex]::Match($line, '^\s*(?:\S\s)?\s*(\d{2,})\s+(\S+)\s+(.+?)\s*$')
+        if ($m.Success) { $items += , @{ Num = $m.Groups[1].Value; Text = $m.Groups[3].Value } }
+    }
+    return ([regex]::Replace($Keys, '\{#([^}]+)\}', {
+        param($mm)
+        $label = $mm.Groups[1].Value
+        if ($label -eq 'LAST') { $hm = [regex]::Match($Frame, '(\d{2,})-(\d{2,}) Type a number'); if ($hm.Success) { return $hm.Groups[2].Value }; if ($items.Count -gt 0) { return $items[$items.Count - 1].Num } else { return '<<NO-OPTIONS>>' } }
+        foreach ($it in $items) { if ($it.Text.IndexOf($label, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return $it.Num } }
+        return ('<<NO-OPTION:' + $label + '>>')
+    }.GetNewClosure()))
+}
+
 function Invoke-Flow {
     <#
       Drives a workflow with rules: each rule is @{ M = 'regex matched against the current screen'; K = 'keys'; N = max uses }.
@@ -127,9 +150,9 @@ function Invoke-Flow {
     $provider = {
         param($frame)
         foreach ($r in $state.Rules) {
-            if ($r.Used -lt $r.N -and $frame -match $r.M) { $r.Used++; return $r.K }
+            if ($r.Used -lt $r.N -and $frame -match $r.M) { $r.Used++; return (Expand-KeyMacros $r.K $frame) }
         }
-        return $state.Default
+        return (Expand-KeyMacros $state.Default $frame)
     }.GetNewClosure()
     Set-TuiScriptedProvider $provider -MaxCalls $MaxCalls
     $err = ''; $val = $null
@@ -137,6 +160,21 @@ function Invoke-Flow {
     $out = Get-CapturedOutput
     Clear-TuiScriptedInput
     return [pscustomobject]@{ Output = $out; Error = $err; Remaining = 0; Value = $val }
+}
+
+function New-FileListRules {
+    <#
+      Rules that fill a "Files" step: type each path at the text prompt, choose "Add another file" until the last file
+      is listed, then choose "Done". Returns an array of rules (concatenate it with other rules using +).
+    #>
+    param([string]$Prompt, [string[]]$Files)
+    $rules = @()
+    $esc = [regex]::Escape($Prompt)
+    foreach ($f in $Files) { $rules += @{ M = "(?s)\A(?!.*Add another file).*$esc"; K = "$f{Enter}"; N = 1 } }
+    $last = [regex]::Escape([System.IO.Path]::GetFileName($Files[$Files.Count - 1]))
+    $rules += @{ M = "(?s)$last.*Add another file|Add another file.*$last"; K = '{#Done}'; N = 1000 }
+    $rules += @{ M = 'Add another file'; K = '{#Add another}'; N = 1000 }
+    return $rules
 }
 
 function New-Rule { param([string]$Prompt, [string]$Keys, [int]$Times = 1000) return @{ M = ('(?m)^' + [regex]::Escape($Prompt) + '\s*$'); K = $Keys; N = $Times } }

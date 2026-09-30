@@ -80,10 +80,10 @@ Set-FFManagerHooks -Winget $installMock
 $global:WingetCalls.Clear(); $global:Installed = $false
 $det = Find-FFmpegInstallation
 Assert-Equal 'precondition: ffmpeg missing' 'Missing' $det.Status
-$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } 'IY{Enter}'
+$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } '0101{Enter}'
 Assert-Contains 'missing screen: shows the not-found message' $ui.Output 'FFmpeg was not found.'
 Assert-Contains 'missing screen: offers automatic install' $ui.Output 'Install FFmpeg automatically'
-Assert-Contains 'missing screen: offers exit' $ui.Output '[Q] Exit'
+Assert-Contains 'missing screen: offers exit' $ui.Output 'Exit'
 Assert-True 'install: returns success after verification' ($ui.Value -eq $true) $ui.Error
 Assert-True 'install: package verified (show) before installing' (@($global:WingetCalls | Where-Object { $_ -like 'show --id Gyan.FFmpeg --exact*' }).Count -eq 1)
 Assert-True 'install: exact package id used, agreements accepted' (@($global:WingetCalls | Where-Object { $_ -like 'install --id Gyan.FFmpeg --exact*--accept-package-agreements*' }).Count -eq 1)
@@ -91,27 +91,27 @@ Assert-Equal 'install: ffmpeg re-detected and registered' $realFf (Get-FFmpegPat
 Assert-Contains 'install: success is reported' $ui.Output 'FFmpeg installed'
 # user declines
 $global:Installed = $false; $global:WingetCalls.Clear()
-$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } 'Q'
+$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } '03'
 Assert-True 'exit from the missing screen returns $false (no menu entered)' ($ui.Value -eq $false)
 Assert-Equal 'nothing is installed unless the user chooses Install' 0 $global:WingetCalls.Count
 # declining the confirmation
-$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } 'IN' 
+$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } '0102'
 Assert-True 'declining the install confirmation does not call winget install' (-not @($global:WingetCalls | Where-Object { $_ -like 'install*' }))
 # installation failure
 $failMock = { param($argsArray, $onTick) $global:WingetCalls.Add(($argsArray -join ' ')); $code = 0; if ($argsArray[0] -eq 'install') { $code = -1978335216 }; return [pscustomobject]@{ Started = $true; ExitCode = $code; StdOut = 'installer failed: access is denied'; StdErr = ''; TimedOut = $false; Cancelled = $false; Error = '' } }
 Set-FFManagerHooks -Winget $failMock
 $global:WingetCalls.Clear(); $global:Installed = $false
-$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } 'IYQ'
+$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } '010103'
 Assert-True 'install failure: does not claim success' ($ui.Value -eq $false -and $ui.Output -like '*could not be completed*')
 Assert-Contains 'install failure: explains elevation problem' $ui.Output 'administrator'
-Assert-Contains 'install failure: offers Retry and Exit' $ui.Output '[R] Retry'
-$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } 'IYDQQ'
+Assert-Contains 'install failure: offers Retry and Exit' $ui.Output 'Retry'
+$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } '010101{Esc}03'
 Assert-Contains 'install failure: technical details view is available' $ui.Output 'winget output'
 # winget unavailable
 Set-FFManagerHooks -FindCommand { param($n) $null }
 Set-FFManagerHooks -Reset
 Set-FFManagerHooks -FindCommand { param($n) $null }
-$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } 'Q'
+$ui = Invoke-Ui { Show-FFmpegMissingFlow (Find-FFmpegInstallation) } '02'
 Assert-Contains 'winget missing: exact reason is shown' $ui.Output 'winget'
 Assert-NotContains 'winget missing: no install action is offered' $ui.Output 'Install FFmpeg automatically'
 # installation reported OK but PATH stale
@@ -134,14 +134,14 @@ $updMock = { param($argsArray, $onTick)
     return [pscustomobject]@{ Started = $true; ExitCode = 0; StdOut = $out; StdErr = ''; TimedOut = $false; Cancelled = $false; Error = '' } }
 Set-FFManagerHooks -Winget $updMock
 $global:WingetCalls.Clear(); $global:Upgraded = $false
-$ui = Invoke-Ui { Invoke-UpdateFlow } 'U{Enter}'
+$ui = Invoke-Ui { Invoke-UpdateFlow } '01{Enter}'
 Assert-Contains 'update prompt shows the update-available title' $ui.Output 'FFmpeg update available'
 Assert-Contains 'update prompt shows installed/available versions' $ui.Output 'Installed: 7.1'
-Assert-Contains 'update prompt offers Update and Continue' $ui.Output '[C] Continue without updating'
+Assert-Contains 'update prompt offers Update and Continue' $ui.Output 'Continue without updating'
 Assert-True 'choosing Update runs winget upgrade with the exact id' (@($global:WingetCalls | Where-Object { $_ -like 'upgrade --id Gyan.FFmpeg --exact*--accept-package-agreements*' }).Count -eq 1)
 Assert-Contains 'update result shows the verified version' $ui.Output 'FFmpeg updated'
 $global:WingetCalls.Clear(); $global:Upgraded = $false
-$ui = Invoke-Ui { Invoke-UpdateFlow } 'C'
+$ui = Invoke-Ui { Invoke-UpdateFlow } '02'
 Assert-True 'choosing Continue does not run any upgrade' (-not @($global:WingetCalls | Where-Object { $_ -like 'upgrade*--accept-package-agreements*' }))
 Set-FFManagerHooks -Winget { param($a, $t) [pscustomobject]@{ Started = $true; ExitCode = -1978335138; StdOut = 'network error'; StdErr = ''; TimedOut = $false; Cancelled = $false; Error = '' } }
 $ui = Invoke-Ui { Invoke-UpdateFlow } ''

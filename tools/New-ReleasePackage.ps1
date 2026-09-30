@@ -19,7 +19,7 @@ $stage = Join-Path ([System.IO.Path]::GetTempPath()) ($name + '-' + [guid]::NewG
 $pkg = Join-Path $stage 'FFmpeg-User-Manager'
 [void](New-Item -ItemType Directory -Path $pkg -Force)
 try {
-    foreach ($f in 'FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'README.md', 'CHANGELOG.md') { Copy-Item -LiteralPath (Join-Path $root $f) -Destination $pkg }
+    foreach ($f in 'FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'README.md', 'CHANGELOG.md', 'LICENSE', 'NOTICE') { Copy-Item -LiteralPath (Join-Path $root $f) -Destination $pkg }
     foreach ($d in 'config', 'src', 'docs') { Copy-Item -LiteralPath (Join-Path $root $d) -Destination $pkg -Recurse }
     $zip = Join-Path $OutputDirectory ($name + '.zip')
     if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }

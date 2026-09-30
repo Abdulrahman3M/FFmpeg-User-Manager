@@ -16,12 +16,12 @@ function Get-ConvertVideoSteps {
     $steps += Get-AdvancedGateStep
     $adv = { param($W) [bool](Get-Answer $W 'advanced' $false) }
     $steps += @{ Id = 'pixfmt'; Type = 'Choice'; Prompt = 'Pixel format'; Help = 'yuv420p is the most compatible. 10-bit formats need player support.'; When = $adv
-        Choices = { param($W) @( (New-Choice '' 'Encoder default (Recommended)'), (New-Choice 'yuv420p' 'yuv420p (8-bit, most compatible)'), (New-Choice 'yuv420p10le' 'yuv420p10le (10-bit)'), (New-Choice 'yuv444p' 'yuv444p (full chroma)') ) }; Default = '' }
+        Choices = { param($W) @( (New-Choice '' 'Encoder default (Recommended)' 'Let the encoder choose the best pixel format for the codec.'), (New-Choice 'yuv420p' 'yuv420p (8-bit, most compatible)' 'Plays on nearly every device, TV and browser.'), (New-Choice 'yuv420p10le' 'yuv420p10le (10-bit)' 'Less banding in gradients and HDR; needs newer players.'), (New-Choice 'yuv444p' 'yuv444p (full chroma)' 'Full color detail (screen recordings, graphics); limited player support.') ) }; Default = '' }
     $steps += @{ Id = 'gop'; Type = 'Integer'; Prompt = 'Keyframe interval (frames)'; Help = 'Distance between keyframes. Leave empty for the encoder default.'; Example = '250'; Optional = $true; Min = 1; Max = 10000; Label = 'Keyframe interval'; When = $adv }
-    $steps += @{ Id = 'faststart'; Type = 'YesNo'; Prompt = 'Optimize MP4/MOV for web streaming (faststart)?'; Help = 'Moves index data to the start so playback can begin before the download finishes.'; Default = $true
+    $steps += @{ Id = 'faststart'; Type = 'YesNo'; Prompt = 'Optimize MP4/MOV for web streaming (faststart)?'; Help = 'Moves index data to the start so playback can begin before the download finishes.'; YesDesc = 'Recommended for videos you will upload or stream: playback starts immediately.'; NoDesc = 'Leave the file as FFmpeg writes it; fine for local playback.'; Default = $true
         When = { param($W) (Get-Answer $W 'advanced' $false) -and ((Get-Answer $W 'format') -in @('mp4', 'mov')) } }
     $steps += @{ Id = 'hwaccel'; Type = 'Choice'; Prompt = 'Hardware-accelerated decoding'; Help = 'Speeds up decoding on supported hardware. Automatic falls back to software if unavailable.'; When = $adv
-        Choices = { param($W) @( (New-Choice 'off' 'Off'), (New-Choice 'auto' 'Automatic') ) + @(Get-FFHwAccels | ForEach-Object { New-Choice $_ $_ }) }; Default = 'off' }
+        Choices = { param($W) @( (New-Choice 'off' 'Off' 'Decode in software. Works everywhere and is the safest choice.'), (New-Choice 'auto' 'Automatic' 'Use the graphics card for decoding when possible, otherwise fall back to software.') ) + @(Get-FFHwAccels | ForEach-Object { New-Choice $_ $_ "Decode with the '$_' method of your graphics hardware; falls back to software if it cannot." }) }; Default = 'off' }
     $steps += Get-OutputSteps -Prefix 'out' -InputId 'input' -Suffix 'converted' -Extension { param($W) (Get-VideoContainer ([string](Get-Answer $W 'format' 'mp4'))).Ext }
     return $steps
 }

@@ -6,7 +6,7 @@ $script:SpinnerUni = @([string][char]0x280B, [string][char]0x2819, [string][char
 
 function Get-SpinnerFrame {
     param([int]$Tick)
-    if ((Get-BoxChars).H -ne '-') { return $script:SpinnerUni[$Tick % $script:SpinnerUni.Count] }
+    if ((Get-IconTierInUse) -eq 'Emoji') { return $script:SpinnerUni[$Tick % $script:SpinnerUni.Count] }
     return $script:SpinnerAscii[$Tick % $script:SpinnerAscii.Count]
 }
 
@@ -49,7 +49,7 @@ function Show-JobProgress {
     $rows += , @('Status', $Status)
     Write-KeyValueTable -Rows $rows -LabelWidth 9 -Indent 1
     foreach ($l in $ExtraLines) { Write-Ui -Text (' ' + (Limit-Text $l ($w - 2))) -Role DimText }
-    Write-KeyHints @(@('Q', 'Cancel job'))
+    Write-KeyHints @(@('Esc', 'Cancel job'))
     Stop-Frame
 }
 

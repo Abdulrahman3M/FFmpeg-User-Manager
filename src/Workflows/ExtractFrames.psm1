@@ -40,20 +40,20 @@ function Get-ExtractFramesSteps {
         Choices = { param($W) @($script:ImageFormats | Where-Object { Test-FFEncoder $_.Encoder } | ForEach-Object { New-Choice $_.Id $_.Label $_.Desc }) }; Default = 'png' }
     $steps += @{ Id = 'imgq'; Type = 'Choice'; Prompt = 'Image quality'; Help = 'Higher quality creates larger files.'
         When = { param($W) [bool](Get-ImageFormat ([string](Get-Answer $W 'imgfmt' 'png'))).Quality }
-        Choices = { param($W) if ((Get-Answer $W 'imgfmt') -eq 'jpg') { @( (New-Choice 2 'High (best)'), (New-Choice 5 'Good (Recommended)'), (New-Choice 10 'Medium'), (New-Choice 18 'Low (smallest)') ) } else { @( (New-Choice 95 'High (best)'), (New-Choice 80 'Good (Recommended)'), (New-Choice 60 'Medium'), (New-Choice 40 'Low (smallest)') ) } }
+        Choices = { param($W) if ((Get-Answer $W 'imgfmt') -eq 'jpg') { @( (New-Choice 2 'High (best)' 'Best image quality; larger files.'), (New-Choice 5 'Good (Recommended)' 'Very good quality at a sensible file size.'), (New-Choice 10 'Medium' 'Noticeably smaller files with slightly visible compression.'), (New-Choice 18 'Low (smallest)' 'Smallest files; compression is visible.') ) } else { @( (New-Choice 95 'High (best)' 'Best image quality; larger files.'), (New-Choice 80 'Good (Recommended)' 'Very good quality at a sensible file size.'), (New-Choice 60 'Medium' 'Noticeably smaller files with slightly visible compression.'), (New-Choice 40 'Low (smallest)' 'Smallest files; compression is visible.') ) } }
         Default = { param($W) if ((Get-Answer $W 'imgfmt') -eq 'jpg') { 5 } else { 80 } } }
     $steps += Get-ResolutionStep -Id 'resolution' -Prompt 'Image size'
     $steps += @{ Id = 'maxframes'; Type = 'Integer'; Prompt = 'Maximum number of images'; Help = 'Optional. Stops after this many images.'; Example = '100'; Optional = $true; Min = 1; Max = 1000000; Label = 'Image limit'
         When = { param($W) (Get-Answer $W 'mode') -ne 'single' } }
     $steps += Get-OutputSteps -Prefix 'out' -InputId 'input' -Suffix '' -FolderOnly
-    $steps += @{ Id = 'prefix'; Type = 'Text'; Prompt = 'File name prefix'; Help = 'Images are named <prefix>_<number>.<extension>.'; Label = 'Prefix'
+    $steps += @{ Id = 'prefix'; Type = 'Text'; Prompt = 'File name prefix'; Help = 'Images are named <prefix>_<number>.<extension>.'; Example = 'holiday_frame'; Label = 'Prefix'
         Default = { param($W) (Get-SafeFileStem ([System.IO.Path]::GetFileNameWithoutExtension((Get-Media $W 'input').Path))) + '_frame' }
         Validate = { param($v, $W) $e = Test-ValidFileName ($v + '_0001.png'); if ($e) { return $e }; if ($v -match '%') { return 'The prefix cannot contain a % sign.' }; $null } }
     $steps += @{ Id = 'pad'; Type = 'Integer'; Prompt = 'Number width (zero padding)'; Help = 'Digits used for the frame number. 4 gives 0001, 0002, ...'; Example = '4'; Min = 1; Max = 9; Default = 4; Label = 'Padding'
         }
     $steps += @{ Id = 'overwrite'; Type = 'Choice'; Prompt = 'Images with these names already exist'; Help = 'Existing files are never replaced without your confirmation.'
         When = { param($W) (Test-FrameOutputsExist $W) }
-        Choices = { param($W) @( (New-Choice 'rename' 'Choose a different prefix'), (New-Choice 'overwrite' 'Overwrite the existing images') ) }; Default = 'rename'
+        Choices = { param($W) @( (New-Choice 'rename' 'Choose a different prefix' 'Go back and pick another file-name prefix so nothing is replaced.'), (New-Choice 'overwrite' 'Overwrite the existing images' 'Replace the existing images that have the same names.') ) }; Default = 'rename'
         OnAnswer = { param($v, $W) if ($v -eq 'rename') { $W.Goto = 'prefix' } } }
     return $steps
 }

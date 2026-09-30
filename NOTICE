@@ -1,0 +1,11 @@
+FFmpeg User Manager
+Copyright 2026 Abdulrahman3M
+
+This product includes software developed by Abdulrahman3M.
+
+Third-party software
+--------------------
+FFmpeg and ffprobe are NOT part of this product and are NOT distributed with it. FFmpeg User Manager only starts the
+copy that is installed on the user's computer (for example through Windows Package Manager) as a separate program.
+FFmpeg is licensed by its own authors under its own terms (LGPL/GPL depending on the build); see https://ffmpeg.org/legal.html.
+This product bundles no other third-party libraries, fonts, icons or images.
