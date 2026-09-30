@@ -9,6 +9,7 @@ $script:FixedWidth = 0
 $script:FixedHeight = 0
 $script:ESC = [string][char]27
 $script:HeaderInfo = ''
+$script:HeaderTitle = 'FFmpeg User Manager'
 
 function Initialize-Renderer {
     param([bool]$Ansi, [bool]$Unicode, [ValidateSet('Console', 'Buffer')][string]$Sink = 'Console', [int]$Width = 0, [int]$Height = 0)
@@ -20,7 +21,7 @@ function Initialize-Renderer {
 }
 
 function Test-AnsiMode { return $script:Ansi }
-function Set-HeaderInfo { param([string]$Text) $script:HeaderInfo = $Text }
+function Set-HeaderInfo { param([string]$Text = '', [string]$Title) $script:HeaderInfo = $Text; if ($Title) { $script:HeaderTitle = $Title } }
 function Get-CapturedOutput { return $script:Buffer.ToString() }
 function Clear-CapturedOutput { [void]$script:Buffer.Clear() }
 
@@ -232,7 +233,8 @@ function Write-Rule {
 
 function Write-Header {
     # Compact bordered header (plain ASCII text inside so the right border always aligns).
-    param([string]$Title = 'FFmpeg TUI', [string]$Subtitle = 'Media tools powered by FFmpeg')
+    param([string]$Title = '', [string]$Subtitle = 'Media tools powered by FFmpeg')
+    if (-not $Title) { $Title = $script:HeaderTitle }
     $b = Get-BoxChars
     $w = Get-UiWidth
     $inner = $w - 2

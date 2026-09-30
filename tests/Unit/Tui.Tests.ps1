@@ -183,3 +183,8 @@ Assert-Equal 'Escape means No' $false $ui.Value
 $ui = Invoke-Ui { Show-Notice -Title 'T' -Lines @('l') -Actions @(, @('B', 'Back')) } 'b'
 Assert-Equal 'single-action notice works (array flattening safe)' 'B' $ui.Value
 Assert-Contains 'single-action notice renders its label' $ui.Output '[B] Back'
+
+Set-TestGroup 'Wizard screen layout'
+$lay = Invoke-Ui { Invoke-Wizard -Title 'Layout Test' -Steps @(@{ Id = 'c'; Type = 'Choice'; Prompt = 'Pick one'; Help = 'some help'; Choices = { param($W) @((New-Choice 'x' 'Ex')) } }) } '1'
+$frame = Get-LastFrame $lay.Output
+Assert-True 'choice screen: the workflow header/panels come first, then the question, then the options' (($frame.IndexOf('Layout Test') -ge 0) -and ($frame.IndexOf('Layout Test') -lt $frame.IndexOf('Pick one')) -and ($frame.IndexOf('Pick one') -lt $frame.IndexOf('1. Ex')))

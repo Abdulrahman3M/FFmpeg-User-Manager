@@ -134,6 +134,7 @@ function Show-FFmpegStatus {
         $uni = if ((Get-BoxChars).H -eq '-') { 'ASCII fallback icons' } else { 'Unicode icons' }
         $pm = if (Test-WingetAvailable) { 'winget available (' + (Get-WingetPackageId) + ')' } else { 'winget not available' }
         $rows = @(
+            @('Application', ((Get-AppName) + ' v' + (Get-AppVersion))),
             @('FFmpeg', $(if ($t.Ffmpeg) { $t.Ffmpeg } else { 'not found' })),
             @('ffprobe', $(if ($t.Ffprobe) { $t.Ffprobe } else { 'not found' })),
             @('ffplay', $(if ($t.Ffplay) { $t.Ffplay } else { 'not found (optional)' })),
@@ -265,14 +266,15 @@ function Start-FFmpegTuiApp {
     #>
     param([string]$Root, [string]$ScriptedInput, [switch]$SkipUpdateCheck, [switch]$BufferOutput)
     Set-AppRoot $Root
+    Set-HeaderInfo -Title ((Get-AppName) + ' v' + (Get-AppVersion))
     $rt = Get-RuntimeInfo
     if (-not $ScriptedInput) {
         if ($Host.Name -match 'ISE') {
-            Write-Host 'FFmpeg TUI cannot run inside the PowerShell ISE. Please start it from Windows Terminal, PowerShell or a console window.'
+            Write-Host 'FFmpeg User Manager cannot run inside the PowerShell ISE. Please start it from Windows Terminal, PowerShell or a console window.'
             return 2
         }
         if (-not (Test-InteractiveConsole)) {
-            Write-Host 'FFmpeg TUI needs an interactive console (input and output cannot be redirected). Start it directly from a terminal window.'
+            Write-Host 'FFmpeg User Manager needs an interactive console (input and output cannot be redirected). Start it directly from a terminal window.'
             return 2
         }
     }
@@ -292,13 +294,13 @@ function Start-FFmpegTuiApp {
         }
         if (-not $SkipUpdateCheck -and $env:FFTUI_SKIP_UPDATE -ne '1') { Invoke-UpdateFlow }
         $null = Initialize-CapabilityScan
-        Set-HeaderInfo ((Get-FFmpegInfo).Version)
+        Set-HeaderInfo -Text ('| FFmpeg ' + (Get-FFmpegInfo).Version)
         Start-MainMenu
     } catch {
         $exit = 1
         Restore-TerminalState
         Write-Host ''
-        Write-PlainError ('FFmpeg TUI stopped because of an unexpected error: ' + $_.Exception.Message)
+        Write-PlainError ('FFmpeg User Manager stopped because of an unexpected error: ' + $_.Exception.Message)
         if ($ScriptedInput) { Write-Host $_.ScriptStackTrace }
     } finally {
         Restore-TerminalState

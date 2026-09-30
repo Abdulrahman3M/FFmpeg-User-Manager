@@ -1,0 +1,104 @@
+# BAT launcher tests. Run with the real cmd.exe on Windows, or with Wine's cmd.exe when available (Linux).
+$root = Get-TestRoot
+$W = Get-TestWork
+$batSrc = Join-Path $root 'FFmpeg-User-Manager.bat'
+$onWin = (Test-IsWindows)
+$runner = $null
+if ($onWin) { $runner = 'cmd.exe' }
+else {
+    foreach ($c in @('wine64', 'wine', '/usr/lib/wine/wine64')) { $g = Get-Command $c -ErrorAction SilentlyContinue | Select-Object -First 1; if ($g) { $runner = $g.Source; break } }
+    if (-not $runner -and (Test-Path -LiteralPath '/usr/lib/wine/wine64')) { $runner = '/usr/lib/wine/wine64' }
+}
+
+Set-TestGroup 'BAT launcher: static checks'
+$raw = [System.IO.File]::ReadAllBytes($batSrc)
+$txt = [System.Text.Encoding]::ASCII.GetString($raw)
+Assert-True 'FFmpeg-User-Manager.bat exists in the repository root' (Test-Path -LiteralPath $batSrc)
+Assert-True 'launcher is pure ASCII (safe for every console code page)' (@($raw | Where-Object { $_ -gt 127 }).Count -eq 0)
+Assert-True 'launcher uses CRLF line endings' ($txt.Contains("`r`n") -and -not ($txt -replace "`r`n", '').Contains("`n"))
+Assert-True 'launcher never changes execution policy (only a process-scoped -ExecutionPolicy Bypass)' (($txt -notmatch '(?i)Set-ExecutionPolicy') -and ($txt -match '(?i)-ExecutionPolicy Bypass -File'))
+Assert-True 'launcher targets Start-FFmpegTUI.ps1 relative to its own folder (no absolute developer paths)' (($txt -match '%~dp0') -and ($txt -notmatch '(?i)[a-z]:\\users\\|/home/|/root/'))
+Assert-True 'launcher contains no media-processing logic (no ffmpeg/ffprobe calls)' ($txt -notmatch '(?i)ffmpeg\s+-|ffprobe\s+-')
+Assert-True 'the canonical entry script exists' (Test-Path -LiteralPath (Join-Path $root 'Start-FFmpegTUI.ps1'))
+
+if (-not $runner) {
+    foreach ($n in @('launch from the repository folder', 'launch from another working directory', 'path containing spaces and parentheses', 'missing entry script gives a clear error and exit code', 'PowerShell 7 preferred when available', 'fallback to Windows PowerShell when pwsh is absent', 'error when no PowerShell exists', 'argument pass-through and exit-code propagation', 'double-click style start')) { Skip-Test "BAT: $n" 'cmd.exe is not available in this environment (not Windows, no Wine)' }
+    return
+}
+
+function ConvertTo-CmdPath { param([string]$P) if ($onWin) { return $P }; return ('Z:' + ($P -replace '/', '\')) }
+function Invoke-BatCase {
+    # Builds a sandbox (launcher + stub PowerShell executables) and runs a wrapper .cmd with the real cmd interpreter.
+    param([string]$Name, [switch]$WithEntry, [switch]$Pwsh, [switch]$WinPs, [string]$BatArgs = '', [int]$StubRc = 0, [string]$Dir = '', [switch]$DoubleClick, [string]$StartDir = '', [switch]$UseStub)
+    $case = Join-Path $W ('bat_' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    if (-not $Dir) { $Dir = 'app' }
+    $app = Join-Path $case $Dir; $bin = Join-Path $case 'bin'
+    [void](New-Item -ItemType Directory -Path $app -Force); [void](New-Item -ItemType Directory -Path $bin -Force)
+    [System.IO.File]::Copy($batSrc, (Join-Path $app 'FFmpeg-User-Manager.bat'))
+    if ($WithEntry) { [System.IO.File]::WriteAllText((Join-Path $app 'Start-FFmpegTUI.ps1'), '# stub') }
+    # Dummy executables (detection only) and, for execution tests, a .cmd stub selected through FFUM_POWERSHELL.
+    foreach ($pair in @(@($Pwsh, 'pwsh'), @($WinPs, 'powershell'))) { if ($pair[0]) { [System.IO.File]::WriteAllText((Join-Path $bin ($pair[1] + '.exe')), 'MZ dummy') } }
+    $stub = Join-Path $bin 'stub.cmd'
+    [System.IO.File]::WriteAllText($stub, ("@echo off`r`necho STUB-RUN %*`r`nexit /b $StubRc`r`n"))
+    $batWin = ConvertTo-CmdPath (Join-Path $app 'FFmpeg-User-Manager.bat')
+    $binWin = ConvertTo-CmdPath $bin
+    $startWin = $(if ($StartDir) { ConvertTo-CmdPath $StartDir } else { ConvertTo-CmdPath $case })
+    $lines = @('@echo off', 'setlocal EnableDelayedExpansion', "set `"PATH=$binWin;%SystemRoot%\system32;%SystemRoot%`"", "cd /d `"$startWin`"")
+    if ($UseStub) { $lines += "set `"FFUM_POWERSHELL=$(ConvertTo-CmdPath $stub)`"" } else { $lines += 'set "FFUM_TRACE=1"' }
+    # cmd /c (not CALL) so the exit code is the launcher's real process exit code; stdin is empty so PAUSE cannot block.
+    # The launcher path goes through a variable + delayed expansion so characters such as & ( ) in it are not parsed by this wrapper.
+    $lines += "set `"FFUM_TEST_BAT=$batWin`""
+    $lines += "cmd /c `"`"!FFUM_TEST_BAT!`" $BatArgs`" <nul"
+    $lines += 'echo EXIT=%ERRORLEVEL%'
+    $wrapper = Join-Path $case 'run.cmd'
+    [System.IO.File]::WriteAllText($wrapper, (($lines -join "`r`n") + "`r`n"))
+    $saved = $env:WINEDEBUG; $savedPfx = $env:WINEPREFIX
+    $env:WINEDEBUG = '-all'; if (-not $env:WINEPREFIX) { $env:WINEPREFIX = (Join-Path ([System.IO.Path]::GetTempPath()) 'fftui-wine-prefix') }
+    try {
+        if ($onWin) { $r = Invoke-ExternalCapture -FilePath 'cmd.exe' -Arguments @('/c', $wrapper) -TimeoutSec 90 }
+        else { $r = Invoke-ExternalCapture -FilePath $runner -Arguments @('cmd', '/c', (ConvertTo-CmdPath $wrapper)) -TimeoutSec 240 }
+    } finally { $env:WINEDEBUG = $saved; $env:WINEPREFIX = $savedPfx }
+    $m = [regex]::Match($r.StdOut, 'EXIT=(\d+)')
+    return [pscustomobject]@{ Out = $r.StdOut; Exit = $(if ($m.Success) { [int]$m.Groups[1].Value } else { -1 }); Case = $case }
+}
+
+Set-TestGroup 'BAT launcher: behavior under the real cmd interpreter'
+$r = Invoke-BatCase -WithEntry -Pwsh -WinPs -StartDir $root
+Assert-True 'PowerShell 7 (pwsh.exe) is preferred when both runtimes are on PATH' ($r.Out -match 'Launcher runtime: .*pwsh\.exe' -and $r.Out -notmatch 'Launcher runtime: .*powershell\.exe') $r.Out
+$r = Invoke-BatCase -WithEntry -WinPs
+Assert-True 'Windows PowerShell 5.1 (powershell.exe) is used when pwsh.exe is absent' ($r.Out -match 'Launcher runtime: .*powershell\.exe') $r.Out
+$r = Invoke-BatCase -WithEntry
+$hasSysPs = ($r.Out -match 'Launcher runtime: .*WindowsPowerShell')
+if ($hasSysPs) { Assert-True 'no PowerShell on PATH: the standard Windows PowerShell location is used as last resort' $true }
+else {
+    Assert-Equal 'no PowerShell at all: exit code 3' 3 $r.Exit
+    Assert-True 'no PowerShell at all: clear message' ($r.Out -match 'Neither PowerShell 7') $r.Out
+}
+$r = Invoke-BatCase -Pwsh -WinPs
+Assert-Equal 'missing entry script: exit code 2' 2 $r.Exit
+Assert-True 'missing entry script: useful error naming the expected file' ($r.Out -match 'entry script was not found' -and $r.Out -match 'Start-FFmpegTUI\.ps1') $r.Out
+Assert-True 'missing entry script: PowerShell is never started' ($r.Out -notmatch 'Launcher runtime') $r.Out
+$r = Invoke-BatCase -WithEntry -UseStub -StartDir $root
+Assert-True 'launch from another working directory than the launcher folder' ($r.Out -match 'STUB-RUN' -and $r.Exit -eq 0) $r.Out
+Assert-True 'PowerShell is started with -NoProfile, a process-scoped Bypass and the absolute entry script path' ($r.Out -match '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "[A-Za-z]:\\.*\\app\\Start-FFmpegTUI\.ps1"') $r.Out
+$r = Invoke-BatCase -WithEntry -UseStub -Dir 'My Apps (x86) & tools'
+Assert-True 'path containing spaces, parentheses and an ampersand works' ($r.Out -match 'STUB-RUN' -and $r.Out -match 'My Apps \(x86\) & tools' -and $r.Exit -eq 0) $r.Out
+$r = Invoke-BatCase -WithEntry -UseStub -BatArgs '-SkipUpdateCheck -Version' -StubRc 7
+Assert-True 'arguments are passed through to the PowerShell script' ($r.Out -match 'Start-FFmpegTUI\.ps1" -SkipUpdateCheck -Version') $r.Out
+Assert-Equal 'the PowerShell exit code is returned by the launcher' 7 $r.Exit
+$probe = Invoke-BatCase -WithEntry -UseStub
+$cmdLineOk = $false
+try {
+    $pp = Join-Path $W 'cmdline_probe.cmd'; [System.IO.File]::WriteAllText($pp, "@echo off`r`necho PROBE[%CMDCMDLINE%]`r`n")
+    if ($onWin) { $q = Invoke-ExternalCapture -FilePath 'cmd.exe' -Arguments @('/c', $pp) -TimeoutSec 30 } else { $env:WINEDEBUG = '-all'; $q = Invoke-ExternalCapture -FilePath $runner -Arguments @('cmd', '/c', (ConvertTo-CmdPath $pp)) -TimeoutSec 120 }
+    $cmdLineOk = ($q.StdOut -match 'PROBE\[.+\]')
+} catch { }
+if (-not $cmdLineOk) {
+    Skip-Test 'double-click style start: failing run pauses so the error stays visible' 'this cmd interpreter (Wine) does not populate %CMDCMDLINE%, which the launcher uses to detect a double-click start; verify on real Windows'
+    Skip-Test 'double-click style start: successful run closes without a prompt' 'same reason (%CMDCMDLINE% unavailable in this environment)'
+} else {
+    $r = Invoke-BatCase -WithEntry -UseStub -StubRc 5
+    Assert-True 'double-click style start (cmd /c): a failing run is reported and pauses instead of vanishing' ($r.Out -match 'exited with code 5') $r.Out
+    $r = Invoke-BatCase -WithEntry -UseStub -StubRc 0
+    Assert-True 'double-click style start: a successful run closes without an extra prompt' ($r.Out -notmatch 'exited with code') $r.Out
+}

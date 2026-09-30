@@ -12,10 +12,33 @@ function Set-AppRoot {
 
 function Get-AppRoot { return $script:AppRoot }
 
+function Get-AppName { return 'FFmpeg User Manager' }
+
+function Test-SemVer {
+    # Semantic Versioning 2.0.0 (MAJOR.MINOR.PATCH with optional -prerelease and +build).
+    param([string]$Text)
+    return ($Text -match '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-((0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$')
+}
+
+function Get-AppVersion {
+    # The canonical version lives in the VERSION file at the repository root (first line, SemVer).
+    $fallback = '0.0.0-unknown'
+    if (-not $script:AppRoot) { return $fallback }
+    $file = Join-Path $script:AppRoot 'VERSION'
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $fallback }
+    try {
+        $v = ((Get-Content -LiteralPath $file -TotalCount 1 -ErrorAction Stop) | Select-Object -First 1)
+        if ($null -eq $v) { return $fallback }
+        $v = ([string]$v).Trim()
+        if (Test-SemVer $v) { return $v }
+    } catch { }
+    return $fallback
+}
+
 function Get-AppConfig {
     if ($null -ne $script:Config) { return $script:Config }
     $default = [pscustomobject]@{
-        appName = 'FFmpeg TUI'
+        appName = 'FFmpeg User Manager'
         winget  = [pscustomobject]@{ packageId = 'Gyan.FFmpeg'; source = 'winget' }
         ui      = [pscustomobject]@{ maxWidth = 100; compactBelow = 72 }
         presets = [pscustomobject]@{
@@ -115,4 +138,4 @@ function Get-TerminalSize {
     return [pscustomobject]@{ Width = $w; Height = $h }
 }
 
-Export-ModuleMember -Function Set-AppRoot, Get-AppRoot, Get-AppConfig, Test-IsWindows, Get-RuntimeInfo, Test-InteractiveConsole, Test-AnsiSupport, Test-UnicodeIconSupport, Get-TerminalSize
+Export-ModuleMember -Function Get-AppName, Test-SemVer, Get-AppVersion, Set-AppRoot, Get-AppRoot, Get-AppConfig, Test-IsWindows, Get-RuntimeInfo, Test-InteractiveConsole, Test-AnsiSupport, Test-UnicodeIconSupport, Get-TerminalSize

@@ -18,7 +18,7 @@ Set-TestGroup 'Launcher: startup and exit'
 $r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', 'Q')
 Assert-Equal 'starts, shows the main menu and exits with code 0' 0 $r.ExitCode
 Assert-Contains 'main menu was rendered' $r.StdOut 'Convert Video Format'
-Assert-Contains 'header is shown' $r.StdOut 'FFmpeg TUI'
+Assert-Contains 'header shows the product name and canonical version' $r.StdOut ('FFmpeg User Manager v' + (Get-Content -LiteralPath (Join-Path $root 'VERSION') -TotalCount 1).Trim())
 $r = Invoke-Launcher @('-SkipUpdateCheck')
 Assert-Equal 'non-interactive (redirected) input is refused with exit code 2' 2 $r.ExitCode
 Assert-Contains 'non-interactive refusal explains why' $r.StdOut 'interactive console'

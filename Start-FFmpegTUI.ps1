@@ -3,9 +3,12 @@
     FFmpeg PowerShell TUI - a beginner-friendly terminal interface for FFmpeg on Windows.
 
 .DESCRIPTION
-    Launches an interactive, keyboard-driven text UI that guides you through common FFmpeg
+    Launches the FFmpeg User Manager, an interactive, keyboard-driven text UI that guides you through common FFmpeg
     operations (convert, trim, merge, compress, GIF, frames, filters, subtitles, HLS, ...)
     without typing FFmpeg commands. Supports Windows PowerShell 5.1 and PowerShell 7.x.
+
+.PARAMETER Version
+    Print the application version (from the VERSION file) and exit.
 
 .PARAMETER SkipUpdateCheck
     Do not check for FFmpeg updates at startup.
@@ -21,6 +24,7 @@
 #>
 [CmdletBinding()]
 param(
+    [switch]$Version,
     [switch]$SkipUpdateCheck,
     [string]$ScriptedInput,
     [switch]$BufferOutput
@@ -34,6 +38,11 @@ try {
 } catch {
     Write-Host ('FFmpeg TUI could not load its modules: ' + $_.Exception.Message) -ForegroundColor Red
     exit 3
+}
+if ($Version) {
+    Set-AppRoot $root
+    Write-Output ((Get-AppName) + ' v' + (Get-AppVersion))
+    exit 0
 }
 $code = Start-FFmpegTuiApp -Root $root -ScriptedInput $ScriptedInput -SkipUpdateCheck:$SkipUpdateCheck -BufferOutput:$BufferOutput
 exit $code
