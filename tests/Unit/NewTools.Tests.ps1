@@ -149,5 +149,5 @@ $env:WT_SESSION = $null; $env:TERM_PROGRAM = $null; $env:ConEmuANSI = $null
 Assert-Equal 'terminal hint is not applicable off Windows' 'not applicable on this system' $(if (Test-IsWindows) { 'not applicable on this system' } else { Get-TerminalEmojiHint })
 Assert-True 'terminal hint explains the classic console limit' (-not (Test-IsWindows) -or (Get-TerminalEmojiHint) -match 'classic|limited')
 $env:WT_SESSION = $oldWt; $env:TERM_PROGRAM = $oldTp; $env:ConEmuANSI = $oldCe
-$noSfc = @(Get-ChildItem -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent | Split-Path -Parent) 'src') -Recurse -Include '*.psm1', '*.ps1' | Select-String -Pattern 'sfc\s*/' )
+$noSfc = @(Get-ChildItem -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent | Split-Path -Parent) 'src') -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' } | Select-String -Pattern 'sfc\s*/' )
 Assert-Equal 'no automatic or suggested system file repair command exists in the source' 0 $noSfc.Count

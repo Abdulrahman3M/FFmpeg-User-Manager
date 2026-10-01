@@ -1,6 +1,6 @@
 # Static analysis: safety rules, Windows PowerShell 5.1 compatibility (syntax level), structure.
 $root = Get-TestRoot
-$srcFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Recurse -Include '*.ps1', '*.psm1') + @(Get-Item -LiteralPath (Join-Path $root 'Start-FFmpegTUI.ps1'))
+$srcFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' }) + @(Get-Item -LiteralPath (Join-Path $root 'Start-FFmpegTUI.ps1'))
 $asts = @{}
 Set-TestGroup 'Static: parse'
 foreach ($sf in $srcFiles) {

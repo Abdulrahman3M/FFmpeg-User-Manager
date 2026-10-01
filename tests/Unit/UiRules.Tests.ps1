@@ -1,7 +1,7 @@
 # Static UI rules: numbered options only (no letter keys), a description under every option, help and an example for
 # every question, and no local variable that silently shadows a parameter (PowerShell variables are case-insensitive).
 $root = Get-TestRoot
-$srcFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Recurse -Include '*.psm1', '*.ps1')
+$srcFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' })
 $asts = @{}
 foreach ($sf in $srcFiles) { $tokens = $null; $errs = $null; $asts[$sf.FullName] = [System.Management.Automation.Language.Parser]::ParseFile($sf.FullName, [ref]$tokens, [ref]$errs) }
 

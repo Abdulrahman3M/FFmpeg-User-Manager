@@ -125,7 +125,7 @@ Assert-Equal 'hwaccel list parses' 'cuda,vaapi,qsv' ($hw -join ',')
 
 Set-TestGroup 'Capability discovery (installed FFmpeg)'
 $cs = Get-FFCapabilityStatus
-Assert-True 'capabilities loaded from the installed build' ($cs.Loaded -and $cs.Encoders -gt 20 -and $cs.Muxers -gt 10 -and $cs.Filters -gt 50)
+Assert-True 'capabilities loaded from the installed build' ($cs.Loaded -and $cs.Encoders -gt 20 -and $cs.Muxers -gt 10 -and $cs.Filters -gt 50) (& { $probe = Invoke-ExternalCapture -FilePath (Get-FFmpegPath) -Arguments @('-hide_banner', '-encoders') -TimeoutSec 60; 'path=[{0}] loaded={1} enc={2} mux={3} filt={4} errors=[{5}] probe: started={6} exit={7} timedOut={8} err=[{9}] stdoutLen={10} stderrHead=[{11}]' -f (Get-FFmpegPath), $cs.Loaded, $cs.Encoders, $cs.Muxers, $cs.Filters, ((Get-FFCapabilities).Errors -join ';'), $probe.Started, $probe.ExitCode, $probe.TimedOut, $probe.Error, $probe.StdOut.Length, $probe.StdErr.Substring(0, [Math]::Min(150, $probe.StdErr.Length)) })
 Assert-True 'mp4 muxer is detected' (Test-FFMuxer 'mp4')
 Assert-True 'a bogus encoder is not detected' (-not (Test-FFEncoder 'definitely_not_an_encoder'))
 Set-FFCapabilityData -Encoders @('libx264', 'aac') -Muxers @('mp4')

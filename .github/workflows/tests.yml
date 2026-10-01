@@ -32,13 +32,4 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          $diag = @'
-          . .\src\Import-Modules.ps1
-          $c = Get-FFCapabilities
-          'caps: enc={0} filt={1} mux={2}' -f $c.Encoders.Count, $c.Filters.Count, $c.Muxers.Count
-          foreach ($f in 'afftdn','loudnorm','silenceremove','palettegen','paletteuse','subtitles','rotate','showwaves') { '{0} filter: {1}' -f $f, (Test-FFFilter $f) }
-          foreach ($e in 'libx264','libx265','libmp3lame','gif') { '{0} encoder: {1}' -f $e, (Test-FFEncoder $e) }
-          '@
-          Set-Content -Path diag.ps1 -Value $diag
-          & ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File diag.ps1 2>&1 | Select-Object -First 25
-          Select-String -Path suite.log -Pattern '^FAIL:|SUMMARY' | ForEach-Object { $_.Line.Substring(0, [Math]::Min(200, $_.Line.Length)) }
+          Select-String -Path suite.log -Pattern '^FAIL:|SUMMARY|path=\[' | ForEach-Object { $_.Line.Substring(0, [Math]::Min(900, $_.Line.Length)) }
