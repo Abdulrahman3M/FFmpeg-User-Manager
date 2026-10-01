@@ -188,7 +188,8 @@ function Get-IconTier {
     try { $redirected = [Console]::IsOutputRedirected } catch { $redirected = $true }
     $win = Test-IsWindows
     $utf8 = $true
-    if ($win -and -not $redirected) { $utf8 = Set-ConsoleUtf8Output }
+    # also when output is redirected: a forced emoji/symbol set must reach a parent process as UTF-8, not as OEM-code-page '?'
+    if ($win) { $utf8 = Set-ConsoleUtf8Output }
     return (Resolve-IconTier -Env $e -IsWin $win -Redirected $redirected -Utf8Ok $utf8)
 }
 
