@@ -1,4 +1,4 @@
-# Unit tests: TUI components (menu, line editor, wizard, layout, theme, icons).
+﻿# Unit tests: TUI components (menu, line editor, wizard, layout, theme, icons).
 Set-TestGroup 'Menu: numbering, navigation and shortcuts'
 $items = @(@{ Label = 'One'; Value = 'a' }, @{ Label = 'Two'; Value = 'b' }, @{ Label = 'Three'; Value = 'c' }, @{ Label = 'Four'; Value = 'd' })
 $ui = Invoke-Ui { Show-Menu -Items $items -AllowBack -AllowQuit } '02'
@@ -66,7 +66,7 @@ Assert-True 'no code path still defines letter hotkeys' (-not (Get-Command Get-M
 
 Set-TestGroup 'Main menu definition'
 $mm = Get-MainMenuItems
-$labels = @('Convert Video Format', 'Convert Audio Format', 'Extract Audio from Video', 'Trim / Cut Media', 'Merge Media', 'Compress Media', 'Resize / Scale Video', 'Video to GIF', 'Extract Frames / Images', 'Audio Tools', 'Subtitle Tools', 'Change Frame Rate', 'Filters & Color', 'Crop / Rotate / Flip', 'Text & Watermark', 'Change Playback Speed', 'Streaming / HLS', 'Media Information', 'Remux & Streams', 'Metadata & Chapters', 'Images & Slideshows', 'Video Enhancement', 'Record / Capture', 'Analyze & Detect', 'Batch Convert Folder', 'Advanced FFmpeg', 'FFmpeg Status / Settings', 'Exit')
+$labels = @('Convert Video Format', 'Convert Audio Format', 'Extract Audio from Video', 'Trim / Cut Media', 'Merge Media', 'Compress Media', 'Resize / Scale Video', 'Video to GIF', 'Extract Frames / Images', 'Audio Tools', 'Subtitle Tools', 'Change Frame Rate', 'Filters & Color', 'Crop / Rotate / Flip', 'Text & Watermark', 'Change Playback Speed', 'Streaming / HLS', 'Media Information', 'Remux & Streams', 'Metadata & Chapters', 'Images & Slideshows', 'Video Enhancement', 'Record / Capture', 'Analyze & Detect', 'Batch Convert Folder', 'Advanced FFmpeg', 'FFmpeg Status / Settings', 'Check & Maintain FFmpeg Setup', 'Exit')
 Assert-Equal 'main menu labels match the required text' ($labels -join '|') (($mm | ForEach-Object { $_.Label }) -join '|')
 Assert-True 'Exit is the last numbered option (no exceptions, no letter key)' ($mm[$mm.Count - 1].Value -eq 'Quit')
 Assert-True 'every menu item (including Exit) has a description' (@($mm | Where-Object { -not $_.Desc }).Count -eq 0)
@@ -83,17 +83,19 @@ Assert-Equal 'main menu: 11 opens Subtitle Tools' 'SubtitleTools' $ui.Value.Item
 $ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '27' -Height 60
 Assert-Equal 'main menu: 27 opens Status' 'Status' $ui.Value.Item.Value
 $ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '28' -Height 60
-Assert-Equal 'main menu: 28 (the last number) is Exit' 'Quit' $ui.Value.Item.Value
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '28' -Height 80
+Assert-Equal 'main menu: 28 opens Check & Maintain' 'Maintenance' $ui.Value.Item.Value
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 60
+Assert-Equal 'main menu: 29 (the last number) is Exit' 'Quit' $ui.Value.Item.Value
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 80
 $f = Get-LastFrame $ui.Output
 $missing = ''
-foreach ($n in 1..28) { $num = ('{0:00}' -f $n); if ($f -notmatch "(?m)^\s*(?:\S\s)?\s*$num\s+\S+\s+\S") { $missing = $num; break } }
-Assert-True 'all 28 options are numbered 01..28 in order, each as Number, Icon, Name' ($missing -eq '') "missing $missing"
+foreach ($n in 1..29) { $num = ('{0:00}' -f $n); if ($f -notmatch "(?m)^\s*(?:\S\s)?\s*$num\s+\S+\s+\S") { $missing = $num; break } }
+Assert-True 'all 29 options are numbered 01..29 in order, each as Number, Icon, Name' ($missing -eq '') "missing $missing"
 Assert-True 'no option is labeled with a letter (A., B., [S], [Q] ...)' ($f -notmatch '(?m)^\s*(?:\S\s)?\s*\[?[A-Za-z]\]?[\.\)]\s')
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '28' -Height 80
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 80
 Assert-Contains 'tall terminal shows a description under every option' $ui.Output 'Convert a video to another container or video format.'
 Assert-Contains 'the last option shows its description too' $ui.Output 'Close FFmpeg User Manager.'
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '28' -Height 25
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 25
 Assert-True 'short terminal keeps every item reachable (scrolling, selected item description shown)' ($ui.Value.Item.Value -eq 'Quit')
 
 Set-TestGroup 'Layout: narrow / normal / wide terminals'

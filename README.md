@@ -101,6 +101,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Record / capture** | Screen, webcam and microphone recording for a set time (Windows) |
 | **Analyze & detect** | Volume, loudness, silence, black frames, scene changes, black bars, PSNR/SSIM quality comparison |
 | **Batch convert** | One conversion applied to every video or audio file in a folder |
+| **Check & maintain** | Guided health check of the FFmpeg setup: install/repair FFmpeg, check for updates, emoji font, icon style, capability re-scan - each step explained and asked first |
 | **Advanced FFmpeg** | Capability browser (all encoders, filters, formats...), custom command, GPU check, build details |
 | **FFmpeg status** | Paths, version, capabilities, hardware accelerators, update check |
 | **Streaming / HLS** | (also) send a file out to an RTMP / SRT / UDP address |
@@ -288,7 +289,7 @@ No official release has been published yet, so there is no downloadable release 
 | "ffmpeg cannot be started" | A stale `PATH` entry points to a missing or broken ffmpeg; fix it and choose *Retry* |
 | Installation or update reports an administrator problem | Run the terminal as Administrator or install FFmpeg manually |
 | Blocked script / "running scripts is disabled" | Use the `.bat` launcher (it needs no policy change) or `powershell -ExecutionPolicy Bypass -File .\Start-FFmpegTUI.ps1`; unblock downloaded files (see Installation) |
-| Icons look odd or colors are garbled | Icons are characters, so they depend on the terminal font. The app picks emoji (Windows Terminal), single-column symbols (classic console) or ASCII tags automatically; force one with `FFTUI_ICONS=emoji`, `symbol` or `ascii`, and plain colors with `FFTUI_NO_ANSI=1`. Use a TrueType console font (Consolas, Cascadia) rather than a raster font |
+| Icons look odd or colors are garbled | Icons are characters, so they depend on the terminal font. The app picks emoji (Windows Terminal), single-column symbols (classic console) or ASCII tags automatically; the app offers emoji once on first start and remembers your answer (change it in *FFmpeg Status / Settings*); force one with `FFTUI_ICONS=emoji`, `symbol` or `ascii`, and plain colors with `FFTUI_NO_ANSI=1`. Use a TrueType console font (Consolas, Cascadia) rather than a raster font |
 | "needs an interactive console" | Start it from a real terminal window (not a pipe/redirect, not the ISE) |
 | An option is missing | Your FFmpeg build does not include that encoder/filter - check *FFmpeg Status / Settings* |
 | Text overlay fails | The `drawtext` filter needs FreeType and a font; choose a font file in the *Font* question |

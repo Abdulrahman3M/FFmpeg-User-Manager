@@ -206,15 +206,21 @@ function Build-AudioVisualJob {
     $out = Get-OutputFile $W
     $cmd = New-FFCommand
     $dim = "$($sz.W)x$($sz.H)"
+    # The picture/black source is endless, so the video is bounded by the audio length explicitly. -shortest alone is not reliable:
+    # since FFmpeg 7 the encoder threads can run ahead of the audio end and the video came out up to ~2 s too long.
+    $durText = ''
+    if ($info.Duration -and $info.Duration -gt 0) { $durText = ([double]$info.Duration).ToString('0.###', [System.Globalization.CultureInfo]::InvariantCulture) }
     switch ($style) {
         'cover' {
             $pic = Get-Media $W 'cover'
-            [void](Add-FFInput $cmd $pic.Path @('-loop', '1', '-framerate', '25'))
+            $picOpts = @('-loop', '1', '-framerate', '25'); if ($durText) { $picOpts += @('-t', $durText) }
+            [void](Add-FFInput $cmd $pic.Path $picOpts)
             [void](Add-FFInput $cmd $info.Path)
             Add-FFOutOpt $cmd @('-map', '0:v', '-map', ('1:' + $info.Audio[0].Index), '-vf', ("scale={0}:{1}:force_original_aspect_ratio=decrease,pad={0}:{1}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p" -f $sz.W, $sz.H), '-shortest')
         }
         'black' {
-            [void](Add-FFInput $cmd "color=c=black:s=${dim}:r=25" @('-f', 'lavfi'))
+            $blackSrc = "color=c=black:s=${dim}:r=25"; if ($durText) { $blackSrc += ":d=$durText" }
+            [void](Add-FFInput $cmd $blackSrc @('-f', 'lavfi'))
             [void](Add-FFInput $cmd $info.Path)
             Add-FFOutOpt $cmd @('-map', '0:v', '-map', ('1:' + $info.Audio[0].Index), '-vf', 'format=yuv420p', '-shortest')
         }

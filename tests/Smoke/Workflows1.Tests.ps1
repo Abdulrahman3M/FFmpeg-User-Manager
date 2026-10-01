@@ -1,4 +1,4 @@
-# Workflow smoke tests (part 1): primary workflows driven through the real wizard with real FFmpeg.
+﻿# Workflow smoke tests (part 1): primary workflows driven through the real wizard with real FFmpeg.
 $W = Get-TestWork
 $vid = New-Fixture 'w video.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=3:size=320x240:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest')
 $aud = New-Fixture 'w audio.mp3' @('-f', 'lavfi', '-i', 'sine=frequency=880:duration=4', '-c:a', 'libmp3lame')
@@ -147,11 +147,11 @@ Assert-JobOk 'advanced: pixel format, keyframe interval, faststart, automatic ha
 Assert-Contains 'advanced options reach the command (-g 30, -movflags +faststart, -hwaccel auto)' (Get-FlatText $ui.Output) '-hwaccel auto'
 Assert-Contains 'keyframe interval reaches the command' (Get-FlatText $ui.Output) '-g 30'
 Assert-Contains 'faststart reaches the command' (Get-FlatText $ui.Output) '+faststart'
-$encList = @(Get-VideoEncoderChoices -AllowedFamilies @('h264', 'hevc', 'av1', 'mpeg4', 'vp9'))
-$hevcKey = 1 + 1 + 1 + ([array]::IndexOf(@($encList | ForEach-Object { $_.Encoder }), 'libx265'))
+# the codec is chosen by its label, exactly like a user would: the list can contain hardware encoders that only some machines can run
+Write-Host ('DIAG: video codec choices as the app lists them for MP4 (hardware included): ' + ((@(Get-VideoEncoderChoices -AllowedFamilies @((Get-VideoContainer 'mp4').Video) -IncludeHardware) | ForEach-Object { $_.Encoder }) -join ', '))
 if (Test-FFEncoder 'libx265') {
     $outx = Join-Path $W 'w video_x265.mp4'
-    $ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Video codec' "$hevcKey"), (New-Rule 'Quality mode' '02'), (New-Rule 'Quality level' '01'), (New-Rule 'Encoding speed / preset' '01'), (New-Rule 'Output file name' '{Clear}w video_x265.mp4{Enter}'), $DONE, $FAIL)
+    $ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Video codec' '{#[libx265]}'), (New-Rule 'Quality mode' '02'), (New-Rule 'Quality level' '01'), (New-Rule 'Encoding speed / preset' '01'), (New-Rule 'Output file name' '{Clear}w video_x265.mp4{Enter}'), $DONE, $FAIL)
     Assert-JobOk 'H.265 with a chosen quality level and the fastest preset' $ui $outx
     Assert-Equal 'output codec is HEVC (hvc1 tag for MP4)' 'hevc' (Get-StreamOf (Get-ProbeJson $outx) 'video')[0].codec_name
 }

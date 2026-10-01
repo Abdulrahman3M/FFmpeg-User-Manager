@@ -27,6 +27,8 @@ if (-not $runner) {
 }
 
 function ConvertTo-CmdPath { param([string]$P) if ($onWin) { return $P }; return ('Z:' + ($P -replace '/', '\')) }
+$script:CscPath = $null
+if ($onWin) { $script:CscPath = @("$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe", "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe") | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1 }
 function Invoke-BatCase {
     # Builds a sandbox (launcher + stub PowerShell executables) and runs a wrapper .cmd with the real cmd interpreter.
     param([string]$Name, [switch]$WithEntry, [switch]$Pwsh, [switch]$WinPs, [string]$BatArgs = '', [int]$StubRc = 0, [string]$Dir = '', [switch]$DoubleClick, [string]$StartDir = '', [switch]$UseStub)
@@ -40,11 +42,20 @@ function Invoke-BatCase {
     foreach ($pair in @(@($Pwsh, 'pwsh'), @($WinPs, 'powershell'))) { if ($pair[0]) { [System.IO.File]::WriteAllText((Join-Path $bin ($pair[1] + '.exe')), 'MZ dummy') } }
     $stub = Join-Path $bin 'stub.cmd'
     [System.IO.File]::WriteAllText($stub, ("@echo off`r`necho STUB-RUN %*`r`nexit /b $StubRc`r`n"))
+    # On real Windows a batch file started from a batch file WITHOUT `call` never returns to the caller, which real PowerShell executables do.
+    # So the stub must be a real executable there; it is compiled with the .NET Framework compiler that ships with Windows (no download).
+    if ($onWin -and $script:CscPath) {
+        $stubExe = Join-Path $bin 'stub.exe'
+        $cs = Join-Path $bin 'stub.cs'
+        [System.IO.File]::WriteAllText($cs, ('using System; class P { static int Main() { string c = Environment.CommandLine; string a = c.StartsWith("\"") ? c.Substring(c.IndexOf((char)34, 1) + 1) : (c.IndexOf((char)32) >= 0 ? c.Substring(c.IndexOf((char)32)) : ""); Console.WriteLine("STUB-RUN" + a); return ' + $StubRc + '; } }'))
+        $cr = Invoke-ExternalCapture -FilePath $script:CscPath -Arguments @('/nologo', ('/out:' + $stubExe), $cs) -TimeoutSec 120
+        if (Test-Path -LiteralPath $stubExe) { $stub = $stubExe } else { Write-Host ('        stub compile failed: ' + $cr.StdOut + $cr.StdErr) }
+    }
     $batWin = ConvertTo-CmdPath (Join-Path $app 'FFmpeg-User-Manager.bat')
     $binWin = ConvertTo-CmdPath $bin
     $startWin = $(if ($StartDir) { ConvertTo-CmdPath $StartDir } else { ConvertTo-CmdPath $case })
     $lines = @('@echo off', 'setlocal EnableDelayedExpansion', "set `"PATH=$binWin;%SystemRoot%\system32;%SystemRoot%`"", "cd /d `"$startWin`"")
-    if ($UseStub) { $lines += "set `"FFUM_POWERSHELL=$(ConvertTo-CmdPath $stub)`"" } else { $lines += 'set "FFUM_TRACE=1"' }
+    if ($UseStub) { $lines += "set `"FFUM_POWERSHELL=$(ConvertTo-CmdPath $stub)`""; $lines += 'set "FFUM_TRACE=1"' } else { $lines += 'set "FFUM_TRACE=1"' }
     # cmd /c (not CALL) so the exit code is the launcher's real process exit code; stdin is empty so PAUSE cannot block.
     # The launcher path goes through a variable + delayed expansion so characters such as & ( ) in it are not parsed by this wrapper.
     $lines += "set `"FFUM_TEST_BAT=$batWin`""

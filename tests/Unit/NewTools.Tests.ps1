@@ -116,3 +116,38 @@ $ui = Invoke-Ui { Start-CaptureWorkflow } '{Esc}' -Height 70
 Assert-True 'Record / Capture: every option is disabled with a reason when capture devices are unavailable' ((Get-FlatText $ui.Output) -match 'needs Windows')
 $null = Initialize-FFCapabilities -Force
 Assert-True 'the real capability set is restored after the synthetic one' ((Test-FFEncoder 'libx264') -or (Test-FFEncoder 'libopenh264') -or (Test-FFEncoder 'h264_nvenc'))
+
+Set-TestGroup 'Remembered icon style (per-user settings)'
+$sd = Join-Path (Get-TestWork) 'settings'; $oldSd = $env:FFTUI_SETTINGS_DIR; $env:FFTUI_SETTINGS_DIR = $sd
+Assert-Equal 'no setting yet' '' (Get-UserSetting 'icons')
+Assert-True 'a setting is saved' (Set-UserSetting 'icons' 'emoji')
+Assert-Equal 'and read back in a later session' 'emoji' (Get-UserSetting 'icons')
+Assert-True 'other settings are kept when one changes' ((Set-UserSetting 'x' '1') -and (Get-UserSetting 'icons') -eq 'emoji')
+Assert-True 'the settings file lives outside the project' (-not (Get-UserSettingsPath).StartsWith((Get-TestRoot)))
+$oi = $env:FFTUI_ICONS; $env:FFTUI_ICONS = ''
+Assert-Equal 'a saved choice drives Get-IconTier' 'Emoji' (Get-IconTier)
+$env:FFTUI_ICONS = $oi; $env:FFTUI_SETTINGS_DIR = $oldSd
+$env:FFTUI_SETTINGS_DIR = (Join-Path (Get-TestWork) 'settings2')
+$ui = Invoke-Ui { Invoke-IconStyleFlow -Force } '01'
+Assert-True 'choosing Yes saves emoji, shows a preview, and applies it now' ((Get-UserSetting 'icons') -eq 'emoji' -and $ui.Output.Contains('Preview:') -and (Get-IconTierInUse) -eq 'Emoji')
+$null = Invoke-Ui { Invoke-IconStyleFlow -Force } '02'
+Assert-Equal 'choosing No saves the symbol set' 'symbol' (Get-UserSetting 'icons')
+$env:FFTUI_SETTINGS_DIR = $oldSd
+
+Set-TestGroup 'Check & Maintain FFmpeg Setup'
+$ui = Invoke-Flow { Start-MaintenanceTool } @((New-ScreenRule 'Step \d of 5' '02' ), (New-ScreenRule 'Check & Maintain FFmpeg Setup' '01' 1))
+$flat = Get-FlatText $ui.Output
+Assert-True 'every step explains itself with an example and says whether the internet is used' (($flat -match 'Example:') -and ($flat -match 'Internet:') -and ($flat -match 'Step 1 of 5') -and ($flat -match 'Step 5 of 5'))
+Assert-True 'skipping every step downloads and installs nothing and ends with a summary' ($ui.Error -eq '' -and $flat.Contains('Maintenance finished') -and $flat.Contains('FFmpeg check: skipped') -and $flat.Contains('Update check: skipped'))
+$ui = Invoke-Flow { Start-MaintenanceTool } @((New-ScreenRule 'Check & Maintain FFmpeg Setup' '02' 1))
+Assert-True 'declining at the start leaves immediately' ($ui.Error -eq '' -and -not $ui.Output.Contains('Step 1 of 5'))
+Assert-True 'font check reports "unknown" off Windows' ($null -eq (Test-EmojiFontInstalled) -or (Test-IsWindows))
+$oldWt = $env:WT_SESSION; $oldTp = $env:TERM_PROGRAM; $oldCe = $env:ConEmuANSI
+$env:WT_SESSION = 'x'
+Assert-True 'terminal hint recognizes Windows Terminal' (-not (Test-IsWindows) -or (Get-TerminalEmojiHint) -match 'Windows Terminal')
+$env:WT_SESSION = $null; $env:TERM_PROGRAM = $null; $env:ConEmuANSI = $null
+Assert-Equal 'terminal hint is not applicable off Windows' 'not applicable on this system' $(if (Test-IsWindows) { 'not applicable on this system' } else { Get-TerminalEmojiHint })
+Assert-True 'terminal hint explains the classic console limit' (-not (Test-IsWindows) -or (Get-TerminalEmojiHint) -match 'classic|limited')
+$env:WT_SESSION = $oldWt; $env:TERM_PROGRAM = $oldTp; $env:ConEmuANSI = $oldCe
+$noSfc = @(Get-ChildItem -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent | Split-Path -Parent) 'src') -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' } | Select-String -Pattern 'sfc\s*/' )
+Assert-Equal 'no automatic or suggested system file repair command exists in the source' 0 $noSfc.Count

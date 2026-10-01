@@ -122,6 +122,41 @@ function Set-ConsoleUtf8Output {
     try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); return $true } catch { return $false }
 }
 
+function Get-UserSettingsPath {
+    # Per-user preferences (never inside the project folder). FFTUI_SETTINGS_DIR overrides the location (tests).
+    $dir = $env:FFTUI_SETTINGS_DIR
+    if (-not $dir) {
+        if (Test-IsWindows) { $base = $env:APPDATA } else { $base = $env:XDG_CONFIG_HOME; if (-not $base -and $env:HOME) { $base = Join-Path $env:HOME '.config' } }
+        if (-not $base) { return '' }
+        $dir = Join-Path $base 'FFmpeg-User-Manager'
+    }
+    return (Join-Path $dir 'settings.json')
+}
+
+function Get-UserSetting {
+    param([string]$Name)
+    $p = Get-UserSettingsPath
+    if (-not $p -or -not (Test-Path -LiteralPath $p -PathType Leaf)) { return '' }
+    try { $j = [System.IO.File]::ReadAllText($p) | ConvertFrom-Json; if ($j.PSObject.Properties[$Name]) { return [string]$j.$Name } } catch { }
+    return ''
+}
+
+function Set-UserSetting {
+    # Returns $true when saved. Only plain preferences are stored (no secrets, no paths).
+    param([string]$Name, [string]$Value)
+    $p = Get-UserSettingsPath
+    if (-not $p) { return $false }
+    try {
+        $h = [ordered]@{}
+        if (Test-Path -LiteralPath $p -PathType Leaf) { $j = [System.IO.File]::ReadAllText($p) | ConvertFrom-Json; foreach ($pr in $j.PSObject.Properties) { $h[$pr.Name] = $pr.Value } }
+        $h[$Name] = $Value
+        $d = Split-Path -Parent $p
+        if (-not (Test-Path -LiteralPath $d)) { [void](New-Item -ItemType Directory -Path $d -Force) }
+        [System.IO.File]::WriteAllText($p, ($h | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
+        return $true
+    } catch { return $false }
+}
+
 function Resolve-IconTier {
     # Pure decision logic (unit tested): Emoji | Symbol | Ascii. $Env is a hashtable of the relevant variables.
     #   Emoji  - modern terminals (Windows Terminal, VS Code, ConEmu, UTF-8 Linux/macOS)
@@ -148,11 +183,13 @@ function Resolve-IconTier {
 function Get-IconTier {
     $names = 'FFTUI_ICONS', 'FFTUI_ASCII', 'FFTUI_UNICODE', 'LANG', 'LC_ALL', 'WT_SESSION', 'TERM_PROGRAM', 'ConEmuANSI'
     $e = @{}; foreach ($n in $names) { $e[$n] = [Environment]::GetEnvironmentVariable($n) }
+    if (-not $e['FFTUI_ICONS'] -and $e['FFTUI_ASCII'] -ne '1') { $saved = Get-UserSetting 'icons'; if ($saved -in @('emoji', 'symbol')) { $e['FFTUI_ICONS'] = $saved } }
     $redirected = $false
     try { $redirected = [Console]::IsOutputRedirected } catch { $redirected = $true }
     $win = Test-IsWindows
     $utf8 = $true
-    if ($win -and -not $redirected) { $utf8 = Set-ConsoleUtf8Output }
+    # also when output is redirected: a forced emoji/symbol set must reach a parent process as UTF-8, not as OEM-code-page '?'
+    if ($win) { $utf8 = Set-ConsoleUtf8Output }
     return (Resolve-IconTier -Env $e -IsWin $win -Redirected $redirected -Utf8Ok $utf8)
 }
 
@@ -167,4 +204,4 @@ function Get-TerminalSize {
     return [pscustomobject]@{ Width = $w; Height = $h }
 }
 
-Export-ModuleMember -Function Get-AppName, Test-SemVer, Get-AppVersion, Set-AppRoot, Get-AppRoot, Get-AppConfig, Test-IsWindows, Get-RuntimeInfo, Test-InteractiveConsole, Test-AnsiSupport, Test-UnicodeIconSupport, Resolve-IconTier, Get-IconTier, Set-ConsoleUtf8Output, Get-TerminalSize
+Export-ModuleMember -Function Get-AppName, Test-SemVer, Get-AppVersion, Set-AppRoot, Get-AppRoot, Get-AppConfig, Test-IsWindows, Get-RuntimeInfo, Test-InteractiveConsole, Test-AnsiSupport, Test-UnicodeIconSupport, Get-UserSettingsPath, Get-UserSetting, Set-UserSetting, Resolve-IconTier, Get-IconTier, Set-ConsoleUtf8Output, Get-TerminalSize

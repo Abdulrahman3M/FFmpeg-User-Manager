@@ -1,4 +1,4 @@
-# Workflow smoke tests (part 2): GIF and frame extraction, including paths with spaces / Unicode.
+﻿# Workflow smoke tests (part 2): GIF and frame extraction, including paths with spaces / Unicode.
 $W = Get-TestWork
 $vid = New-Fixture 'g video.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=3:size=320x240:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest')
 $DONE = New-ScreenRule 'Completed successfully' '{#Main menu}'
@@ -117,7 +117,8 @@ Assert-True "time range 1-2 s every 0.5 s as WebP (got $($webps.Count))" ($webps
 $ui = Invoke-Flow { Start-ExtractFramesWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Timestamp' '{Clear}1{Enter}'), (New-Rule 'Output folder' '{#LAST}'), (New-Rule 'Output folder path' "$fd{Enter}"), (New-Rule 'File name prefix' '{Enter}' 1), (New-Rule 'Images with these names already exist' '01'), (New-Rule 'File name prefix' '{Clear}other{Enter}'), $DONE, $FAIL)
 Assert-True 'existing images are not overwritten silently (rename path)' ((Test-Path -LiteralPath (Join-Path $fd 'other_0001.png')) -and $ui.Output.Contains('Images with these names already exist'))
 # Unicode / awkward names end-to-end
-$uniDir = Join-Path $W 'Папка тест (1) & "العربية"'
+$dq = $(if ((Test-IsWindows)) { '' } else { '"' })   # a double quote is not a legal file-name character on Windows
+$uniDir = Join-Path $W ('Папка тест (1) & ' + $dq + 'العربية' + $dq)
 $uni = New-Fixture "Видео тест & 'q' (1) اختبار.mp4" @('-f', 'lavfi', '-i', 'testsrc=duration=2:size=160x120:rate=10', '-c:v', 'libx264', '-pix_fmt', 'yuv420p') $uniDir
 $ui = Invoke-Flow { Start-GifWorkflow } @((New-Rule 'Input video' "$uni{Enter}"), $DONE, $FAIL)
 Assert-JobOk 'Unicode/Arabic/Cyrillic + quotes/ampersand/parentheses path -> GIF' $ui (Join-Path $uniDir "Видео тест & 'q' (1) اختبار_gif.gif")

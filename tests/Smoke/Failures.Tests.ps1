@@ -100,6 +100,23 @@ $ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid
 Assert-True 'a folder without write permission is rejected before execution' ((Get-FlatText $ui.Output) -match 'permission to write')
 Import-Module -Name (Join-Path (Join-Path (Join-Path (Get-TestRoot) 'src') 'Core') 'Paths.psm1') -Force -DisableNameChecking -Global
 Assert-True 'the write-permission override was removed again' ((Test-DirectoryWritable (Get-TestWork)) -eq $true)
-Skip-Test 'read permission denied on an input file' 'the test machine runs as root/administrator, so permission errors cannot be provoked; Test-InputFile maps UnauthorizedAccessException to a message (code-reviewed only)'
-Skip-Test 'input file locked by another program' 'sharing violations only occur on Windows; Test-InputFile maps IOException to a message (code-reviewed only)'
+# read permission denied: provoked for real (Windows: an explicit deny ACE; Unix: chmod 000). A privileged account that ignores the denial cannot provoke it -> UNVERIFIED with the reason.
+$denied = Join-Path (Get-TestWork) 'no read access.txt'
+[System.IO.File]::WriteAllText($denied, 'secret content')
+$deniedSet = $false
+try {
+    if (Test-IsWindows) { $null = Invoke-ExternalCapture -FilePath 'icacls.exe' -Arguments @($denied, '/deny', ($env:USERDOMAIN + '\' + $env:USERNAME + ':(R)')) -TimeoutSec 30; $deniedSet = $true }
+    else { $null = Invoke-ExternalCapture -FilePath 'chmod' -Arguments @('000', $denied) -TimeoutSec 30; $deniedSet = $true }
+} catch { }
+$deniedMsg = $null; if ($deniedSet) { $deniedMsg = Test-InputFile $denied }
+if ($deniedMsg -like '*denied*') { Add-TestResult 'read permission denied on an input file: a clear message, nothing is started' 'PASS' }
+else { Skip-Test 'read permission denied on an input file' ("the account ignores the denial (administrator/root); Test-InputFile returned: [$deniedMsg]. Run tools/Test-WindowsLocal.ps1 as a standard user to verify.") }
+try { if (Test-IsWindows) { $null = Invoke-ExternalCapture -FilePath 'icacls.exe' -Arguments @($denied, '/remove:d', ($env:USERDOMAIN + '\' + $env:USERNAME)) -TimeoutSec 30 } else { $null = Invoke-ExternalCapture -FilePath 'chmod' -Arguments @('644', $denied) -TimeoutSec 30 } } catch { }
+# locked file: another handle holds the file exclusively (FileShare.None)
+$locked = Join-Path (Get-TestWork) 'locked by other program.txt'
+[System.IO.File]::WriteAllText($locked, 'busy')
+$holder = [System.IO.File]::Open($locked, 'Open', 'ReadWrite', 'None')
+try { $lockedMsg = Test-InputFile $locked } finally { $holder.Dispose() }
+if ($lockedMsg -like '*locked*') { Add-TestResult 'input file locked by another program: a clear message' 'PASS' }
+else { Skip-Test 'input file locked by another program' "this platform did not enforce the exclusive handle (Test-InputFile returned: [$lockedMsg]); sharing violations are enforced on Windows" }
 Skip-Test 'terminal closes unexpectedly while a job runs' 'cannot be automated; the child FFmpeg process is stopped in a finally block of Invoke-FFmpegStage'

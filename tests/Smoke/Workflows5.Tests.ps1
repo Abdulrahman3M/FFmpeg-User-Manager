@@ -94,11 +94,11 @@ Assert-JobOk 'image sequence to video' $ui $o
 Assert-True 'sequence video has 10 frames at 12 FPS (about 0.83 s)' ([math]::Abs([double](Get-ProbeJson $o).format.duration - 0.833) -lt 0.2)
 $ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Numbered Image Sequence}' @((New-Rule 'Image sequence pattern' "$(Join-Path $seq 'nothing_%04d.png'){Enter}"), (New-Rule 'Number of the first picture' '{Enter}'), (New-Rule 'Number of the first picture' '{Esc}{Esc}{Esc}{Esc}' 10)) -MaxCalls 40
 Assert-Contains 'a sequence that does not exist is rejected' $ui.Output 'No picture with that number was found'
-$ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((New-Rule 'Audio file' "$aud{Enter}"), (New-Rule 'What should the picture show?' '{#Plain black}'), (New-Rule 'Video size' '{#1280x720}'), $DONE, $FAIL)
+$ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((New-Rule 'Audio file' "$aud{Enter}"), (New-Rule 'What should the picture show?' '{#Plain black}'), (New-Rule 'Video size' '{#1280x720}'), (New-ScreenRule '── Summary' '{#View FFmpeg command}{Esc}{Enter}' 1), $DONE, $FAIL)
 $o = Join-Path $W 'n audio_visual.mp4'
 Assert-JobOk 'audio to a black-screen video' $ui $o
 $j = Get-ProbeJson $o
-Assert-True 'result has one video and one audio stream of about 4 s' ((Get-StreamOf $j 'video').Count -eq 1 -and (Get-StreamOf $j 'audio').Count -eq 1 -and [math]::Abs([double]$j.format.duration - 4.0) -lt 0.6)
+Assert-True 'result has one video and one audio stream of about 4 s' ((Get-StreamOf $j 'video').Count -eq 1 -and (Get-StreamOf $j 'audio').Count -eq 1 -and [math]::Abs([double]$j.format.duration - 4.0) -lt 0.6) ('video streams={0} audio streams={1} duration={2}' -f @(Get-StreamOf $j 'video').Count, @(Get-StreamOf $j 'audio').Count, $j.format.duration)
 $ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((New-Rule 'Audio file' "$aud{Enter}"), (New-Rule 'What should the picture show?' '{#Animated sound waves}'), (New-Rule 'Video size' '{#1280x720}'), (New-Rule 'Output file name' '{Clear}n audio_waves.mp4{Enter}'), $DONE, $FAIL)
 Assert-JobOk 'audio to a waveform video' $ui (Join-Path $W 'n audio_waves.mp4')
 $ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Contact Sheet}' @((New-Rule 'Input video' "$vid{Enter}"), $DONE, $FAIL)

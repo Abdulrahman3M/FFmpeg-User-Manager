@@ -45,11 +45,12 @@ function ConvertFrom-FFFormatList {
 }
 
 function ConvertFrom-FFFilterList {
-    # ' T.C acrossfade       AA->A      Cross fade two input audio streams.'
+    # ' T.C acrossfade       AA->A      Cross fade two input audio streams.'   (FFmpeg up to 8: three flag columns)
+    # ' TS afftdn            A->A       Denoise audio samples using FFT.'      (FFmpeg 9: two flag columns)
     param([string]$Text)
     $set = @{}
     foreach ($l in (Get-DataLines $Text)) {
-        if ($l -match '^\s([T\.][S\.][C\.])\s+(\S+)\s+(\S+)\s+(.*)$') { $set[$Matches[2]] = @{ Io = $Matches[3]; Description = $Matches[4].Trim() } }
+        if ($l -match '^\s([T\.][S\.][C\.]?)\s+(\S+)\s+(\S+)\s+(.*)$') { $set[$Matches[2]] = @{ Io = $Matches[3]; Description = $Matches[4].Trim() } }
     }
     return $set
 }

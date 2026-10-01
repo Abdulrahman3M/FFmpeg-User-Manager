@@ -1,4 +1,4 @@
-# Workflow smoke tests (part 3): audio tools, subtitle tools, frame rate, filters.
+﻿# Workflow smoke tests (part 3): audio tools, subtitle tools, frame rate, filters.
 $W = Get-TestWork
 $vid = New-Fixture 'a video.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=3:size=320x240:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest')
 $aud = New-Fixture 'a audio.mp3' @('-f', 'lavfi', '-i', 'sine=frequency=880:duration=4', '-af', 'volume=0.3', '-c:a', 'libmp3lame')
@@ -108,7 +108,8 @@ Assert-Contains 'burn explains that video is re-encoded' $ui.Output 'requires re
 Assert-True 'burned output has no subtitle stream (text is in the picture)' ((Get-StreamOf (Get-ProbeJson $o) 'subtitle').Count -eq 0)
 $ui = Invoke-Sub { Start-SubtitleToolsWorkflow } $ST '3' @((New-Rule 'Input video' "$mkvSub{Enter}"), (New-Rule 'Subtitle source' '02'), (New-Rule 'Which subtitle stream?' '02'), (New-Rule 'Output format' '02'), $DONE, $FAIL)
 Assert-JobOk 'burn an embedded subtitle stream' $ui (Join-Path $W 'a sub_subtitled.mkv')
-$srtWeird = Join-Path $W "we'ird: [sub], name;x=1.srt"; [System.IO.File]::WriteAllText($srtWeird, "1`n00:00:00,000 --> 00:00:01,500`nHi`n")
+$srtWeird = Join-Path $W $(if (Test-IsWindows) { "we'ird [sub], name;x=1.srt" } else { "we'ird: [sub], name;x=1.srt" }); # a colon is not legal in a Windows file name (the drive-letter colon of the path is escaped and tested by the other burn cases)
+[System.IO.File]::WriteAllText($srtWeird, "1`n00:00:00,000 --> 00:00:01,500`nHi`n")
 $ui = Invoke-Sub { Start-SubtitleToolsWorkflow } $ST '3' @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Subtitle file' "$srtWeird{Enter}"), (New-Rule 'Output file name' '{Clear}weird_burn.mp4{Enter}'), $DONE, $FAIL)
 Assert-JobOk 'burn with a subtitle path containing apostrophe, colon, brackets, comma, semicolon, equals' $ui (Join-Path $W 'weird_burn.mp4')
 $ui = Invoke-Sub { Start-SubtitleToolsWorkflow } $ST '4' @((New-Rule 'Input file with subtitles' "$mkvSub{Enter}"), (New-Rule 'Output file name' '{Clear}nosubs.mkv{Enter}'), $DONE, $FAIL)

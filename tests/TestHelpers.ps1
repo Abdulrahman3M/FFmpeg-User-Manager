@@ -143,16 +143,28 @@ function Invoke-Flow {
       Drives a workflow with rules: each rule is @{ M = 'regex matched against the current screen'; K = 'keys'; N = max uses }.
       The first matching rule with uses left supplies the keys; otherwise Enter (accept the default) is pressed.
     #>
-    param([scriptblock]$Action, [object[]]$Rules = @(), [string]$Default = '{Enter}', [int]$Width = 100, [int]$Height = 40, [int]$MaxCalls = 500)
+    param([scriptblock]$Action, [object[]]$Rules = @(), [string]$Default = '{Enter}', [int]$Width = 100, [int]$Height = 40, [int]$MaxCalls = 500, [System.Collections.Generic.List[string]]$Trace = $null)
     Initialize-Renderer -Ansi $false -Unicode $true -Sink Buffer -Width $Width -Height $Height
     Clear-CapturedOutput
+    $tr = $Trace
     $state = @{ Rules = @($Rules | ForEach-Object { @{ M = $_.M; K = $_.K; N = $(if ($_.ContainsKey('N')) { $_.N } else { 1000 }); Used = 0 } }); Default = $Default }
     $provider = {
         param($frame)
+        $chosen = $null; $why = 'default'
         foreach ($r in $state.Rules) {
-            if ($r.Used -lt $r.N -and $frame -match $r.M) { $r.Used++; return (Expand-KeyMacros $r.K $frame) }
+            if ($r.Used -lt $r.N -and $frame -match $r.M) { $r.Used++; $chosen = (Expand-KeyMacros $r.K $frame); $why = ('rule ' + $r.M); break }
         }
-        return (Expand-KeyMacros $state.Default $frame)
+        if ($null -eq $chosen) { $chosen = (Expand-KeyMacros $state.Default $frame) }
+        if ($null -ne $tr) {
+            # diagnostic trace (used by tests/Repro): question text, numbered options shown, answer typed
+            $opts = @(); $ctx = @()
+            foreach ($ln in ($frame -split "`r?`n")) {
+                if ($ln -match '^\s*(?:\S\s)?\s*(\d{2,})\s+(\S+)\s+(.+?)\s*$') { $opts += ($Matches[1] + ' ' + $Matches[3]) } elseif ($ln.Trim() -and $opts.Count -eq 0) { $ctx += $ln.Trim() }
+            }
+            $q = ($ctx | Select-Object -Last 2) -join ' / '
+            $tr.Add(('screen: [{0}]  options: [{1}]  keys sent: [{2}]  ({3})' -f $q, ($opts -join ' | '), $chosen, $why))
+        }
+        return $chosen
     }.GetNewClosure()
     Set-TuiScriptedProvider $provider -MaxCalls $MaxCalls
     $err = ''; $val = $null

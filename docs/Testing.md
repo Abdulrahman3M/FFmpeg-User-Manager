@@ -2,13 +2,48 @@
 
 ## Compatibility matrix
 
-| Runtime | Required | Status in this repository |
+| Environment | Result (actual, from the logs) | Run / commit |
 |---|---|---|
-| Windows PowerShell 5.1 | PASS required | **Not executed by the author's environment** (Linux container without Windows PowerShell). Syntax-level compatibility is verified by static tests (see below). **Run the suite on a Windows machine to complete this row.** |
-| PowerShell 7.x | PASS required | Full suite executed on PowerShell 7.4 (Linux, FFmpeg 6.1). |
+| Windows PowerShell 5.1 on a Windows runner (FFmpeg 9.0.2) | **1263 PASS, 0 FAIL, 1 UNVERIFIED** | Actions run #12 (`tests`, manual dispatch), commit `3f96e26` |
+| PowerShell 7 on a Windows runner (FFmpeg 9.0.2) | **1263 PASS, 0 FAIL, 1 UNVERIFIED** | Actions run #12, commit `3f96e26` |
+| PowerShell 7.4 on Linux (FFmpeg 6.1, Wine for the `.bat` tests) | **1261 PASS, 0 FAIL, 5 UNVERIFIED** | local run, commit `3f96e26` |
+
+History of the Windows work (same suite): run #3 (first diagnosable run) PowerShell 7 1034 PASS / 35 FAIL / 3 UNVERIFIED, PowerShell 5.1 893 PASS / 40 FAIL / 5 UNVERIFIED -> run #12 above. The causes are listed in the investigation table below.
+
+Remaining UNVERIFIED items (never reported as PASS):
+
+| Environment | Test | Why it cannot run in the cloud | How to verify locally |
+|---|---|---|---|
+| Windows (both) and Linux | terminal closes unexpectedly while a job runs | needs a real terminal window to be closed | `tools/Test-WindowsLocal.ps1` manual check 6 (close the window during a conversion, then look for a leftover `ffmpeg.exe` in Task Manager) |
+| Linux | screen / webcam / microphone recording | needs Windows capture devices (gdigrab, dshow); parsing and command building are unit tested | `tools/Test-WindowsLocal.ps1` list item 5 on a Windows PC with devices |
+| Linux | read permission denied | the account is root; on Windows this check **ran and passed** on the runner | run the suite as a standard user on Linux |
+| Linux | two double-click launcher checks | Wine's `cmd` does not populate `%CMDCMDLINE%`; on Windows both **ran and passed** | none needed on Windows |
+
+Not covered by any automated run (no result is claimed): rendering in a real **Windows Terminal** / classic console (emoji vs symbol icons, font), real `winget install/upgrade` of FFmpeg (mocked in the suite; installs need the user's consent), real recording devices. Use
+`.\tools\Test-WindowsLocal.ps1` on a Windows PC: it runs the suite under every installed PowerShell edition, prints what the application detects (Segoe UI Emoji, terminal, icon set) and lists the manual checks.
 
 Windows-only behavior that could not be exercised on Linux: native file/folder picker, `explorer.exe /select`, real `winget list/upgrade/install` text output
 (the parser is exercised with sample text and mocks), legacy-console ANSI enabling (P/Invoke), Windows path/lock/permission errors.
+
+## Windows investigation (root causes found by running the suite on a real Windows runner)
+
+The first runs of the suite on GitHub's Windows runner (FFmpeg 9.0.2 from Chocolatey, Windows PowerShell 5.1 and PowerShell 7) failed in 35-40 places. Each failure was traced to evidence in the run logs; nothing was
+"fixed" by weakening a check. The confirmed causes:
+
+| # | Symptom on Windows | Confirmed root cause (evidence) | Where | Fix |
+|---|---|---|---|---|
+| 1 | About 20 workflow tests failed (loudness normalization, noise reduction, silence removal, subtitles, GIF dithering, rotate, waveform ...) and the menus said "requires the afftdn filter (not in this FFmpeg build)" | **Product bug.** FFmpeg 9 prints two flag columns in `ffmpeg -filters` (` TS afftdn  A->A`) where FFmpeg 6-8 print three. The parser found 0 filters (`caps: enc=221 mux=184 filt=0` in the log, while `ffmpeg -filters` listed 535) | `ConvertFrom-FFFilterList` in `src/FFmpeg/FFmpegCapabilities.psm1` | The third flag column is optional; regression test with the FFmpeg 9 format in `Core.Tests.ps1` |
+| 2 | "H.265 with a chosen quality level" ended with `Scripted provider exceeded the call limit`; `Workflows1.Tests.ps1` then crashed with "property 'streams' cannot be found" | **Test bug, proven by an isolated reproduction** (`tests/Repro/Repro-H265.ps1`, workflow `repro`). The app lists `h264_mf` (Media Foundation, usable on the runner) as option 04, which shifted `libx265` to 05. The old test computed the position from a list WITHOUT hardware encoders, so it chose 04: the wizard then showed "Quality level - This encoder does not support quality-based mode" (disabled) and the scripted key `02` did nothing, 60 times. The `Workflows1` crash was only the consequence (the output file did not exist) | `tests/Smoke/Workflows1.Tests.ps1` | The codec is chosen by its label `{#[libx265]}`, like a user would; the old and new answers are kept side by side in the repro |
+| 3 | `Audio to Video` (black screen) sometimes produced a 5.8 s video for a 4 s sound | **Product bug.** The black/picture source is endless and only `-shortest` bounded it; since FFmpeg 7 the encoder threads can run ahead of the audio end, so the result is nondeterministic | `Build-AudioVisualJob` in `src/Workflows/ImagesAndVisuals.psm1` | The source is bounded explicitly with the audio duration (`color=...:d=` / `-t`); test checks the command and the duration |
+| 4 | Launcher: "a failing run is reported and pauses" never printed the message | **Test bug on real `cmd`.** The stub was a `.cmd`; a batch file started from a batch file without `call` never returns to the caller (real `pwsh.exe` does). Separately the double-click detection echoed the raw command line, so `&` in a folder name was executed as a command | `FFmpeg-User-Manager.bat`, `tests/Smoke/Launcher.Tests.ps1` | The detection uses delayed expansion in a small block and strips quotes first; on Windows the stub is a compiled executable (`csc.exe` that ships with Windows) |
+| 5 | Unicode icon test: emoji missing in captured output | **Product bug.** The console was switched to UTF-8 only when output was not redirected, so a forced emoji set reached a parent process through the OEM code page | `Get-IconTier` in `src/Core/Environment.psm1` | UTF-8 output is set whenever the host is Windows |
+| 6 | Windows PowerShell 5.1: test files with Cyrillic/Arabic/box-drawing text were misread; `Static`/`UiRules` crashed with "Access denied" on folders | 5.1 reads BOM-less files as ANSI; `Get-ChildItem -LiteralPath ... -Include` returns directories in 5.1 | `tests/**/*.ps1` | UTF-8 BOM on test files that contain non-ASCII text; file-only enumeration |
+| 7 | "winget missing" / status tests behaved differently | The runner has a real winget; `Get-WingetPath` ignored the test hook | `Get-WingetPath` in `src/FFmpeg/FFmpegManager.psm1` | The hook is honoured; tests hide winget explicitly |
+| 8 | `ffmpeg without ffprobe` test; Windows file names | Chocolatey's `ffmpeg.exe` is a shim that only works next to its install folder; `"` and `:` are illegal in Windows file names | `tests/Smoke/App.Tests.ps1`, `Workflows2/3` | The real executable is copied; those characters are skipped on Windows |
+
+Method that was used (and should be used again): one isolated reproduction per failure (`tests/Repro`, run by the `repro` workflow, which prints every wizard screen, its options and the keys sent), proof from the logs,
+then one deliberate full run. The full-suite workflow is started by hand (Actions tab -> *tests* -> *Run workflow*), by pull requests and by pushes to `main`; it no longer starts on every branch push.
+The full `suite.log` of each run is kept as an artifact (`suite-log-powershell`, `suite-log-pwsh`).
 
 ## Running
 
@@ -33,7 +68,7 @@ be provoked in the current environment (with the reason printed). FFmpeg + ffpro
 |---|---|---|
 | Unit | `Core.Tests.ps1` | validation, paths, argument quoting round-trips with awkward file names, injection safety, filter escaping proven against the real filter parser, encoders, atempo chains, progress parsing, capability parsing/discovery, ffprobe model |
 | Unit | `Manager.Tests.ps1` | detection (installed / missing / no ffprobe / stale PATH), update states with mocked winget text, install and update flows through the UI, failure and unmanaged cases |
-| Unit | `Tui.Tests.ps1` | menu (two-digit numbers `01`-`99`, `100`+, prefix waiting, Enter, arrows, Esc, Ctrl+C, scrolling, disabled items, no letter keys), main-menu definition (28 numbered options, Exit last), narrow/normal/wide layout, the three icon tiers (emoji, console-safe symbol, ASCII; symbol glyphs are checked against WGL4), theme centralization, line editor, wizard (steps, Back, conditions, Goto, multi-choice, file list, summary menu), dialogs |
+| Unit | `Tui.Tests.ps1` | menu (two-digit numbers `01`-`99`, `100`+, prefix waiting, Enter, arrows, Esc, Ctrl+C, scrolling, disabled items, no letter keys), main-menu definition (29 numbered options, Exit last), narrow/normal/wide layout, the three icon tiers (emoji, console-safe symbol, ASCII; symbol glyphs are checked against WGL4), theme centralization, line editor, wizard (steps, Back, conditions, Goto, multi-choice, file list, summary menu), dialogs |
 | Unit | `Static.Tests.ps1` | version (`VERSION` is SemVer, README badge/CHANGELOG/tags consistent), README/docs link and image check, README commands vs real launcher switches, release-package contents, secret and machine-path scan, `.gitignore`, parse check, no `Invoke-Expression`, no network/telemetry code, no shell launching, no recursive deletion, PS-5.1 syntax/API scan, ASCII-only sources, closure rule, module/wiring/documentation presence |
 | Unit | `NewTools.Tests.ps1` | icon-tier decision table (Windows Terminal, conhost, redirected, Linux, overrides), custom-command argument parsing and refusals, DirectShow device parsing, analysis log parsers, chapter parsing and ffmetadata escaping, stream-output destinations, slideshow/sequence helpers |
 | Unit | `UiRules.Tests.ps1` | static UI rules by syntax tree: no letter keys or hand-written keys, every `New-Choice` has a description, every Yes/No question describes both answers, every question has help and typed questions an example, no local variable that collides with a parameter |
@@ -44,7 +79,7 @@ be provoked in the current environment (with the reason printed). FFmpeg + ffpro
 
 ## Launcher tests and Wine
 
-`tests/Smoke/Launcher.Tests.ps1` runs the batch file in a sandbox with dummy `pwsh.exe` / `powershell.exe` files on `PATH` (detection) and a `.cmd` stub selected through `FFUM_POWERSHELL` (execution and exit codes).
+`tests/Smoke/Launcher.Tests.ps1` runs the batch file in a sandbox with dummy `pwsh.exe` / `powershell.exe` files on `PATH` (detection) and a `.cmd` stub selected through `FFUM_POWERSHELL` (execution and exit codes). On Windows the stub is a small executable compiled with the .NET Framework compiler that ships with Windows, because a batch file started from a batch file without `call` never returns to the caller.
 On Windows it uses `cmd.exe`; on Linux it uses Wine if installed (`apt install wine64`), otherwise the cases are reported `UNVERIFIED`. Running the real PowerShell application through the launcher on Windows remains a manual check.
 
 ## Fixture strategy
@@ -62,7 +97,7 @@ the position of an option. `New-FileListRules` fills a "Files" question (type pa
 
 ## Manual TUI checklist (real terminal)
 
-1. Windows Terminal + PowerShell 7 and Windows PowerShell 5.1: start, arrow keys, typing numbers (`01`, `08`, `28`), Esc/Back, Ctrl+C.
+1. Windows Terminal + PowerShell 7 and Windows PowerShell 5.1: start, arrow keys, typing numbers (`01`, `08`, `29`), Esc/Back, Ctrl+C.
 2. Legacy console host (conhost, double-click the `.bat`): every option must show a **symbol icon** (never a blank, a box or an ASCII tag); colors fall back; still readable. Also check Windows Terminal (emoji icons), the Consolas, Lucida Console and raster fonts, and `FFTUI_ICONS=ascii`. **Not yet verified on Windows.**
 3. Resize the window narrow (< 60 columns) and short (< 20 rows) while on the menu and in a wizard.
 4. Paste a quoted path with spaces / Unicode; press `Tab` for the native picker.

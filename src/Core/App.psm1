@@ -109,6 +109,29 @@ function Invoke-UpdateFlow {
     if ($Interactive -and $st.State -in @('Unknown', 'Unmanaged')) { $null = Show-Notice -Title 'Update status' -Lines @($st.Message) -Kind Info }
 }
 
+function Invoke-IconStyleFlow {
+    # Offered once on Windows consoles that cannot be recognized as emoji-capable. The answer is remembered
+    # (per-user settings file), so the question is never asked again; the Status screen can change it later.
+    param([switch]$Force)
+    if ((Get-IconTierInUse) -eq 'Ascii') { return }
+    if (-not $Force) {
+        if (-not (Test-IsWindows)) { return }
+        if ($env:FFTUI_ICONS -or $env:FFTUI_ASCII -eq '1' -or $env:FFTUI_UNICODE -eq '1') { return }
+        if (Get-UserSetting 'icons') { return }
+        if ((Get-IconTierInUse) -ne 'Symbol') { return }
+    }
+    $sample = (@(0x1F3AC, 0x1F3B5, 0x1F4E6, 0x1F300) | ForEach-Object { [char]::ConvertFromUtf32($_) }) -join '  '
+    $lines = @('Your terminal is using simple symbol icons. Colorful emoji icons look nicer and work in Windows Terminal.',
+        '', ('Preview: ' + $sample), '',
+        'If you can see four small pictures above (not empty boxes or question marks), emoji will work for you.',
+        'Your choice is saved for this Windows account and you will not be asked again. You can change it later in FFmpeg Status / Settings.')
+    $yes = Show-Confirm -Title 'Use colorful emoji icons?' -Lines $lines -Default $true -YesLabel 'Yes, use emoji icons' -NoLabel 'No, keep the simple symbols' -Kind Info
+    $v = $(if ($yes) { 'emoji' } else { 'symbol' })
+    $saved = Set-UserSetting 'icons' $v
+    Initialize-Theme -Ansi (Test-AnsiMode) -Unicode $(if ($yes) { 'Emoji' } else { 'Symbol' })
+    if (-not $saved) { $script:StartupNotice = 'The icon choice could not be saved, so you may be asked again next time.' }
+}
+
 function Initialize-CapabilityScan {
     param([switch]$Force)
     $state = @{ n = 0 }
@@ -158,6 +181,7 @@ function Show-FFmpegStatus {
             @{ Label = 'Re-scan capabilities'; Icon = 'Retry'; Desc = 'Read the encoders, formats and filters again (use after updating FFmpeg).'; Value = 'scan' },
             @{ Label = 'Check for updates'; Icon = 'Update'; Desc = 'Ask Windows Package Manager whether a newer FFmpeg is available.'; Value = 'update' },
             @{ Label = 'Re-detect FFmpeg paths'; Icon = 'Search'; Desc = 'Look for ffmpeg and ffprobe again, for example after installing them manually.'; Value = 'paths' },
+            @{ Label = 'Icon style (emoji or symbols)'; Icon = 'Settings'; Desc = 'Choose colorful emoji icons or simple symbols; the choice is remembered.'; Value = 'icons' },
             @{ Label = 'Back'; Icon = 'Back'; Desc = 'Return to the main menu.'; Value = 'back' }
         )
         $r = Show-Menu -Items $items -AllowBack -InfoRenderer $render -InfoLines ($rows.Count + 9)
@@ -165,6 +189,7 @@ function Show-FFmpegStatus {
         switch ($r.Item.Value) {
             'back' { return }
             'scan' { $null = Initialize-CapabilityScan -Force }
+            'icons' { Invoke-IconStyleFlow -Force }
             'update' { Invoke-UpdateFlow -Interactive }
             'paths' {
                 Update-ProcessPath
@@ -207,6 +232,7 @@ function Get-MainMenuItems {
         @{ Icon = 'Batch'; Label = 'Batch Convert Folder'; Desc = 'Convert every video or audio file in a folder with the same settings.'; Value = 'Batch' },
         @{ Icon = 'Code'; Label = 'Advanced FFmpeg'; Desc = 'Browse every codec and filter, test the GPU, or run your own FFmpeg options.'; Value = 'Advanced' },
         @{ Icon = 'Settings'; Label = 'FFmpeg Status / Settings'; Desc = 'View FFmpeg version, detected capabilities, paths, and update status.'; Value = 'Status' },
+        @{ Icon = 'Hardware'; Label = 'Check & Maintain FFmpeg Setup'; Desc = 'Find problems, then update or repair step by step. Each step is explained and asks first.'; Value = 'Maintenance' },
         @{ Icon = 'Quit'; Label = 'Exit'; Desc = 'Close FFmpeg User Manager. Nothing is left running.'; Value = 'Quit' }
     )
     return $items
@@ -242,6 +268,7 @@ function Invoke-MainMenuAction {
         'Batch' { Start-BatchWorkflow }
         'Advanced' { Start-AdvancedWorkflow }
         'Status' { Show-FFmpegStatus }
+        'Maintenance' { Start-MaintenanceTool }
     }
 }
 
@@ -311,6 +338,7 @@ function Start-FFmpegTuiApp {
             if (-not (Show-FFmpegMissingFlow $det)) { return 0 }
         }
         if (-not $SkipUpdateCheck -and $env:FFTUI_SKIP_UPDATE -ne '1') { Invoke-UpdateFlow }
+        Invoke-IconStyleFlow
         $null = Initialize-CapabilityScan
         Set-HeaderInfo -Text ('| FFmpeg ' + (Get-FFmpegInfo).Version)
         Start-MainMenu
@@ -327,4 +355,4 @@ function Start-FFmpegTuiApp {
     return $exit
 }
 
-Export-ModuleMember -Function Show-FFmpegMissingFlow, Invoke-UpdateFlow, Initialize-CapabilityScan, Show-FFmpegStatus, Get-MainMenuItems, Invoke-MainMenuAction, Start-MainMenu, Start-FFmpegTuiApp, Invoke-WithSpinner
+Export-ModuleMember -Function Invoke-IconStyleFlow, Show-FFmpegMissingFlow, Invoke-UpdateFlow, Initialize-CapabilityScan, Show-FFmpegStatus, Get-MainMenuItems, Invoke-MainMenuAction, Start-MainMenu, Start-FFmpegTuiApp, Invoke-WithSpinner

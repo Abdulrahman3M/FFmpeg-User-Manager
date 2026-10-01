@@ -1,4 +1,4 @@
-# Workflow smoke tests (part 4): crop/rotate/flip, text & watermark, speed, HLS, streaming, media info, status.
+﻿# Workflow smoke tests (part 4): crop/rotate/flip, text & watermark, speed, HLS, streaming, media info, status.
 $W = Get-TestWork
 $vid = New-Fixture 'c video.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=3:size=320x240:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest')
 $DONE = New-ScreenRule 'Completed successfully' '{#Main menu}'
@@ -180,7 +180,10 @@ $ui = Invoke-Flow { Start-MediaInfoWorkflow } @((New-Rule 'File to inspect' "$ba
 Assert-Contains 'media info: unreadable file gives a clear error' $ui.Output 'could not be read as media'
 
 Set-TestGroup 'Workflow 19: FFmpeg Status / Settings'
-$ui = Invoke-Ui { Show-FFmpegStatus } '0102{Enter}0304'
+# winget is hidden so a real winget (present on Windows machines) cannot change what the update check shows
+Set-FFManagerHooks -FindCommand { param($n) if ($n -eq 'winget') { return $null }; $c = Get-Command $n -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($c) { return [string]$c.Source } }
+$ui = Invoke-Ui { Show-FFmpegStatus } '0102{Enter}0305'
+Set-FFManagerHooks -Reset
 foreach ($needle in @('FFmpeg Status / Settings', (Get-FFmpegPath), (Get-FFprobePath), (Get-FFmpegInfo).Version, 'PowerShell', 'Terminal', 'Accelerators', 'Capabilities', 'Updates', 'Re-scan capabilities', 'Check for updates', 'Re-detect FFmpeg paths')) { Assert-Contains "status shows: $needle" $ui.Output $needle }
 Assert-True 'status actions (re-scan, update check, re-detect, back) run without errors' ($ui.Error -eq '') $ui.Error
 Assert-Contains 'update check without winget is a non-fatal notice' $ui.Output 'Update status'

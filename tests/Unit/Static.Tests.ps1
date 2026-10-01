@@ -1,6 +1,6 @@
 # Static analysis: safety rules, Windows PowerShell 5.1 compatibility (syntax level), structure.
 $root = Get-TestRoot
-$srcFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Recurse -Include '*.ps1', '*.psm1') + @(Get-Item -LiteralPath (Join-Path $root 'Start-FFmpegTUI.ps1'))
+$srcFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' }) + @(Get-Item -LiteralPath (Join-Path $root 'Start-FFmpegTUI.ps1'))
 $asts = @{}
 Set-TestGroup 'Static: parse'
 foreach ($sf in $srcFiles) {
@@ -84,11 +84,11 @@ foreach ($m in @('Core/App', 'Core/Environment', 'Core/ProcessRunner', 'Core/Val
 foreach ($m in @('ConvertVideo', 'ConvertAudio', 'ExtractAudio', 'TrimMedia', 'MergeMedia', 'CompressMedia', 'ResizeVideo', 'VideoToGif', 'ExtractFrames', 'AudioTools', 'SubtitleTools', 'FrameRate', 'Filters', 'TransformVideo', 'OverlayTools', 'PlaybackSpeed', 'RemuxStreams', 'MetadataChapters', 'ImagesAndVisuals', 'AudioEffects', 'VideoEnhance', 'CaptureMedia', 'AnalyzeMedia', 'BatchConvert', 'AdvancedTools', 'StreamingHls', 'MediaInfo')) {
     Assert-True "workflow module exists: $m" (Test-Path -LiteralPath (Join-Path (Join-Path (Join-Path $root 'src') 'Workflows') ($m + '.psm1')))
 }
-foreach ($fn in @('Start-ConvertVideoWorkflow', 'Start-ConvertAudioWorkflow', 'Start-ExtractAudioWorkflow', 'Start-TrimWorkflow', 'Start-MergeWorkflow', 'Start-CompressWorkflow', 'Start-ResizeWorkflow', 'Start-GifWorkflow', 'Start-ExtractFramesWorkflow', 'Start-AudioToolsWorkflow', 'Start-SubtitleToolsWorkflow', 'Start-FrameRateWorkflow', 'Start-FiltersWorkflow', 'Start-TransformWorkflow', 'Start-OverlayWorkflow', 'Start-SpeedWorkflow', 'Start-StreamingWorkflow', 'Start-MediaInfoWorkflow', 'Start-RemuxStreamsWorkflow', 'Start-MetadataChaptersWorkflow', 'Start-ImagesAndVisualsWorkflow', 'Start-VideoEnhanceWorkflow', 'Start-CaptureWorkflow', 'Start-AnalyzeWorkflow', 'Start-BatchWorkflow', 'Start-AdvancedWorkflow', 'Show-FFmpegStatus')) {
+foreach ($fn in @('Start-ConvertVideoWorkflow', 'Start-ConvertAudioWorkflow', 'Start-ExtractAudioWorkflow', 'Start-TrimWorkflow', 'Start-MergeWorkflow', 'Start-CompressWorkflow', 'Start-ResizeWorkflow', 'Start-GifWorkflow', 'Start-ExtractFramesWorkflow', 'Start-AudioToolsWorkflow', 'Start-SubtitleToolsWorkflow', 'Start-FrameRateWorkflow', 'Start-FiltersWorkflow', 'Start-TransformWorkflow', 'Start-OverlayWorkflow', 'Start-SpeedWorkflow', 'Start-StreamingWorkflow', 'Start-MediaInfoWorkflow', 'Start-RemuxStreamsWorkflow', 'Start-MetadataChaptersWorkflow', 'Start-ImagesAndVisualsWorkflow', 'Start-VideoEnhanceWorkflow', 'Start-CaptureWorkflow', 'Start-AnalyzeWorkflow', 'Start-BatchWorkflow', 'Start-AdvancedWorkflow', 'Start-MaintenanceTool', 'Show-FFmpegStatus')) {
     Assert-True "menu target is wired: $fn" ($null -ne (Get-Command $fn -ErrorAction SilentlyContinue))
 }
 $wired = @(Get-MainMenuItems | Where-Object { $_.Value -ne 'Quit' } | ForEach-Object { $_.Value })
-Assert-Equal 'every main-menu item maps to an action' 27 $wired.Count
+Assert-Equal 'every main-menu item maps to an action' 28 $wired.Count
 $cfg = Get-Content -LiteralPath (Join-Path $root 'config/defaults.json') -Raw | ConvertFrom-Json
 Assert-True 'config/defaults.json is valid and holds only defaults' ($cfg.winget.packageId -eq 'Gyan.FFmpeg' -and $cfg.presets.gifFps.Count -gt 3)
 Assert-True 'config stores no secrets or user paths' ((Get-Content -LiteralPath (Join-Path $root 'config/defaults.json') -Raw) -notmatch '(?i)password|token|secret|apikey|C:\\Users')
