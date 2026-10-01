@@ -18,13 +18,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install FFmpeg (needed by the tests)
         shell: pwsh
-        run: choco install ffmpeg -y --no-progress
-      - name: FFmpeg diagnostics
-        shell: pwsh
         run: |
-          ffmpeg -version | Select-Object -First 2
-          (ffmpeg -hide_banner -filters | Select-String 'afftdn|loudnorm|silenceremove') | ForEach-Object { $_.Line }
-          'filter count: ' + @(ffmpeg -hide_banner -filters).Count
+          choco install ffmpeg -y --no-progress
+          Add-Content -Path $env:GITHUB_PATH -Value 'C:\ProgramData\chocolatey\bin'
       - name: Run the full suite (${{ matrix.shell }})
         shell: cmd
         run: ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File tests\Run-Tests.ps1 > suite.log 2>&1

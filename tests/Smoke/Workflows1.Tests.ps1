@@ -148,7 +148,7 @@ Assert-Contains 'advanced options reach the command (-g 30, -movflags +faststart
 Assert-Contains 'keyframe interval reaches the command' (Get-FlatText $ui.Output) '-g 30'
 Assert-Contains 'faststart reaches the command' (Get-FlatText $ui.Output) '+faststart'
 $encList = @(Get-VideoEncoderChoices -AllowedFamilies @('h264', 'hevc', 'av1', 'mpeg4', 'vp9'))
-$hevcKey = 1 + 1 + 1 + ([array]::IndexOf(@($encList | ForEach-Object { $_.Encoder }), 'libx265'))
+$hevcKey = '{0:00}' -f (1 + 1 + 1 + ([array]::IndexOf(@($encList | ForEach-Object { $_.Encoder }), 'libx265')))   # menu numbers are always two digits
 if (Test-FFEncoder 'libx265') {
     $outx = Join-Path $W 'w video_x265.mp4'
     $ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Video codec' "$hevcKey"), (New-Rule 'Quality mode' '02'), (New-Rule 'Quality level' '01'), (New-Rule 'Encoding speed / preset' '01'), (New-Rule 'Output file name' '{Clear}w video_x265.mp4{Enter}'), $DONE, $FAIL)

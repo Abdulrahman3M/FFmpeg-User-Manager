@@ -24,6 +24,7 @@ set "FFUM_CL=!CMDCMDLINE:"=!"
 set "FFUM_T1=!FFUM_CL: /c =!"
 set "FFUM_D="
 if not "!FFUM_T1!"=="!FFUM_CL!" if not "!FFUM_CL:%~nx0=!"=="!FFUM_CL!" set "FFUM_D=1"
+if defined FFUM_TRACE echo Launcher command line: !FFUM_CL!
 endlocal & set "FFUM_DBLCLICK=%FFUM_D%"
 
 if exist "%FFUM_ENTRY%" goto :have_entry

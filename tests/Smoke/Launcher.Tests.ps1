@@ -44,7 +44,7 @@ function Invoke-BatCase {
     $binWin = ConvertTo-CmdPath $bin
     $startWin = $(if ($StartDir) { ConvertTo-CmdPath $StartDir } else { ConvertTo-CmdPath $case })
     $lines = @('@echo off', 'setlocal EnableDelayedExpansion', "set `"PATH=$binWin;%SystemRoot%\system32;%SystemRoot%`"", "cd /d `"$startWin`"")
-    if ($UseStub) { $lines += "set `"FFUM_POWERSHELL=$(ConvertTo-CmdPath $stub)`"" } else { $lines += 'set "FFUM_TRACE=1"' }
+    if ($UseStub) { $lines += "set `"FFUM_POWERSHELL=$(ConvertTo-CmdPath $stub)`""; $lines += 'set "FFUM_TRACE=1"' } else { $lines += 'set "FFUM_TRACE=1"' }
     # cmd /c (not CALL) so the exit code is the launcher's real process exit code; stdin is empty so PAUSE cannot block.
     # The launcher path goes through a variable + delayed expansion so characters such as & ( ) in it are not parsed by this wrapper.
     $lines += "set `"FFUM_TEST_BAT=$batWin`""
