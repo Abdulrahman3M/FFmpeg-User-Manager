@@ -94,7 +94,7 @@ Assert-JobOk 'image sequence to video' $ui $o
 Assert-True 'sequence video has 10 frames at 12 FPS (about 0.83 s)' ([math]::Abs([double](Get-ProbeJson $o).format.duration - 0.833) -lt 0.2)
 $ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Numbered Image Sequence}' @((New-Rule 'Image sequence pattern' "$(Join-Path $seq 'nothing_%04d.png'){Enter}"), (New-Rule 'Number of the first picture' '{Enter}'), (New-Rule 'Number of the first picture' '{Esc}{Esc}{Esc}{Esc}' 10)) -MaxCalls 40
 Assert-Contains 'a sequence that does not exist is rejected' $ui.Output 'No picture with that number was found'
-$ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((New-Rule 'Audio file' "$aud{Enter}"), (New-Rule 'What should the picture show?' '{#Plain black}'), (New-Rule 'Video size' '{#1280x720}'), $DONE, $FAIL)
+$ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((New-Rule 'Audio file' "$aud{Enter}"), (New-Rule 'What should the picture show?' '{#Plain black}'), (New-Rule 'Video size' '{#1280x720}'), (New-ScreenRule '── Summary' '{#View FFmpeg command}{Esc}{Enter}' 1), $DONE, $FAIL)
 $o = Join-Path $W 'n audio_visual.mp4'
 Assert-JobOk 'audio to a black-screen video' $ui $o
 $j = Get-ProbeJson $o
