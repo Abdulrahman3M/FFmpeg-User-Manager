@@ -36,6 +36,7 @@ everything below is unreleased work that will ship as **0.1.0** once the owner a
 - Documentation (`README.md`, `docs/`), `AGENTS.md` working rules, and an automated test suite (`tests/Run-Tests.ps1`).
 
 ### Changed
+- On first start in a Windows console that is not recognized as emoji-capable, the app offers colorful emoji icons (with a preview). The answer is remembered per Windows account (`%APPDATA%\FFmpeg-User-Manager\settings.json`), so it is asked only once; FFmpeg Status / Settings has an *Icon style* option to change it. `FFTUI_ICONS` still overrides.
 - Wizard summary, dialogs, FFmpeg status and media-information screens use numbered options instead of letter keys; the job-cancel key is `Esc`.
 - Main menu grew from 19 to 28 numbered options (Exit is the last number).
 - The `.bat` launcher switches the console to UTF-8 (code page 65001) while the app runs and restores it afterwards.

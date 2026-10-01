@@ -82,7 +82,7 @@ every icon and `Get-IconTier` (decision logic in `Resolve-IconTier`, unit tested
 | **Ascii** | Redirected output, or `FFTUI_ASCII=1` | Bracketed tags such as `[VIDEO]` |
 
 On Windows the console output encoding is switched to UTF-8 at startup (`Set-ConsoleUtf8Output`) and the `.bat` launcher selects code page 65001 while the app runs and restores it afterwards.
-`FFTUI_ICONS=emoji|symbol|ascii` overrides the detection. The Status screen shows which set is in use. The box-drawing characters follow the same tier.
+`FFTUI_ICONS=emoji|symbol|ascii` overrides the detection. Otherwise a choice saved by the one-time startup question (`Invoke-IconStyleFlow`, stored by `Set-UserSetting` in the per-user settings file) is used. The Status screen shows which set is in use. The box-drawing characters follow the same tier.
 
 ## FFmpeg engine
 

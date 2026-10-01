@@ -210,4 +210,4 @@ if a converted file exists: *Skip* (default) or *Overwrite*. Uses exactly the sa
 
 ## 27 FFmpeg Status / Settings
 Paths, version, PowerShell version, terminal capabilities and icon set, hardware accelerators, capability-cache status, package-manager and update status. Actions (numbered): *Re-scan capabilities*,
-*Check for updates*, *Re-detect FFmpeg paths*, *Back*.
+*Check for updates*, *Re-detect FFmpeg paths*, *Icon style (emoji or symbols)*, *Back*.

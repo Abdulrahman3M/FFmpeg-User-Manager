@@ -288,7 +288,7 @@ No official release has been published yet, so there is no downloadable release 
 | "ffmpeg cannot be started" | A stale `PATH` entry points to a missing or broken ffmpeg; fix it and choose *Retry* |
 | Installation or update reports an administrator problem | Run the terminal as Administrator or install FFmpeg manually |
 | Blocked script / "running scripts is disabled" | Use the `.bat` launcher (it needs no policy change) or `powershell -ExecutionPolicy Bypass -File .\Start-FFmpegTUI.ps1`; unblock downloaded files (see Installation) |
-| Icons look odd or colors are garbled | Icons are characters, so they depend on the terminal font. The app picks emoji (Windows Terminal), single-column symbols (classic console) or ASCII tags automatically; force one with `FFTUI_ICONS=emoji`, `symbol` or `ascii`, and plain colors with `FFTUI_NO_ANSI=1`. Use a TrueType console font (Consolas, Cascadia) rather than a raster font |
+| Icons look odd or colors are garbled | Icons are characters, so they depend on the terminal font. The app picks emoji (Windows Terminal), single-column symbols (classic console) or ASCII tags automatically; the app offers emoji once on first start and remembers your answer (change it in *FFmpeg Status / Settings*); force one with `FFTUI_ICONS=emoji`, `symbol` or `ascii`, and plain colors with `FFTUI_NO_ANSI=1`. Use a TrueType console font (Consolas, Cascadia) rather than a raster font |
 | "needs an interactive console" | Start it from a real terminal window (not a pipe/redirect, not the ISE) |
 | An option is missing | Your FFmpeg build does not include that encoder/filter - check *FFmpeg Status / Settings* |
 | Text overlay fails | The `drawtext` filter needs FreeType and a font; choose a font file in the *Font* question |

@@ -116,3 +116,20 @@ $ui = Invoke-Ui { Start-CaptureWorkflow } '{Esc}' -Height 70
 Assert-True 'Record / Capture: every option is disabled with a reason when capture devices are unavailable' ((Get-FlatText $ui.Output) -match 'needs Windows')
 $null = Initialize-FFCapabilities -Force
 Assert-True 'the real capability set is restored after the synthetic one' ((Test-FFEncoder 'libx264') -or (Test-FFEncoder 'libopenh264') -or (Test-FFEncoder 'h264_nvenc'))
+
+Set-TestGroup 'Remembered icon style (per-user settings)'
+$sd = Join-Path (Get-TestWork) 'settings'; $oldSd = $env:FFTUI_SETTINGS_DIR; $env:FFTUI_SETTINGS_DIR = $sd
+Assert-Equal 'no setting yet' '' (Get-UserSetting 'icons')
+Assert-True 'a setting is saved' (Set-UserSetting 'icons' 'emoji')
+Assert-Equal 'and read back in a later session' 'emoji' (Get-UserSetting 'icons')
+Assert-True 'other settings are kept when one changes' ((Set-UserSetting 'x' '1') -and (Get-UserSetting 'icons') -eq 'emoji')
+Assert-True 'the settings file lives outside the project' (-not (Get-UserSettingsPath).StartsWith((Get-TestRoot)))
+$oi = $env:FFTUI_ICONS; $env:FFTUI_ICONS = ''
+Assert-Equal 'a saved choice drives Get-IconTier' 'Emoji' (Get-IconTier)
+$env:FFTUI_ICONS = $oi; $env:FFTUI_SETTINGS_DIR = $oldSd
+$env:FFTUI_SETTINGS_DIR = (Join-Path (Get-TestWork) 'settings2')
+$ui = Invoke-Ui { Invoke-IconStyleFlow -Force } '01'
+Assert-True 'choosing Yes saves emoji, shows a preview, and applies it now' ((Get-UserSetting 'icons') -eq 'emoji' -and $ui.Output.Contains('Preview:') -and (Get-IconTierInUse) -eq 'Emoji')
+$null = Invoke-Ui { Invoke-IconStyleFlow -Force } '02'
+Assert-Equal 'choosing No saves the symbol set' 'symbol' (Get-UserSetting 'icons')
+$env:FFTUI_SETTINGS_DIR = $oldSd
