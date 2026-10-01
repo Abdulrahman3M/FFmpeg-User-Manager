@@ -101,6 +101,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Record / capture** | Screen, webcam and microphone recording for a set time (Windows) |
 | **Analyze & detect** | Volume, loudness, silence, black frames, scene changes, black bars, PSNR/SSIM quality comparison |
 | **Batch convert** | One conversion applied to every video or audio file in a folder |
+| **Check & maintain** | Guided health check of the FFmpeg setup: install/repair FFmpeg, check for updates, emoji font, icon style, capability re-scan - each step explained and asked first |
 | **Advanced FFmpeg** | Capability browser (all encoders, filters, formats...), custom command, GPU check, build details |
 | **FFmpeg status** | Paths, version, capabilities, hardware accelerators, update check |
 | **Streaming / HLS** | (also) send a file out to an RTMP / SRT / UDP address |

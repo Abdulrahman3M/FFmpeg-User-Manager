@@ -13,7 +13,7 @@ function Import-FFTuiModules {
         'Workflows\OverlayTools', 'Workflows\PlaybackSpeed', 'Workflows\StreamingHls', 'Workflows\MediaInfo',
         'Workflows\RemuxStreams', 'Workflows\MetadataChapters', 'Workflows\ImagesAndVisuals', 'Workflows\AudioEffects', 'Workflows\VideoEnhance',
         'Workflows\CaptureMedia', 'Workflows\AnalyzeMedia', 'Workflows\BatchConvert', 'Workflows\AdvancedTools',
-        'Core\App'
+        'Core\Maintenance', 'Core\App'
     )
     foreach ($m in $order) {
         $p = Join-Path (Join-Path $Root 'src') (($m -replace '\\', [string][System.IO.Path]::DirectorySeparatorChar) + '.psm1')

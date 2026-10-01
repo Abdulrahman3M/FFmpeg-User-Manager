@@ -33,7 +33,7 @@ be provoked in the current environment (with the reason printed). FFmpeg + ffpro
 |---|---|---|
 | Unit | `Core.Tests.ps1` | validation, paths, argument quoting round-trips with awkward file names, injection safety, filter escaping proven against the real filter parser, encoders, atempo chains, progress parsing, capability parsing/discovery, ffprobe model |
 | Unit | `Manager.Tests.ps1` | detection (installed / missing / no ffprobe / stale PATH), update states with mocked winget text, install and update flows through the UI, failure and unmanaged cases |
-| Unit | `Tui.Tests.ps1` | menu (two-digit numbers `01`-`99`, `100`+, prefix waiting, Enter, arrows, Esc, Ctrl+C, scrolling, disabled items, no letter keys), main-menu definition (28 numbered options, Exit last), narrow/normal/wide layout, the three icon tiers (emoji, console-safe symbol, ASCII; symbol glyphs are checked against WGL4), theme centralization, line editor, wizard (steps, Back, conditions, Goto, multi-choice, file list, summary menu), dialogs |
+| Unit | `Tui.Tests.ps1` | menu (two-digit numbers `01`-`99`, `100`+, prefix waiting, Enter, arrows, Esc, Ctrl+C, scrolling, disabled items, no letter keys), main-menu definition (29 numbered options, Exit last), narrow/normal/wide layout, the three icon tiers (emoji, console-safe symbol, ASCII; symbol glyphs are checked against WGL4), theme centralization, line editor, wizard (steps, Back, conditions, Goto, multi-choice, file list, summary menu), dialogs |
 | Unit | `Static.Tests.ps1` | version (`VERSION` is SemVer, README badge/CHANGELOG/tags consistent), README/docs link and image check, README commands vs real launcher switches, release-package contents, secret and machine-path scan, `.gitignore`, parse check, no `Invoke-Expression`, no network/telemetry code, no shell launching, no recursive deletion, PS-5.1 syntax/API scan, ASCII-only sources, closure rule, module/wiring/documentation presence |
 | Unit | `NewTools.Tests.ps1` | icon-tier decision table (Windows Terminal, conhost, redirected, Linux, overrides), custom-command argument parsing and refusals, DirectShow device parsing, analysis log parsers, chapter parsing and ffmetadata escaping, stream-output destinations, slideshow/sequence helpers |
 | Unit | `UiRules.Tests.ps1` | static UI rules by syntax tree: no letter keys or hand-written keys, every `New-Choice` has a description, every Yes/No question describes both answers, every question has help and typed questions an example, no local variable that collides with a parameter |
@@ -62,7 +62,7 @@ the position of an option. `New-FileListRules` fills a "Files" question (type pa
 
 ## Manual TUI checklist (real terminal)
 
-1. Windows Terminal + PowerShell 7 and Windows PowerShell 5.1: start, arrow keys, typing numbers (`01`, `08`, `28`), Esc/Back, Ctrl+C.
+1. Windows Terminal + PowerShell 7 and Windows PowerShell 5.1: start, arrow keys, typing numbers (`01`, `08`, `29`), Esc/Back, Ctrl+C.
 2. Legacy console host (conhost, double-click the `.bat`): every option must show a **symbol icon** (never a blank, a box or an ASCII tag); colors fall back; still readable. Also check Windows Terminal (emoji icons), the Consolas, Lucida Console and raster fonts, and `FFTUI_ICONS=ascii`. **Not yet verified on Windows.**
 3. Resize the window narrow (< 60 columns) and short (< 20 rows) while on the menu and in a wizard.
 4. Paste a quoted path with spaces / Unicode; press `Tab` for the native picker.

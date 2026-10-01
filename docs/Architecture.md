@@ -25,6 +25,7 @@ functions can call each other. Module-private state uses `$script:` variables.
 | Module | Responsibility |
 |---|---|
 | `App.psm1` | Startup sequence, FFmpeg missing/install/update screens, capability scan, main menu, status screen, top-level error containment, terminal cleanup. |
+| `Maintenance.psm1` | The guided *Check & Maintain FFmpeg Setup* tool; reuses the install/update/icon flows and asks before every step. |
 | `Environment.psm1` | Runtime info (5.1 vs 7), interactive/ANSI/Unicode detection, terminal size, `config/defaults.json` loading. `Test-IsWindows` guards `$IsWindows` (absent in 5.1). |
 | `Paths.psm1` | Path cleaning (`"..."`, `'...'`, `& '...'`), resolution, input-file checks (missing, folder, empty, locked, denied), file-name validation (reserved names, illegal chars), size/duration formatting, open-folder, optional native picker. |
 | `Validation.psm1` | Parsers returning `{Ok, Value, Error}`: timestamps, integers, decimals, bitrates, frame rates, colors. Never throw for user mistakes. |

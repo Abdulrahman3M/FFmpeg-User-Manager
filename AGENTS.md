@@ -21,7 +21,12 @@ Read this file **before** starting any task.
 * No `Invoke-Expression`, no shell strings built from user input: FFmpeg arguments are token arrays (see `FFmpegCommandBuilder.psm1`, `ProcessRunner.psm1`).
 * Never overwrite or delete user files silently; output collisions always ask. Source media is never modified.
 * Capabilities (encoders, filters, ...) come from the installed FFmpeg, never from a hardcoded universe.
-* No telemetry, accounts, downloads of executables from URLs, GUI, web server or database.
+* No telemetry, accounts, downloads of executables from URLs, GUI, web server or database. **Allowed exceptions (owner-approved), each only after the user is told what will be downloaded and says yes, and each only through the vetted package manager route:**
+  1. Installing FFmpeg/ffprobe with winget (package `Gyan.FFmpeg`) when they are missing.
+  2. Updating FFmpeg with winget when an update is available.
+  3. The emoji font: Segoe UI Emoji is part of Windows and cannot be redistributed, so the app only detects it and explains. A replacement font may be downloaded only if the owner names a source with an open license (for example OFL) and a pinned SHA-256 that the app verifies before installing; none is configured today.
+  4. The **Check & Maintain FFmpeg Setup** tool (main menu) may trigger exceptions 1-2; every step is explained with an example and asks first.
+  Anything else still needs the owner's decision. Never download or run a script/executable from a URL.
 * Colors live only in `Theme.psm1`/`Renderer.psm1`; do not scatter `-ForegroundColor` or ANSI codes.
 * **Numbered options only.** Every selectable option on every screen (menus, submenus, wizard questions, dialogs) is shown as `Number  Icon  Name` with a two-digit, zero-padded number (`01`, `02` ... `09`, `10`, `11` ..., continuing to `100` and beyond, never truncated). There are no letter keys, no `[X]` shortcuts and no exceptions (Exit and Back are numbered like everything else). `Show-Menu`, `Show-Notice` and `Show-Confirm` assign the numbers; never hand-write a key.
 * **Every option explains itself.** Every option has a short description under it (what it does, when to use it, what to expect); every question has help text, and typed questions have an example. Static tests enforce this (`tests/Unit/UiRules.Tests.ps1`).

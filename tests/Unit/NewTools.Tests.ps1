@@ -133,3 +133,12 @@ Assert-True 'choosing Yes saves emoji, shows a preview, and applies it now' ((Ge
 $null = Invoke-Ui { Invoke-IconStyleFlow -Force } '02'
 Assert-Equal 'choosing No saves the symbol set' 'symbol' (Get-UserSetting 'icons')
 $env:FFTUI_SETTINGS_DIR = $oldSd
+
+Set-TestGroup 'Check & Maintain FFmpeg Setup'
+$ui = Invoke-Flow { Start-MaintenanceTool } @((New-ScreenRule 'Step \d of 5' '02' ), (New-ScreenRule 'Check & Maintain FFmpeg Setup' '01' 1))
+$flat = Get-FlatText $ui.Output
+Assert-True 'every step explains itself with an example and says whether the internet is used' (($flat -match 'Example:') -and ($flat -match 'Internet:') -and ($flat -match 'Step 1 of 5') -and ($flat -match 'Step 5 of 5'))
+Assert-True 'skipping every step downloads and installs nothing and ends with a summary' ($ui.Error -eq '' -and $flat.Contains('Maintenance finished') -and $flat.Contains('FFmpeg check: skipped') -and $flat.Contains('Update check: skipped'))
+$ui = Invoke-Flow { Start-MaintenanceTool } @((New-ScreenRule 'Check & Maintain FFmpeg Setup' '02' 1))
+Assert-True 'declining at the start leaves immediately' ($ui.Error -eq '' -and -not $ui.Output.Contains('Step 1 of 5'))
+Assert-True 'font check reports "unknown" off Windows' ($null -eq (Test-EmojiFontInstalled) -or (Test-IsWindows))

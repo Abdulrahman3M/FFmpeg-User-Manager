@@ -57,7 +57,8 @@ Common questions (used by most workflows):
 | 25 | Batch Convert Folder | [25](#25-batch-convert-folder) |
 | 26 | Advanced FFmpeg | [26](#26-advanced-ffmpeg) |
 | 27 | FFmpeg Status / Settings | [27](#27-ffmpeg-status--settings) |
-| 28 | Exit | closes the application |
+| 28 | Check & Maintain FFmpeg Setup | [28](#28-check--maintain-ffmpeg-setup) |
+| 29 | Exit | closes the application |
 
 ## FFmpeg capability coverage
 
@@ -211,3 +212,9 @@ if a converted file exists: *Skip* (default) or *Overwrite*. Uses exactly the sa
 ## 27 FFmpeg Status / Settings
 Paths, version, PowerShell version, terminal capabilities and icon set, hardware accelerators, capability-cache status, package-manager and update status. Actions (numbered): *Re-scan capabilities*,
 *Check for updates*, *Re-detect FFmpeg paths*, *Icon style (emoji or symbols)*, *Back*.
+
+## 28 Check & Maintain FFmpeg Setup
+A guided health check in five steps. Before each step you are told what it does, shown an example and told whether the internet is used; nothing is downloaded or installed unless you say yes to that step.
+1. **FFmpeg and ffprobe** - found and really started; if missing or broken you may install them with winget. 2. **FFmpeg updates** - asks winget; updating asks again.
+3. **Emoji font** - checks that Segoe UI Emoji (part of Windows 10/11) exists; if it does not, the tool explains and cannot install it (Microsoft does not offer it separately). 4. **Icon style** - emoji or symbols, with a preview.
+5. **Capability re-scan**. A summary lists what was checked, repaired or skipped.
