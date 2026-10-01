@@ -57,7 +57,7 @@ Assert-Equal 'missing FFmpeg: choosing Exit ends cleanly' 0 $r.ExitCode
 Assert-Contains 'missing FFmpeg without winget: manual help is shown instead of a silent install' $r.StdOut 'winget'
 $onlyFfmpeg = Join-Path $W 'ffonlybin'; [void](New-Item -ItemType Directory -Path $onlyFfmpeg -Force)
 try {
-    if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6) {
+    if (Test-IsWindows) {
         # a package-manager shim (for example Chocolatey's) only works next to its install folder: copy the real executable instead
         $realFf = (Get-FFmpegPath)
         if ($realFf -like '*\chocolatey\bin\*' -and $env:ChocolateyInstall) {
@@ -74,7 +74,7 @@ try {
 $staleBin = Join-Path $W 'stalebin'; [void](New-Item -ItemType Directory -Path $staleBin -Force)
 try {
     $fake = Join-Path $staleBin 'ffmpeg'; [System.IO.File]::WriteAllText($fake, "#!/bin/sh`nexit 3`n")
-    if (-not ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6)) { $null = Invoke-ExternalCapture -FilePath 'chmod' -Arguments @('+x', $fake) }
+    if (-not (Test-IsWindows)) { $null = Invoke-ExternalCapture -FilePath 'chmod' -Arguments @('+x', $fake) }
     Copy-Item -LiteralPath $fake -Destination (Join-Path $staleBin 'ffprobe')
     $r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '02') @{ PATH = $staleBin }
     Assert-True 'a broken/stale ffmpeg on PATH is not accepted as an installation' ($r.StdOut.Contains('cannot be started') -or $r.StdOut.Contains('FFmpeg was not found.'))

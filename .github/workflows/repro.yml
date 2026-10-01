@@ -3,7 +3,7 @@ name: repro
 # it never runs the full suite. Read-only: nothing is pushed, merged or published.
 on:
   push:
-    paths: ['tests/Repro/**', '.github/workflows/repro.yml']
+    paths: ['tests/Repro/**', '.github/workflows/repro.yml', 'tests/Smoke/App.Tests.ps1']
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,3 +34,24 @@ jobs:
         with:
           name: repro-h265-${{ matrix.shell }}
           path: repro.log
+  app-suite:
+    # Runs only the launcher/startup test file (about a minute) so a change there is proven without a full run.
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          Add-Content -Path $env:GITHUB_PATH -Value 'C:\ProgramData\chocolatey\bin'
+      - name: App.Tests only (${{ matrix.shell }})
+        shell: cmd
+        run: ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File tests\Run-Tests.ps1 -Suite Smoke -Filter App > app.log 2>&1
+      - name: Result
+        if: always()
+        shell: pwsh
+        run: Select-String -Path app.log -Pattern 'SUMMARY|^FAIL:|UNVERIFIED|could not prepare' | ForEach-Object { $_.Line }
