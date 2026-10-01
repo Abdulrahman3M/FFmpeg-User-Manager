@@ -2,11 +2,25 @@
 
 ## Compatibility matrix
 
-| Runtime | Required | Status in this repository |
+| Environment | Result (actual, from the logs) | Run / commit |
 |---|---|---|
-| Windows PowerShell 5.1 | PASS required | **Not executed by the author's environment** (Linux container without Windows PowerShell). Syntax-level compatibility is verified by static tests (see below). **Run the suite on a Windows machine to complete this row.** |
-| PowerShell 7.x | PASS required | Full suite executed on PowerShell 7.4 (Linux, FFmpeg 6.1): 1259 PASS, 0 FAIL, 6 UNVERIFIED. |
-| Windows runner (CI) | PASS required | `.github/workflows/tests.yml` runs the suite on a GitHub-hosted Windows runner with Windows PowerShell 5.1 and PowerShell 7 on every push. Its result is **not** part of the Linux numbers above; check the Actions tab. Windows Terminal rendering and real winget installs are never exercised by it (UNVERIFIED). |
+| Windows PowerShell 5.1 on a Windows runner (FFmpeg 9.0.2) | **1263 PASS, 0 FAIL, 1 UNVERIFIED** | Actions run #12 (`tests`, manual dispatch), commit `3f96e26` |
+| PowerShell 7 on a Windows runner (FFmpeg 9.0.2) | **1263 PASS, 0 FAIL, 1 UNVERIFIED** | Actions run #12, commit `3f96e26` |
+| PowerShell 7.4 on Linux (FFmpeg 6.1, Wine for the `.bat` tests) | **1261 PASS, 0 FAIL, 5 UNVERIFIED** | local run, commit `3f96e26` |
+
+History of the Windows work (same suite): run #3 (first diagnosable run) PowerShell 7 1034 PASS / 35 FAIL / 3 UNVERIFIED, PowerShell 5.1 893 PASS / 40 FAIL / 5 UNVERIFIED -> run #12 above. The causes are listed in the investigation table below.
+
+Remaining UNVERIFIED items (never reported as PASS):
+
+| Environment | Test | Why it cannot run in the cloud | How to verify locally |
+|---|---|---|---|
+| Windows (both) and Linux | terminal closes unexpectedly while a job runs | needs a real terminal window to be closed | `tools/Test-WindowsLocal.ps1` manual check 6 (close the window during a conversion, then look for a leftover `ffmpeg.exe` in Task Manager) |
+| Linux | screen / webcam / microphone recording | needs Windows capture devices (gdigrab, dshow); parsing and command building are unit tested | `tools/Test-WindowsLocal.ps1` list item 5 on a Windows PC with devices |
+| Linux | read permission denied | the account is root; on Windows this check **ran and passed** on the runner | run the suite as a standard user on Linux |
+| Linux | two double-click launcher checks | Wine's `cmd` does not populate `%CMDCMDLINE%`; on Windows both **ran and passed** | none needed on Windows |
+
+Not covered by any automated run (no result is claimed): rendering in a real **Windows Terminal** / classic console (emoji vs symbol icons, font), real `winget install/upgrade` of FFmpeg (mocked in the suite; installs need the user's consent), real recording devices. Use
+`.\tools\Test-WindowsLocal.ps1` on a Windows PC: it runs the suite under every installed PowerShell edition, prints what the application detects (Segoe UI Emoji, terminal, icon set) and lists the manual checks.
 
 Windows-only behavior that could not be exercised on Linux: native file/folder picker, `explorer.exe /select`, real `winget list/upgrade/install` text output
 (the parser is exercised with sample text and mocks), legacy-console ANSI enabling (P/Invoke), Windows path/lock/permission errors.
@@ -65,7 +79,7 @@ be provoked in the current environment (with the reason printed). FFmpeg + ffpro
 
 ## Launcher tests and Wine
 
-`tests/Smoke/Launcher.Tests.ps1` runs the batch file in a sandbox with dummy `pwsh.exe` / `powershell.exe` files on `PATH` (detection) and a `.cmd` stub selected through `FFUM_POWERSHELL` (execution and exit codes).
+`tests/Smoke/Launcher.Tests.ps1` runs the batch file in a sandbox with dummy `pwsh.exe` / `powershell.exe` files on `PATH` (detection) and a `.cmd` stub selected through `FFUM_POWERSHELL` (execution and exit codes). On Windows the stub is a small executable compiled with the .NET Framework compiler that ships with Windows, because a batch file started from a batch file without `call` never returns to the caller.
 On Windows it uses `cmd.exe`; on Linux it uses Wine if installed (`apt install wine64`), otherwise the cases are reported `UNVERIFIED`. Running the real PowerShell application through the launcher on Windows remains a manual check.
 
 ## Fixture strategy
