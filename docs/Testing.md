@@ -5,7 +5,8 @@
 | Runtime | Required | Status in this repository |
 |---|---|---|
 | Windows PowerShell 5.1 | PASS required | **Not executed by the author's environment** (Linux container without Windows PowerShell). Syntax-level compatibility is verified by static tests (see below). **Run the suite on a Windows machine to complete this row.** |
-| PowerShell 7.x | PASS required | Full suite executed on PowerShell 7.4 (Linux, FFmpeg 6.1). |
+| PowerShell 7.x | PASS required | Full suite executed on PowerShell 7.4 (Linux, FFmpeg 6.1): 1259 PASS, 0 FAIL, 6 UNVERIFIED. |
+| Windows runner (CI) | PASS required | `.github/workflows/tests.yml` runs the suite on a GitHub-hosted Windows runner with Windows PowerShell 5.1 and PowerShell 7 on every push. Its result is **not** part of the Linux numbers above; check the Actions tab. Windows Terminal rendering and real winget installs are never exercised by it (UNVERIFIED). |
 
 Windows-only behavior that could not be exercised on Linux: native file/folder picker, `explorer.exe /select`, real `winget list/upgrade/install` text output
 (the parser is exercised with sample text and mocks), legacy-console ANSI enabling (P/Invoke), Windows path/lock/permission errors.

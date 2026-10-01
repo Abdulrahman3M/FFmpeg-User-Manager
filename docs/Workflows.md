@@ -216,5 +216,5 @@ Paths, version, PowerShell version, terminal capabilities and icon set, hardware
 ## 28 Check & Maintain FFmpeg Setup
 A guided health check in five steps. Before each step you are told what it does, shown an example and told whether the internet is used; nothing is downloaded or installed unless you say yes to that step.
 1. **FFmpeg and ffprobe** - found and really started; if missing or broken you may install them with winget. 2. **FFmpeg updates** - asks winget; updating asks again.
-3. **Emoji font** - checks that Segoe UI Emoji (part of Windows 10/11) exists; if it does not, the tool explains and cannot install it (Microsoft does not offer it separately). 4. **Icon style** - emoji or symbols, with a preview.
+3. **Emoji font** - checks that Segoe UI Emoji (part of Windows 10/11) exists; if it does not, the tool explains and suggests the symbol icons (no download, no system repair); it also reports whether Windows Terminal was detected. 4. **Icon style** - emoji or symbols, with a preview.
 5. **Capability re-scan**. A summary lists what was checked, repaired or skipped.

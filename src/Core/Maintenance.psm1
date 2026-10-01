@@ -12,6 +12,14 @@ function Test-EmojiFontInstalled {
     } catch { return $false }
 }
 
+function Get-TerminalEmojiHint {
+    # Best-effort only: the application cannot see how the terminal really draws a glyph; the preview in step 4 is the real test.
+    if (-not (Test-IsWindows)) { return 'not applicable on this system' }
+    if ($env:WT_SESSION) { return 'Windows Terminal detected (draws emoji well)' }
+    if ($env:TERM_PROGRAM -or $env:ConEmuANSI -eq 'ON') { return 'a modern terminal was detected' }
+    return 'the classic console host (cmd/conhost): emoji support is limited, the preview in step 4 shows what you really get'
+}
+
 function Confirm-MaintenanceStep {
     param([string]$Title, [string[]]$What, [string]$Example, [string]$Internet)
     $lines = @($What) + @('', ('Example: ' + $Example), '', ('Internet: ' + $Internet))
@@ -43,10 +51,10 @@ function Start-MaintenanceTool {
     $font = Test-EmojiFontInstalled
     if (Confirm-MaintenanceStep -Title 'Step 3 of 5: Is the emoji font available?' -What @('Emoji icons need the Segoe UI Emoji font, which Windows 10 and 11 include.', 'This step only checks that it exists on this computer.') -Example 'On some Windows Server or stripped-down editions the font is missing and emoji appear as empty boxes.' -Internet 'no.') {
         if ($null -eq $font) { $res.Add('Emoji font: not applicable on this system') }
-        elseif ($font) { $res.Add('Emoji font: Segoe UI Emoji is installed') }
+        elseif ($font) { $res.Add('Emoji font: Segoe UI Emoji is installed'); $res.Add('Terminal: ' + (Get-TerminalEmojiHint)) }
         else {
             $res.Add('Emoji font: Segoe UI Emoji is MISSING')
-            $null = Show-Notice -Title 'Segoe UI Emoji was not found' -Kind Warning -Lines @('Without it, emoji icons may show as empty boxes. Segoe UI Emoji is part of Windows and Microsoft does not offer it as a separate download, so this application cannot install it for you.', 'Use the simple symbol icons instead (next step), or repair Windows (for example: sfc /scannow) to restore its fonts.')
+            $null = Show-Notice -Title 'Segoe UI Emoji was not found' -Kind Warning -Lines @('Without it, emoji icons may show as empty boxes. Segoe UI Emoji is part of Windows and is not offered as a separate download, so this application does not download any font.', 'Use the simple symbol icons instead (next step). Nothing else is changed and no system repair is started.')
         }
     } else { $res.Add('Emoji font check: skipped') }
 
@@ -61,4 +69,4 @@ function Start-MaintenanceTool {
     $null = Show-Notice -Title 'Maintenance finished' -Kind Success -Lines @($res.ToArray())
 }
 
-Export-ModuleMember -Function Test-EmojiFontInstalled, Start-MaintenanceTool
+Export-ModuleMember -Function Test-EmojiFontInstalled, Get-TerminalEmojiHint, Start-MaintenanceTool

@@ -10,6 +10,8 @@ everything below is unreleased work that will ship as **0.1.0** once the owner a
 ## [Unreleased]
 
 ### Added
+- GitHub Actions workflow (`.github/workflows/tests.yml`) that runs the test suite on a Windows runner with Windows PowerShell 5.1 and PowerShell 7.
+- The maintenance tool's font step reports which terminal was detected (for example Windows Terminal); it never downloads a font and never starts a system repair.
 - **Numbered options everywhere.** Every option on every screen is shown as `Number  Icon  Name` with a two-digit, zero-padded number (`01` ... `09`, `10`, `11` ..., continuing to `100`+), with a short description under each option.
   There are no letter keys any more (Exit and Back are numbered like everything else; `Esc` goes back, `Ctrl+C` quits).
 - Explanations for every question and option: a description under every choice, both answers of every Yes/No question described, help text for every question and an example for every typed input.

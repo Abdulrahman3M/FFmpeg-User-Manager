@@ -142,3 +142,12 @@ Assert-True 'skipping every step downloads and installs nothing and ends with a 
 $ui = Invoke-Flow { Start-MaintenanceTool } @((New-ScreenRule 'Check & Maintain FFmpeg Setup' '02' 1))
 Assert-True 'declining at the start leaves immediately' ($ui.Error -eq '' -and -not $ui.Output.Contains('Step 1 of 5'))
 Assert-True 'font check reports "unknown" off Windows' ($null -eq (Test-EmojiFontInstalled) -or (Test-IsWindows))
+$oldWt = $env:WT_SESSION; $oldTp = $env:TERM_PROGRAM; $oldCe = $env:ConEmuANSI
+$env:WT_SESSION = 'x'
+Assert-True 'terminal hint recognizes Windows Terminal' (-not (Test-IsWindows) -or (Get-TerminalEmojiHint) -match 'Windows Terminal')
+$env:WT_SESSION = $null; $env:TERM_PROGRAM = $null; $env:ConEmuANSI = $null
+Assert-Equal 'terminal hint is not applicable off Windows' 'not applicable on this system' $(if (Test-IsWindows) { 'not applicable on this system' } else { Get-TerminalEmojiHint })
+Assert-True 'terminal hint explains the classic console limit' (-not (Test-IsWindows) -or (Get-TerminalEmojiHint) -match 'classic|limited')
+$env:WT_SESSION = $oldWt; $env:TERM_PROGRAM = $oldTp; $env:ConEmuANSI = $oldCe
+$noSfc = @(Get-ChildItem -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent | Split-Path -Parent) 'src') -Recurse -Include '*.psm1', '*.ps1' | Select-String -Pattern 'sfc\s*/' )
+Assert-Equal 'no automatic or suggested system file repair command exists in the source' 0 $noSfc.Count

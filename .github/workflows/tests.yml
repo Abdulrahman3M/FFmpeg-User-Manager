@@ -1,0 +1,24 @@
+name: tests
+# Runs the full test suite on a real Windows runner under BOTH Windows PowerShell 5.1 and PowerShell 7.
+# It only reads the repository and reports results; it never pushes, merges or publishes anything.
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg (needed by the tests)
+        shell: pwsh
+        run: choco install ffmpeg -y --no-progress
+      - name: Run the full suite (${{ matrix.shell }})
+        shell: cmd
+        run: ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File tests\Run-Tests.ps1
