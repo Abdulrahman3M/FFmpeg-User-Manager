@@ -31,7 +31,7 @@ function Get-CompressSteps {
         Validate = { param($v, $W) $m = Get-Media $W 'input'; if (-not $m.Duration) { return 'The media duration is unknown, so a target size cannot be calculated.' }; $ab = 128000; try { $null = Get-TargetBitrateForSize ($v * 1MB) $m.Duration $ab } catch { return $_.Exception.Message }; $null } }
     $steps += @{ Id = 'preset'; Type = 'Choice'; Prompt = 'Encoding speed / preset'; Help = 'Slower presets compress better but take longer.'
         When = { param($W) (& $vGoal $W) -and ((Get-EncoderProfile (Get-AutoVideoEncoder $W)).ContainsKey('Presets')) }.GetNewClosure()
-        Choices = { param($W) $pr = Get-EncoderProfile (Get-AutoVideoEncoder $W); @($pr.Presets | ForEach-Object { New-Choice $_ ($_ + $(if ($_ -eq $pr.DefaultPreset) { '  (Recommended)' } else { '' })) }) }
+        Choices = { param($W) $pr = Get-EncoderProfile (Get-AutoVideoEncoder $W); @($pr.Presets | ForEach-Object { New-Choice $_ ($_ + $(if ($_ -eq $pr.DefaultPreset) { '  (Recommended)' } else { '' })) (Get-EncoderPresetDescription $_) }) }
         Default = { param($W) (Get-EncoderProfile (Get-AutoVideoEncoder $W)).DefaultPreset } }
     $steps += Get-ResolutionStep -Id 'resolution' -Prompt 'Reduce resolution?'
     $steps[-1].When = $isVideo

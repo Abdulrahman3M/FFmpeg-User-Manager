@@ -3,13 +3,14 @@
 # FFmpeg User Manager
 
 **A modern interactive PowerShell TUI for FFmpeg on Windows.**
-Convert, compress, trim, merge, extract, resize, make GIFs, manage subtitles and inspect media - without writing FFmpeg commands.
+Convert, compress, trim, merge, extract, resize, make GIFs, slideshows and recordings, manage subtitles, metadata and streams, analyze and batch-process media - without writing FFmpeg commands.
 
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?logo=powershell&logoColor=white)
 ![FFmpeg](https://img.shields.io/badge/requires-FFmpeg-007808?logo=ffmpeg&logoColor=white)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Status](https://img.shields.io/badge/status-pre--release-orange)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 </div>
 
@@ -37,6 +38,9 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 * **Convert** between MP4, MKV, WebM, MOV and audio formats; **extract** audio or frames.
 * **Trim**, **merge**, **resize**, **crop/rotate/flip**, change **speed** or **frame rate**.
 * Add **subtitles**, **text** or a **logo**, normalize **loudness**, create **HLS** output.
+* Change a container **without re-encoding**, pick audio languages, edit **metadata and chapters**, embed cover art.
+* Build a **slideshow** or time-lapse from pictures, turn audio into video, **record** the screen, a webcam or a microphone (Windows).
+* **Analyze** a file (volume, loudness, silence, black frames, scene cuts, quality), **batch-convert** a whole folder, or reach any other FFmpeg feature through **Advanced FFmpeg**.
 
 ## Preview
 
@@ -48,17 +52,24 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 |---|---|---|
 | <img src="docs/images/ffmpeg-status.png" alt="FFmpeg status screen" width="290"> | <img src="docs/images/processing.png" alt="Processing screen with progress bar" width="290"> | <img src="docs/images/completed.png" alt="Completed successfully screen" width="290"> |
 
+| Classic console icon set |
+|---|
+| <img src="docs/images/main-menu-console-safe.png" alt="Main menu with the console-safe symbol icons used in the classic Windows console" width="560"> |
+
 > The screenshots are real frames of the running application, captured in a Linux terminal (see [docs/images/README.md](docs/images/README.md)). Windows Terminal looks very similar.
+> The last one shows the symbol icon set that the classic Windows console uses, so icons are visible even where emoji cannot be drawn.
 
 ## Key features
 
 * **Guided wizards for every task** - questions, validation, summary, progress and result screens, with *Back* at every step.
-* **Multiple choice first** - free typing only where a value is truly free-form (with an example shown).
+* **Numbers, not shortcuts** - every option is `Number  Icon  Name` (`01`, `02` ... `09`, `10`, `11` ... `100`), with a short description underneath; no letter keys to memorize.
+* **Icons that always show** - emoji in modern terminals, single-column symbols in the classic Windows console, plain tags only when output is redirected.
+* **Multiple choice first** - free typing only where a value is truly free-form (with an example and an explanation shown).
 * **Capability-aware** - encoders, formats, filters and hardware accelerators are discovered from your FFmpeg build; unsupported options are not offered.
 * **Automatic FFmpeg management** - detect, install and update FFmpeg with winget; a manually installed FFmpeg is never replaced silently.
 * **Smart media inspection** - the source file is probed and summarized (codecs, size, frame rate, audio, subtitles) before you choose anything.
 * **Safe by design** - existing files are never overwritten without asking; source files are never modified; commands are passed to FFmpeg as argument arrays (no shell, no `Invoke-Expression`).
-* **Polished terminal UI** - colors, icons (ASCII fallback), progress bar, responsive layout, clean terminal restore on exit.
+* **Polished terminal UI** - colors, icons (emoji, console-safe symbols or ASCII), progress bar, responsive layout, clean terminal restore on exit.
 * **Windows PowerShell 5.1 and PowerShell 7.x** from one code base.
 
 ## Supported operations
@@ -74,7 +85,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Resize / scale** | Presets or custom size; preserve aspect, fit, fill/crop or stretch |
 | **Video to GIF** | Clip range, FPS, speed, size, high-quality palette, dithering, loop control |
 | **Extract frames** | Single frame, interval, FPS or range as PNG / JPEG / WebP / BMP / TIFF |
-| **Audio tools** | Volume, loudness normalization (two-pass), sample rate, channels, tempo/speed, remove or replace audio |
+| **Audio tools** | Volume, loudness normalization (two-pass), sample rate, channels, tempo/speed, remove or replace audio, fades, bass/treble, noise reduction, silence removal, frequency filters, sync offset, reverse |
 | **Subtitle tools** | Extract, add (mux), burn in, remove, keep selected streams |
 | **Frame rate** | Standard conversion or motion interpolation |
 | **Filters & color** | Brightness, contrast, saturation, gamma, grayscale, sharpen, blur, fades, expert filter, filter browser |
@@ -83,7 +94,16 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Playback speed** | 0.25x-10x with synchronized audio |
 | **Streaming / HLS** | Create HLS playlists and segments; save or inspect supported network streams |
 | **Media information** | Readable summary plus technical details |
+| **Remux & streams** | Change container without re-encoding, keep selected streams, set track language / default |
+| **Metadata & chapters** | Edit tags, remove metadata/chapters, add chapters, attach cover art |
+| **Images & slideshows** | Slideshow from pictures (with music), image sequence to video, audio to video (cover, waves, spectrum), contact sheet |
+| **Video enhancement** | Deinterlace, denoise, stabilize, add bars for an aspect ratio, reverse, loop |
+| **Record / capture** | Screen, webcam and microphone recording for a set time (Windows) |
+| **Analyze & detect** | Volume, loudness, silence, black frames, scene changes, black bars, PSNR/SSIM quality comparison |
+| **Batch convert** | One conversion applied to every video or audio file in a folder |
+| **Advanced FFmpeg** | Capability browser (all encoders, filters, formats...), custom command, GPU check, build details |
 | **FFmpeg status** | Paths, version, capabilities, hardware accelerators, update check |
+| **Streaming / HLS** | (also) send a file out to an RTMP / SRT / UDP address |
 
 Every option of every workflow is described in [docs/Workflows.md](docs/Workflows.md).
 
@@ -94,7 +114,7 @@ Every option of every workflow is described in [docs/Workflows.md](docs/Workflow
 | Operating system | Windows 10 or 11 |
 | PowerShell | Windows PowerShell 5.1 (built into Windows) **or** PowerShell 7.x - PowerShell 7 is preferred automatically when installed |
 | FFmpeg | `ffmpeg` and `ffprobe` on `PATH`. Not installed yet? The app offers to install them with winget (package `Gyan.FFmpeg`) |
-| Terminal | Windows Terminal recommended (colors and icons). The classic console works with plain colors and ASCII icons. The PowerShell ISE is not supported |
+| Terminal | Windows Terminal recommended (colors and emoji icons). The classic console works too and shows symbol icons. The PowerShell ISE is not supported |
 | Internet | Only for installing/updating FFmpeg and for network streams |
 
 ## Installation
@@ -143,33 +163,35 @@ Every workflow is an interactive **wizard** built from the same reusable steps:
 
 1. **Choose the input** - type, paste or drag a path (quotes, spaces and Unicode are fine). Press `Tab` for the Windows file picker.
 2. **The file is inspected** with `ffprobe`; a *Source* panel stays visible while you answer.
-3. **Answer questions** - pick numbered options with the keyboard; custom values are validated and explained. `Esc` goes back and keeps your earlier answers.
+3. **Answer questions** - type an option's number (or use the arrow keys and `Enter`); custom values are validated and explained. `Esc` goes back and keeps your earlier answers.
 4. **Choose the output** - folder, file name, and what to do if the file already exists (you are always asked).
-5. **Review the summary** - press `V` to see the exact FFmpeg command (Advanced), `Enter` to start.
-6. **Watch the progress** - percentage, time, speed; `Q` cancels safely after confirmation.
+5. **Review the summary** - option `02` shows the exact FFmpeg command (Advanced), `01` (or `Enter`) starts.
+6. **Watch the progress** - percentage, time, speed; `Esc` cancels safely after confirmation.
 7. **Result** - open the output folder, run again, or return to the menu. On failure you get a short reason and optional technical details.
 
 ## Keyboard controls
 
+Every option is numbered: the number is the shortcut, and there are no letter keys.
+
 | Key | Action |
 |---|---|
-| `Up` / `Down` | Move the highlight |
-| `Enter` | Select / accept the default |
-| `1`-`9`, letters shown in the menu | Quick select |
-| `Esc` or `B` | Back one step (answers are kept). In the main menu `B` is Subtitle Tools |
-| `Q` | Quit from the main menu; cancel a running job (with confirmation) |
-| `V` | View the generated FFmpeg command (summary screen) |
+| `0`-`9` | Type an option's number: `05` selects option 5 at once. A single digit that cannot start a longer number (for example `5` in a list of 12) also selects at once; for a prefix such as `1` in a list of 12, type the next digit or press `Enter`. `Backspace` removes a typed digit |
+| `Up` / `Down` | Move the highlight (`Home` / `End` / `PgUp` / `PgDn` jump) |
+| `Enter` | Select the highlighted option / accept the default |
+| `Esc` | Back one step (answers are kept) |
+| `Ctrl+C` | Quit the application |
 | `Tab` | Browse for a file or folder (path questions, Windows) |
 | `Ctrl+U` | Clear the text field |
-| `C` | Continue (multi-select lists) |
+
+Yes/No questions are numbered like everything else: `01` and `02`.
 
 ## Workflow examples
 
 <details>
 <summary><b>Make a small, good-looking GIF from a video clip</b></summary>
 
-1. Main menu -> `8` *Video to GIF* -> enter the video path.
-2. *Clip range*: choose *Start time + end time* and enter for example `5` and `9`.
+1. Main menu -> `08` *Video to GIF* -> enter the video path.
+2. *Clip range*: choose `02` *Start time + end time* and enter for example `5` and `9`.
 3. Accept 15 FPS and a 480 px width (or pick your own), keep *High Quality* palette, infinite loop.
 4. Choose the output folder/name -> `Enter` on the summary. The GIF is created with a generated color palette for better quality.
 
@@ -178,7 +200,7 @@ Every workflow is an interactive **wizard** built from the same reusable steps:
 <details>
 <summary><b>Compress a video to about 25 MB</b></summary>
 
-1. Main menu -> `6` *Compress Media* -> input file.
+1. Main menu -> `06` *Compress Media* -> input file.
 2. *Compression goal*: *Approximate target file size* -> `25`.
 3. Keep the automatic codec, optionally reduce resolution -> start. The bitrate is calculated from the duration; the final size is approximate.
 
@@ -187,7 +209,7 @@ Every workflow is an interactive **wizard** built from the same reusable steps:
 <details>
 <summary><b>Extract the audio of a video as MP3</b></summary>
 
-1. Main menu -> `3` *Extract Audio from Video* -> input.
+1. Main menu -> `03` *Extract Audio from Video* -> input.
 2. Choose *Convert*, output format *MP3*, pick bitrate -> start.
 
 </details>
@@ -195,7 +217,7 @@ Every workflow is an interactive **wizard** built from the same reusable steps:
 <details>
 <summary><b>Join several clips</b></summary>
 
-1. Main menu -> `5` *Merge Media*: add files in order (reorder/remove any entry).
+1. Main menu -> `05` *Merge Media*: add files in order (reorder/remove any entry).
 2. If the clips share codecs and settings you can merge losslessly; otherwise the app explains why and re-encodes to common settings.
 
 </details>
@@ -206,7 +228,7 @@ Every workflow is an interactive **wizard** built from the same reusable steps:
 * **Missing** - a screen offers *Install automatically* (winget package `Gyan.FFmpeg`, verified before installing) or *Exit*. The main menu opens only after a working pair is verified.
 * **Updates** - when FFmpeg is managed by winget, a quick check offers *Update now* / *Continue*. If the check cannot run (offline, no winget, manually installed FFmpeg) you get a short non-fatal notice.
 * **Manual installs** are used as they are and never replaced silently.
-* **Capabilities** - formats, encoders, filters, protocols and hardware accelerators are read from your build once per session; see them on the *FFmpeg Status / Settings* screen (`S`).
+* **Capabilities** - formats, encoders, filters, protocols and hardware accelerators are read from your build once per session; see them on the *FFmpeg Status / Settings* screen (`27`).
 
 ## Project structure
 
@@ -216,13 +238,14 @@ FFmpeg-User-Manager/
 |-- Start-FFmpegTUI.ps1         PowerShell entry point
 |-- VERSION                     single source of the application version
 |-- README.md  CHANGELOG.md  AGENTS.md
+|-- LICENSE  NOTICE             Apache-2.0 license text and attribution notice
 |-- config/defaults.json        application defaults (presets, winget package id)
 |-- src/
 |   |-- Core/                   app bootstrap, environment, paths, validation, process runner
 |   |-- TUI/                    theme, renderer, input, menu, dialogs, wizard, progress view
 |   |-- FFmpeg/                 manager, capabilities, media probe, command builder, progress
 |   `-- Workflows/              one module per workflow group (+ shared WorkflowCommon)
-|-- docs/                       architecture, workflows, testing, versioning, images
+|-- docs/                       architecture, workflows, testing, versioning, licensing, images
 |-- tests/                      unit and smoke tests (Run-Tests.ps1)
 `-- tools/New-ReleasePackage.ps1  builds the release ZIP
 ```
@@ -251,6 +274,7 @@ No official release has been published yet, so there is no downloadable release 
 | [docs/Architecture.md](docs/Architecture.md) | Modules, TUI and wizard design, FFmpeg engine |
 | [docs/Testing.md](docs/Testing.md) | Test suite, compatibility matrix, manual checks |
 | [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md) | SemVer rules, tags, changelog and release process |
+| [docs/Licensing.md](docs/Licensing.md) | Why Apache-2.0, what it means, third-party components review |
 | [docs/images/README.md](docs/images/README.md) | How the screenshots were captured |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [AGENTS.md](AGENTS.md) | Working rules for AI agents and contributors |
@@ -260,20 +284,26 @@ No official release has been published yet, so there is no downloadable release 
 | Symptom | What to do |
 |---|---|
 | Double-clicking does nothing / window closes | Start `FFmpeg-User-Manager.bat` from a terminal to see messages. Make sure the whole folder was extracted and `Start-FFmpegTUI.ps1` sits next to the `.bat` |
-| "FFmpeg was not found." | Press `I` to install with winget, or install FFmpeg yourself, open a **new** terminal and choose *Retry* |
+| "FFmpeg was not found." | Choose *Install FFmpeg automatically* (winget), or install FFmpeg yourself, open a **new** terminal and choose *Retry* |
 | "ffmpeg cannot be started" | A stale `PATH` entry points to a missing or broken ffmpeg; fix it and choose *Retry* |
 | Installation or update reports an administrator problem | Run the terminal as Administrator or install FFmpeg manually |
 | Blocked script / "running scripts is disabled" | Use the `.bat` launcher (it needs no policy change) or `powershell -ExecutionPolicy Bypass -File .\Start-FFmpegTUI.ps1`; unblock downloaded files (see Installation) |
-| Garbled icons or colors | Use Windows Terminal, or set `FFTUI_ASCII=1` and `FFTUI_NO_ANSI=1` before starting |
+| Icons look odd or colors are garbled | Icons are characters, so they depend on the terminal font. The app picks emoji (Windows Terminal), single-column symbols (classic console) or ASCII tags automatically; force one with `FFTUI_ICONS=emoji`, `symbol` or `ascii`, and plain colors with `FFTUI_NO_ANSI=1`. Use a TrueType console font (Consolas, Cascadia) rather than a raster font |
 | "needs an interactive console" | Start it from a real terminal window (not a pipe/redirect, not the ISE) |
 | An option is missing | Your FFmpeg build does not include that encoder/filter - check *FFmpeg Status / Settings* |
 | Text overlay fails | The `drawtext` filter needs FreeType and a font; choose a font file in the *Font* question |
 | Conversion fails | Choose *Show technical details* on the failure screen; the message explains most cases (unsupported codec/format combination, damaged input, no disk space) |
 
+## License
+
+FFmpeg User Manager is free and open source under the **[Apache License 2.0](LICENSE)**. You may use, change and redistribute it, including commercially, as long as you keep the
+copyright notice, the license and the [`NOTICE`](NOTICE) file and mark files you changed. The software is provided "as is", without warranty. Copyright 2026 Abdulrahman3M.
+
+FFmpeg itself is **not** part of this project and is not distributed with it: the application starts the copy installed on your computer, which has its own license (see
+[docs/Licensing.md](docs/Licensing.md) for the license decision and the third-party review).
+
 ## Project status
 
-**Pre-release (version 0.x).** All workflows listed above are implemented. The automated test suite (more than 850 checks) passes on PowerShell 7.4 with FFmpeg 6.1 on Linux, and the
+**Pre-release (version 0.x).** All workflows listed above are implemented. The automated test suite (more than 1,200 checks) passes on PowerShell 7.4 with FFmpeg 6.1 on Linux, and the
 launcher logic is tested with a real `cmd` interpreter. **Verification on real Windows (Windows PowerShell 5.1 and PowerShell 7 on Windows, winget install/update, the native file picker, Explorer integration) is still pending**,
 so expect rough edges on Windows until that is done. See [docs/Testing.md](docs/Testing.md) for exactly what has and has not been verified.
-
-This repository currently has no license file.

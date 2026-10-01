@@ -33,21 +33,21 @@ function Get-FilterSteps {
     $steps += @{ Id = 'effects'; Type = 'MultiChoice'; Prompt = 'Which effects do you want to apply?'; Help = 'Select one or more. You will set the strength of each next.'; Min = 1
         Choices = { param($W) @($script:EffectChoices | ForEach-Object { New-Choice $_.Id $_.Label $_.Desc }) }; Default = @('brightness') }
     $steps += @{ Id = 'brightness'; Type = 'Choice'; Prompt = 'Brightness'; Help = '0 = unchanged. Positive is brighter, negative is darker.'; When = { param($W) Test-EffectSelected $W 'brightness' }
-        Choices = { param($W) @( (New-Choice -0.2 'Darker (-0.2)'), (New-Choice -0.1 'Slightly darker (-0.1)'), (New-Choice 0.1 'Slightly brighter (+0.1)'), (New-Choice 0.2 'Brighter (+0.2)'), (New-Choice 0.3 'Much brighter (+0.3)') ) }
+        Choices = { param($W) @( (New-Choice -0.2 'Darker (-0.2)' 'Makes the picture clearly darker.'), (New-Choice -0.1 'Slightly darker (-0.1)' 'A subtle darkening.'), (New-Choice 0.1 'Slightly brighter (+0.1)' 'A subtle brightening; good for slightly dull footage.'), (New-Choice 0.2 'Brighter (+0.2)' 'Clearly brighter picture.'), (New-Choice 0.3 'Much brighter (+0.3)' 'Strong brightening; may wash out highlights.') ) }
         AllowCustom = @{ Label = 'Custom...'; Type = 'Decimal'; Min = -1; Max = 1; Prompt = 'Custom brightness'; Help = 'Between -1 and 1.'; Example = '0.15'; ValueLabel = 'Brightness'; Desc = 'Between -1 and 1.' }; Default = 0.1 }
     $steps += @{ Id = 'contrast'; Type = 'Choice'; Prompt = 'Contrast'; Help = '1 = unchanged. Above 1 increases contrast.'; When = { param($W) Test-EffectSelected $W 'contrast' }
-        Choices = { param($W) @( (New-Choice 0.8 'Lower (0.8)'), (New-Choice 1.2 'Higher (1.2)'), (New-Choice 1.5 'Much higher (1.5)'), (New-Choice 2.0 'Extreme (2.0)') ) }
+        Choices = { param($W) @( (New-Choice 0.8 'Lower (0.8)' 'Flatter picture with less difference between light and dark.'), (New-Choice 1.2 'Higher (1.2)' 'A little more punch between light and dark.'), (New-Choice 1.5 'Much higher (1.5)' 'Strong contrast; dark areas may lose detail.'), (New-Choice 2.0 'Extreme (2.0)' 'Very harsh contrast; use sparingly.') ) }
         AllowCustom = @{ Label = 'Custom...'; Type = 'Decimal'; Min = -1000; Max = 1000; Prompt = 'Custom contrast'; Help = 'A number such as 1.3 (1 = unchanged).'; Example = '1.3'; ValueLabel = 'Contrast'; Desc = 'For example 1.3.' }; Default = 1.2 }
     $steps += @{ Id = 'saturation'; Type = 'Choice'; Prompt = 'Saturation'; Help = '1 = unchanged, 0 = grayscale, above 1 = more vivid.'; When = { param($W) Test-EffectSelected $W 'saturation' }
-        Choices = { param($W) @( (New-Choice 0.5 'Muted (0.5)'), (New-Choice 1.3 'Vivid (1.3)'), (New-Choice 1.6 'Very vivid (1.6)'), (New-Choice 2.0 'Intense (2.0)') ) }
+        Choices = { param($W) @( (New-Choice 0.5 'Muted (0.5)' 'Half the color; a faded look.'), (New-Choice 1.3 'Vivid (1.3)' 'Richer, more saturated colors.'), (New-Choice 1.6 'Very vivid (1.6)' 'Strong colors; skin tones may look unnatural.'), (New-Choice 2.0 'Intense (2.0)' 'Extremely saturated, stylized look.') ) }
         AllowCustom = @{ Label = 'Custom...'; Type = 'Decimal'; Min = 0; Max = 3; Prompt = 'Custom saturation'; Help = 'Between 0 and 3.'; Example = '1.4'; ValueLabel = 'Saturation'; Desc = 'Between 0 and 3.' }; Default = 1.3 }
     $steps += @{ Id = 'gamma'; Type = 'Choice'; Prompt = 'Gamma'; Help = '1 = unchanged. Above 1 brightens mid-tones.'; When = { param($W) Test-EffectSelected $W 'gamma' }
-        Choices = { param($W) @( (New-Choice 0.8 'Darker mid-tones (0.8)'), (New-Choice 1.2 'Brighter mid-tones (1.2)'), (New-Choice 1.5 'Much brighter (1.5)') ) }
+        Choices = { param($W) @( (New-Choice 0.8 'Darker mid-tones (0.8)' 'Darkens the middle tones while keeping black and white points.'), (New-Choice 1.2 'Brighter mid-tones (1.2)' 'Lifts the middle tones; good for dark footage.'), (New-Choice 1.5 'Much brighter (1.5)' 'Strongly lifts the middle tones; can look washed out.') ) }
         AllowCustom = @{ Label = 'Custom...'; Type = 'Decimal'; Min = 0.1; Max = 10; Prompt = 'Custom gamma'; Help = 'Between 0.1 and 10.'; Example = '1.1'; ValueLabel = 'Gamma'; Desc = 'Between 0.1 and 10.' }; Default = 1.2 }
     $steps += @{ Id = 'sharpen'; Type = 'Choice'; Prompt = 'Sharpen strength'; Help = 'Stronger settings can add visible halos.'; When = { param($W) Test-EffectSelected $W 'sharpen' }
-        Choices = { param($W) @( (New-Choice 0.5 'Light'), (New-Choice 1.0 'Medium'), (New-Choice 1.8 'Strong') ) }; Default = 1.0 }
+        Choices = { param($W) @( (New-Choice 0.5 'Light' 'A gentle effect that keeps the picture natural.'), (New-Choice 1.0 'Medium' 'A clearly visible effect.'), (New-Choice 1.8 'Strong' 'A powerful effect.') ) }; Default = 1.0 }
     $steps += @{ Id = 'blur'; Type = 'Choice'; Prompt = 'Blur strength'; Help = 'Larger values blur more.'; When = { param($W) Test-EffectSelected $W 'blur' }
-        Choices = { param($W) @( (New-Choice 1 'Light'), (New-Choice 3 'Medium'), (New-Choice 6 'Strong'), (New-Choice 12 'Very strong') ) }; Default = 3 }
+        Choices = { param($W) @( (New-Choice 1 'Light' 'A gentle effect that keeps the picture natural.'), (New-Choice 3 'Medium' 'A clearly visible effect.'), (New-Choice 6 'Strong' 'A powerful effect.'), (New-Choice 12 'Very strong' 'An extreme effect.') ) }; Default = 3 }
     $steps += @{ Id = 'fadein'; Type = 'Decimal'; Prompt = 'Fade-in length (seconds)'; Help = 'How long the fade from black lasts.'; Example = '1.5'; Min = 0.1; Max = 60; Default = 1; Label = 'Fade-in length'; Unit = 'seconds'; When = { param($W) Test-EffectSelected $W 'fadein' }
         Validate = { param($v, $W) $d = (Get-Media $W 'input').Duration; if ($d -and $v -ge $d) { return 'The fade is longer than the video.' }; $null } }
     $steps += @{ Id = 'fadeout'; Type = 'Decimal'; Prompt = 'Fade-out length (seconds)'; Help = 'How long the fade to black lasts at the end.'; Example = '1.5'; Min = 0.1; Max = 60; Default = 1; Label = 'Fade-out length'; Unit = 'seconds'; When = { param($W) Test-EffectSelected $W 'fadeout' }
@@ -110,8 +110,8 @@ function Show-FilterBrowser {
 
 function Start-FiltersWorkflow {
     $items = @(
-        @{ Label = 'Apply Filters & Color'; Desc = 'Brightness, contrast, saturation, gamma, grayscale, sharpen, blur and fades.'; Key = '1'; Value = { Start-StandardWorkflow -Title 'Filters & Color' -Description 'Apply common visual filters and color adjustments.' -Icon 'Filters' -StepsFactory { Get-FilterSteps } -Build { param($W) Build-FilterJob $W } } },
-        @{ Label = 'Filter Browser'; Desc = 'Search the filters and descriptions in your FFmpeg build.'; Key = '2'; Value = { Show-FilterBrowser } }
+        @{ Label = 'Apply Filters & Color'; Desc = 'Brightness, contrast, saturation, gamma, grayscale, sharpen, blur and fades.'; Value = { Start-StandardWorkflow -Title 'Filters & Color' -Description 'Apply common visual filters and color adjustments.' -Icon 'Filters' -StepsFactory { Get-FilterSteps } -Build { param($W) Build-FilterJob $W } } },
+        @{ Label = 'Filter Browser'; Desc = 'Search the filters and descriptions in your FFmpeg build.'; Value = { Show-FilterBrowser } }
     )
     Show-WorkflowSubmenu -Title ((Get-Icon 'Filters') + '  Filters & Color') -Subtitle 'Apply common filters, or explore every filter your FFmpeg build provides.' -Items $items
 }

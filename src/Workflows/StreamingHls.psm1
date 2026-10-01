@@ -27,20 +27,20 @@ function Get-HlsSteps {
     $steps += @{ Id = 'playlist'; Type = 'Text'; Prompt = 'Playlist name'; Help = 'The .m3u8 extension is added automatically.'; Example = 'playlist'; Default = 'playlist'; Label = 'Playlist name'
         Validate = { param($v, $W) $n = $v; if ($n.EndsWith('.m3u8')) { $n = $n.Substring(0, $n.Length - 5) }; $e = Test-ValidFileName ($n + '.m3u8'); if ($e) { return $e }; $null } }
     $steps += @{ Id = 'segdur'; Type = 'Choice'; Prompt = 'Segment duration'; Help = 'Length of each video chunk. 6 seconds is common.'
-        Choices = { param($W) @( (New-Choice 2 '2 seconds'), (New-Choice 4 '4 seconds'), (New-Choice 6 '6 seconds (Recommended)'), (New-Choice 10 '10 seconds') ) }
+        Choices = { param($W) @( (New-Choice 2 '2 seconds' 'Very short segments; fast start, more files.'), (New-Choice 4 '4 seconds' 'Short segments with quick quality switching.'), (New-Choice 6 '6 seconds (Recommended)' 'The common, well-balanced choice.'), (New-Choice 10 '10 seconds' 'Fewer, longer segments.') ) }
         AllowCustom = @{ Label = 'Custom...'; Type = 'Integer'; Min = 1; Max = 60; Prompt = 'Custom segment duration (seconds)'; Help = 'Between 1 and 60.'; Example = '8'; ValueLabel = 'Segment duration'; Desc = 'For example 8.' }; Default = 6 }
     $steps += @{ Id = 'mode'; Type = 'Choice'; Prompt = 'Encoding mode'; Help = 'Copy is instant when the streams are already HLS-friendly (H.264/H.265 + AAC/MP3/AC-3).'
         Choices = { param($W) $ok = ((Test-FFEncoder 'libx264') -and (Test-FFEncoder 'aac')); @( (New-Choice 'copy' 'Copy streams (fast)' 'No re-encoding; only works with compatible codecs.'), (New-Choice 'encode' 'Re-encode to H.264 + AAC' 'Most compatible with players; slower.' $ok 'Requires libx264 and the AAC encoder.') ) }
         Default = 'copy' }
     $steps += @{ Id = 'vlevel'; Type = 'Choice'; Prompt = 'Video quality'; Help = 'Higher quality creates larger segments.'; When = { param($W) (Get-Answer $W 'mode') -eq 'encode' }
-        Choices = { param($W) @( (New-Choice 'Recommended' 'Recommended'), (New-Choice 'high' 'High quality'), (New-Choice 'small' 'Smaller') ) }; Default = 'Recommended' }
+        Choices = { param($W) @( (New-Choice 'Recommended' 'Recommended' 'Balanced quality and size.'), (New-Choice 'high' 'High quality' 'Sharper picture; larger segments.'), (New-Choice 'small' 'Smaller' 'Smaller segments; softer picture.') ) }; Default = 'Recommended' }
     $steps += @{ Id = 'ptype'; Type = 'Choice'; Prompt = 'Playlist type'; Help = 'VOD lists every segment and ends. Event keeps appending segments.'
-        Choices = { param($W) @( (New-Choice 'vod' 'VOD (complete recording)  (Recommended)'), (New-Choice 'event' 'Event (append-only)') ) }; Default = 'vod' }
+        Choices = { param($W) @( (New-Choice 'vod' 'VOD (complete recording)  (Recommended)' 'A finished playlist that lists every segment, for on-demand playback.'), (New-Choice 'event' 'Event (append-only)' 'A playlist that keeps growing; segments are only added, never removed.') ) }; Default = 'vod' }
     $steps += @{ Id = 'segname'; Type = 'Text'; Prompt = 'Segment file name pattern'; Help = 'Must contain a number placeholder such as %03d.'; Example = 'segment_%03d.ts'; Default = 'segment_%03d.ts'; Label = 'Pattern'
         Validate = { param($v, $W) if ($v -notmatch '%0?\d*d') { return 'The pattern must contain a number placeholder such as %03d.' }; $e = Test-ValidFileName (($v -replace '%0?\d*d', '000')); if ($e) { return $e }; if ($v -notmatch '\.ts$|\.m4s$|\.mp4$') { return 'The pattern should end with .ts, .m4s or .mp4.' }; $null } }
     $steps += @{ Id = 'overwrite'; Type = 'Choice'; Prompt = 'HLS files already exist in that folder'; Help = 'Existing files are never replaced without your confirmation.'
         When = { param($W) $d = Get-Answer $W 'outdir'; $p = [string](Get-Answer $W 'playlist' 'playlist'); $p = $p -replace '\.m3u8$', ''; (Test-Path -LiteralPath (Join-Path $d ($p + '.m3u8'))) }
-        Choices = { param($W) @( (New-Choice 'rename' 'Choose a different playlist name'), (New-Choice 'overwrite' 'Overwrite the existing playlist and segments') ) }; Default = 'rename'
+        Choices = { param($W) @( (New-Choice 'rename' 'Choose a different playlist name' 'Go back and pick another name so nothing is replaced.'), (New-Choice 'overwrite' 'Overwrite the existing playlist and segments' 'Replace the existing playlist and segment files that share these names.') ) }; Default = 'rename'
         OnAnswer = { param($v, $W) if ($v -eq 'rename') { $W.Goto = 'playlist' } } }
     return $steps
 }
@@ -132,6 +132,67 @@ function Build-StreamSaveJob {
     return New-JobObject -Title 'Saving stream' -Summary @(@('Stream', (Hide-UrlCredentials $url)), @('Limit', $(if ($limit) { Format-Duration $limit } else { 'Until the stream ends' })), @('Output', $out.Path)) -Stages @(@{ Name = 'Saving stream'; Arguments = (Get-FFTokens $cmd); DurationSec = $dur }) -OutputPath $out.Path -EnsureDirs @($out.Dir) -Notes $notes
 }
 
+# ---- 2b. Send (push) a file to a network address -------------------------------------------------------------
+
+$script:PushSchemes = @{ rtmp = 'flv'; rtmps = 'flv'; srt = 'mpegts'; udp = 'mpegts'; tcp = 'mpegts'; rtp = 'rtp_mpegts'; rtsp = 'rtsp' }
+
+function Test-PushUrl {
+    # Returns $null when the address is an output protocol the installed FFmpeg supports.
+    param([string]$Url)
+    $u = $Url.Trim()
+    if ($u -notmatch '^([a-zA-Z][a-zA-Z0-9+.-]*)://\S+$') { return 'Enter a full address such as rtmp://server/live/key or srt://host:port' }
+    $scheme = $Matches[1].ToLowerInvariant()
+    if (-not $script:PushSchemes.ContainsKey($scheme)) { return "'$scheme' is not supported for sending. Supported: $((@($script:PushSchemes.Keys) | Sort-Object) -join ', ')." }
+    if (-not (Test-FFProtocol $scheme -Direction Output)) { return "Your FFmpeg build cannot send to '$scheme' addresses." }
+    if (-not (Test-FFMuxer $script:PushSchemes[$scheme])) { return "Your FFmpeg build lacks the '$($script:PushSchemes[$scheme])' format needed for $scheme." }
+    return $null
+}
+
+function Get-StreamPushSteps {
+    $steps = @()
+    $steps += Get-InputFileStep -Id 'input' -Prompt 'Media file to send' -Require Media -Help 'The file is played out to the network address in real time.'
+    $steps += @{ Id = 'url'; Type = 'Text'; Prompt = 'Destination address (URL)'; Label = 'Address'; Example = 'rtmp://live.example.com/app/stream-key  or  srt://192.168.1.20:9000'
+        Help = 'Where to send the stream. Keep stream keys private: the key is hidden in the on-screen summary and is never written to disk by this application.'
+        Validate = { param($v, $W) Test-PushUrl $v } }
+    $steps += @{ Id = 'mode'; Type = 'Choice'; Prompt = 'Encoding'; Help = 'Most servers need H.264 video with AAC audio. Copy only works when the file already uses those codecs.'
+        Choices = { param($W) $ok = ((Test-FFEncoder 'libx264') -and (Test-FFEncoder 'aac')); @( (New-Choice 'encode' 'Re-encode to H.264 + AAC  (Recommended)' 'Works with nearly every server; uses more processor power.' $ok 'Requires libx264 and the AAC encoder.'), (New-Choice 'copy' 'Copy streams (no re-encoding)' 'Lowest processor use; only for files that are already H.264 + AAC.') ) }
+        Default = 'encode' }
+    return $steps
+}
+
+function Build-StreamPushJob {
+    param($W)
+    $info = Get-Media $W 'input'
+    $url = ([string](Get-Answer $W 'url')).Trim()
+    $e = Test-PushUrl $url; if ($e) { throw $e }
+    $scheme = ([regex]::Match($url, '^([a-zA-Z][a-zA-Z0-9+.-]*)://')).Groups[1].Value.ToLowerInvariant()
+    $muxer = $script:PushSchemes[$scheme]
+    $mode = [string](Get-Answer $W 'mode' 'encode')
+    $cmd = New-FFCommand
+    [void](Add-FFInput $cmd $info.Path @('-re'))
+    if ($info.HasVideo) { Add-FFOutOpt $cmd @('-map', ('0:' + $info.Video[0].Index)) }
+    if ($info.HasAudio) { Add-FFOutOpt $cmd @('-map', ('0:' + $info.Audio[0].Index)) }
+    if ($mode -eq 'copy') {
+        if ($info.HasVideo -and $info.Video[0].Codec -ne 'h264') { throw "The video codec ($(Get-FriendlyCodecName $info.Video[0].Codec)) is not H.264, so it cannot be copied to most servers. Choose re-encode." }
+        if ($info.HasAudio -and $info.Audio[0].Codec -ne 'aac') { throw "The audio codec ($(Get-FriendlyCodecName $info.Audio[0].Codec)) is not AAC, so it cannot be copied to most servers. Choose re-encode." }
+        Add-FFOutOpt $cmd @('-c', 'copy')
+    } else {
+        if ($info.HasVideo) { Add-FFOutOpt $cmd @('-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency', '-pix_fmt', 'yuv420p', '-g', '60', '-b:v', '3000k', '-maxrate', '3000k', '-bufsize', '6000k') }
+        if ($info.HasAudio) { Add-FFOutOpt $cmd (Get-AudioEncodeArgs -Encoder 'aac' -BitrateBps 128000) }
+    }
+    Add-FFOutOpt $cmd @('-f', $muxer)
+    Set-FFOutput $cmd $url -Overwrite
+    $safe = Hide-UrlCredentials $url
+    # Keys in the path (rtmp://host/app/KEY) are also hidden in every on-screen view.
+    $shown = ($safe -replace '^((?:rtmps?|rtsp)://[^/]+/[^/]+/).+$', '$1***')
+    $tokens = @(Get-FFTokens $cmd)
+    $rows = @(@('Source', $info.FileName), @('Destination', $shown), @('Encoding', $(if ($mode -eq 'copy') { 'Copy streams' } else { 'H.264 + AAC' })), @('Format', $muxer))
+    $notes = @('The file is sent in real time, so it takes as long as the file lasts. Press Esc to stop.', 'The address is only used for this transmission.')
+    $job = New-JobObject -Title 'Sending stream' -Summary $rows -Stages @(@{ Name = 'Streaming'; Arguments = $tokens; DurationSec = $info.Duration }) -OutputPath $shown -OutputKind 'Network' -Notes $notes
+    $job.OutputDisplay = $shown
+    return $job
+}
+
 # ---- 3. Inspect ---------------------------------------------------------------------------------------------
 
 function Start-InspectStreamWorkflow {
@@ -153,11 +214,12 @@ function Start-InspectStreamWorkflow {
 
 function Start-StreamingWorkflow {
     $items = @(
-        @{ Label = 'Create HLS Output from Media File'; Desc = 'Split a video or audio file into an .m3u8 playlist with segments.'; Key = '1'; Enabled = (Test-FFMuxer 'hls'); Reason = 'This FFmpeg build cannot write HLS.'; Value = { Start-StandardWorkflow -Title 'Create HLS Output' -Description 'Create a playlist and segments for streaming.' -Icon 'Stream' -StepsFactory { Get-HlsSteps } -Build { param($W) Build-HlsJob $W } } },
-        @{ Label = 'Read / Save Supported Network Stream'; Desc = 'Record a stream from a supported network address to a file.'; Key = '2'; Value = { Start-StandardWorkflow -Title 'Save Network Stream' -Description 'Save a stream to a local file.' -Icon 'Stream' -StepsFactory { Get-StreamSaveSteps } -Build { param($W) Build-StreamSaveJob $W } } },
-        @{ Label = 'Inspect Stream Information'; Desc = 'Show codecs, resolution and other details of a stream or file.'; Key = '3'; Value = { Start-InspectStreamWorkflow } }
+        @{ Label = 'Create HLS Output from Media File'; Desc = 'Split a video or audio file into an .m3u8 playlist with segments.'; Enabled = (Test-FFMuxer 'hls'); Reason = 'This FFmpeg build cannot write HLS.'; Value = { Start-StandardWorkflow -Title 'Create HLS Output' -Description 'Create a playlist and segments for streaming.' -Icon 'Stream' -StepsFactory { Get-HlsSteps } -Build { param($W) Build-HlsJob $W } } },
+        @{ Label = 'Read / Save Supported Network Stream'; Desc = 'Record a stream from a supported network address to a file.'; Value = { Start-StandardWorkflow -Title 'Save Network Stream' -Description 'Save a stream to a local file.' -Icon 'Stream' -StepsFactory { Get-StreamSaveSteps } -Build { param($W) Build-StreamSaveJob $W } } },
+        @{ Label = 'Send a File to a Network Address (Stream Out)'; Icon = 'Network'; Desc = 'Play a file out to an RTMP, SRT, UDP or RTSP address in real time.'; Enabled = ((Test-FFProtocol 'rtmp' -Direction Output) -or (Test-FFProtocol 'srt' -Direction Output) -or (Test-FFProtocol 'udp' -Direction Output)); Reason = 'This FFmpeg build has no network output protocols.'; Value = { Start-StandardWorkflow -Title 'Send a File to the Network' -Description 'Stream a file to a server.' -Icon 'Stream' -StepsFactory { Get-StreamPushSteps } -Build { param($W) Build-StreamPushJob $W } } },
+        @{ Label = 'Inspect Stream Information'; Desc = 'Show codecs, resolution and other details of a stream or file.'; Value = { Start-InspectStreamWorkflow } }
     )
     Show-WorkflowSubmenu -Title ((Get-Icon 'Stream') + '  Streaming / HLS') -Subtitle 'Work with supported streams and create common HLS outputs.' -Items $items
 }
 
-Export-ModuleMember -Function Test-NetworkUrl, Hide-UrlCredentials, Get-HlsSteps, Build-HlsJob, Get-StreamSaveSteps, Build-StreamSaveJob, Start-InspectStreamWorkflow, Start-StreamingWorkflow
+Export-ModuleMember -Function Test-PushUrl, Get-StreamPushSteps, Build-StreamPushJob, Test-NetworkUrl, Hide-UrlCredentials, Get-HlsSteps, Build-HlsJob, Get-StreamSaveSteps, Build-StreamSaveJob, Start-InspectStreamWorkflow, Start-StreamingWorkflow

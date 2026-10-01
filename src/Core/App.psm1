@@ -18,7 +18,7 @@ function Invoke-WithSpinner {
         Show-BusyScreen -Title $Title -Message ($(if ($state.Last) { $state.Last } else { $Message })) -Tick $state.Tick
         if (Test-TuiKeyAvailable) {
             $k = Read-TuiKey
-            if ($k.Name -eq 'Esc' -or $k.Name -eq 'CtrlC' -or ($k.Name -eq 'Char' -and $k.Char.ToUpperInvariant() -eq 'Q')) { $state.Cancelled = $true; return $true }
+            if ($k.Name -eq 'Esc' -or $k.Name -eq 'CtrlC') { $state.Cancelled = $true; return $true }
         }
         return $false
     }.GetNewClosure()
@@ -131,7 +131,7 @@ function Show-FFmpegStatus {
         $hw = if ($cap.Loaded -and $cap.HwAccels.Count -gt 0) { ($cap.HwAccels -join ', ') } else { 'none detected' }
         $capText = if ($cap.Loaded) { "Loaded at $($cap.At.ToString('HH:mm:ss')): $($cap.Encoders) encoders, $($cap.Decoders) decoders, $($cap.Muxers) muxers, $($cap.Demuxers) demuxers, $($cap.Filters) filters, $($cap.Protocols) protocols" } else { 'Not loaded' }
         $ansiText = if (Test-AnsiMode) { 'Enabled (ANSI colors)' } else { 'Disabled (legacy console colors)' }
-        $uni = if ((Get-BoxChars).H -eq '-') { 'ASCII fallback icons' } else { 'Unicode icons' }
+        $uni = switch (Get-IconTierInUse) { 'Emoji' { 'emoji icons' } 'Symbol' { 'console-safe symbol icons' } default { 'ASCII icons' } }
         $pm = if (Test-WingetAvailable) { 'winget available (' + (Get-WingetPackageId) + ')' } else { 'winget not available' }
         $rows = @(
             @('Application', ((Get-AppName) + ' v' + (Get-AppVersion))),
@@ -146,29 +146,31 @@ function Show-FFmpegStatus {
             @('Package mgr', $pm),
             @('Updates', $updText)
         )
-        Hide-Cursor
-        Start-Frame
-        Write-Header
-        Write-UiBlank
-        Write-UiSegments @(@(((Get-Icon 'Settings') + '  '), 'PrimaryAccent'), @('FFmpeg Status / Settings', 'Title'))
-        Write-Rule
-        Write-KeyValueTable -Rows $rows -LabelWidth 13 -Indent 1
-        Write-Rule
-        Write-KeyHints @(@('C', 'Re-scan capabilities'), @('U', 'Check for updates'), @('P', 'Re-detect FFmpeg paths'), @('B', 'Back'))
-        Stop-Frame
-        $k = Read-TuiKey
-        if ($k.Name -eq 'Esc' -or $k.Name -eq 'CtrlC') { return }
-        if ($k.Name -eq 'Char') {
-            switch ($k.Char.ToUpperInvariant()) {
-                'B' { return }
-                'C' { $null = Initialize-CapabilityScan -Force }
-                'U' { Invoke-UpdateFlow -Interactive }
-                'P' {
-                    Update-ProcessPath
-                    $d = Find-FFmpegInstallation
-                    if ($d.Status -eq 'Ready') { $null = Initialize-CapabilityScan -Force }
-                    else { $null = Show-Notice -Title 'FFmpeg could not be detected' -Lines @($(if ($d.Detail) { $d.Detail } else { 'ffmpeg or ffprobe is not available on PATH.' })) -Kind Warning }
-                }
+        $render = {
+            Write-Header
+            Write-UiBlank
+            Write-UiSegments @(@(((Get-Icon 'Settings') + '  '), 'PrimaryAccent'), @('FFmpeg Status / Settings', 'Title'))
+            Write-Rule
+            Write-KeyValueTable -Rows $rows -LabelWidth 13 -Indent 1
+            Write-Rule
+        }.GetNewClosure()
+        $items = @(
+            @{ Label = 'Re-scan capabilities'; Icon = 'Retry'; Desc = 'Read the encoders, formats and filters again (use after updating FFmpeg).'; Value = 'scan' },
+            @{ Label = 'Check for updates'; Icon = 'Update'; Desc = 'Ask Windows Package Manager whether a newer FFmpeg is available.'; Value = 'update' },
+            @{ Label = 'Re-detect FFmpeg paths'; Icon = 'Search'; Desc = 'Look for ffmpeg and ffprobe again, for example after installing them manually.'; Value = 'paths' },
+            @{ Label = 'Back'; Icon = 'Back'; Desc = 'Return to the main menu.'; Value = 'back' }
+        )
+        $r = Show-Menu -Items $items -AllowBack -InfoRenderer $render -InfoLines ($rows.Count + 9)
+        if ($r.Action -ne 'Select') { return }
+        switch ($r.Item.Value) {
+            'back' { return }
+            'scan' { $null = Initialize-CapabilityScan -Force }
+            'update' { Invoke-UpdateFlow -Interactive }
+            'paths' {
+                Update-ProcessPath
+                $d = Find-FFmpegInstallation
+                if ($d.Status -eq 'Ready') { $null = Initialize-CapabilityScan -Force }
+                else { $null = Show-Notice -Title 'FFmpeg could not be detected' -Lines @($(if ($d.Detail) { $d.Detail } else { 'ffmpeg or ffprobe is not available on PATH.' })) -Kind Warning }
             }
         }
     }
@@ -178,26 +180,34 @@ function Show-FFmpegStatus {
 
 function Get-MainMenuItems {
     $items = @(
-        @{ Key = '1'; Icon = 'Video'; Label = 'Convert Video Format'; Desc = 'Convert a video to another container or video format.'; Value = 'ConvertVideo' },
-        @{ Key = '2'; Icon = 'Audio'; Label = 'Convert Audio Format'; Desc = 'Convert an audio file to MP3, AAC, FLAC, WAV, Opus, and other supported formats.'; Value = 'ConvertAudio' },
-        @{ Key = '3'; Icon = 'Extract'; Label = 'Extract Audio from Video'; Desc = 'Save one audio stream from a video as a separate audio file.'; Value = 'ExtractAudio' },
-        @{ Key = '4'; Icon = 'Cut'; Label = 'Trim / Cut Media'; Desc = 'Keep only a selected time range from a video or audio file.'; Value = 'Trim' },
-        @{ Key = '5'; Icon = 'Merge'; Label = 'Merge Media'; Desc = 'Join multiple compatible video or audio files into one output.'; Value = 'Merge' },
-        @{ Key = '6'; Icon = 'Compress'; Label = 'Compress Media'; Desc = 'Reduce video or audio file size with guided quality controls.'; Value = 'Compress' },
-        @{ Key = '7'; Icon = 'Resize'; Label = 'Resize / Scale Video'; Desc = 'Change video dimensions while controlling aspect ratio and fit behavior.'; Value = 'Resize' },
-        @{ Key = '8'; Icon = 'Gif'; Label = 'Video to GIF'; Desc = 'Convert a video or selected clip into an animated GIF.'; Value = 'Gif' },
-        @{ Key = '9'; Icon = 'Frames'; Label = 'Extract Frames / Images'; Desc = 'Save frames from a video as JPG, PNG, WebP, or another supported image format.'; Value = 'Frames' },
-        @{ Key = 'A'; Icon = 'AudioTools'; Label = 'Audio Tools'; Desc = 'Adjust volume, sample rate, channels, speed, and other common audio properties.'; Value = 'AudioTools' },
-        @{ Key = 'B'; Icon = 'Subtitle'; Label = 'Subtitle Tools'; Desc = 'Extract, add, remove, copy, or burn subtitle streams.'; Value = 'SubtitleTools' },
-        @{ Key = 'C'; Icon = 'FrameRate'; Label = 'Change Frame Rate'; Desc = 'Convert a video to a different playback frame rate.'; Value = 'FrameRate' },
-        @{ Key = 'D'; Icon = 'Filters'; Label = 'Filters & Color'; Desc = 'Apply common visual filters and color adjustments.'; Value = 'Filters' },
-        @{ Key = 'E'; Icon = 'Rotate'; Label = 'Crop / Rotate / Flip'; Desc = 'Crop the frame or change video orientation.'; Value = 'Transform' },
-        @{ Key = 'F'; Icon = 'Text'; Label = 'Text & Watermark'; Desc = 'Add text or an image/logo overlay to video.'; Value = 'Overlay' },
-        @{ Key = 'G'; Icon = 'Speed'; Label = 'Change Playback Speed'; Desc = 'Make video/audio slower or faster while controlling synchronization.'; Value = 'Speed' },
-        @{ Key = 'H'; Icon = 'Stream'; Label = 'Streaming / HLS'; Desc = 'Work with supported streams and create common HLS outputs.'; Value = 'Streaming' },
-        @{ Key = 'I'; Icon = 'Info'; Label = 'Media Information'; Desc = 'Inspect a media file using ffprobe in a readable summary.'; Value = 'MediaInfo' },
-        @{ Key = 'S'; Icon = 'Settings'; Label = 'FFmpeg Status / Settings'; Desc = 'View FFmpeg version, detected capabilities, paths, and update status.'; Value = 'Status' },
-        @{ Key = 'Q'; Icon = 'Quit'; Label = 'Exit'; Desc = ''; Value = 'Quit' }
+        @{ Icon = 'Video'; Label = 'Convert Video Format'; Desc = 'Convert a video to another container or video format.'; Value = 'ConvertVideo' },
+        @{ Icon = 'Audio'; Label = 'Convert Audio Format'; Desc = 'Convert an audio file to MP3, AAC, FLAC, WAV, Opus, and other supported formats.'; Value = 'ConvertAudio' },
+        @{ Icon = 'Extract'; Label = 'Extract Audio from Video'; Desc = 'Save one audio stream from a video as a separate audio file.'; Value = 'ExtractAudio' },
+        @{ Icon = 'Cut'; Label = 'Trim / Cut Media'; Desc = 'Keep only a selected time range from a video or audio file.'; Value = 'Trim' },
+        @{ Icon = 'Merge'; Label = 'Merge Media'; Desc = 'Join multiple compatible video or audio files into one output.'; Value = 'Merge' },
+        @{ Icon = 'Compress'; Label = 'Compress Media'; Desc = 'Reduce video or audio file size with guided quality controls.'; Value = 'Compress' },
+        @{ Icon = 'Resize'; Label = 'Resize / Scale Video'; Desc = 'Change video dimensions while controlling aspect ratio and fit behavior.'; Value = 'Resize' },
+        @{ Icon = 'Gif'; Label = 'Video to GIF'; Desc = 'Convert a video or selected clip into an animated GIF.'; Value = 'Gif' },
+        @{ Icon = 'Frames'; Label = 'Extract Frames / Images'; Desc = 'Save frames from a video as JPG, PNG, WebP, or another supported image format.'; Value = 'Frames' },
+        @{ Icon = 'AudioTools'; Label = 'Audio Tools'; Desc = 'Adjust volume, sample rate, channels, speed, and other common audio properties.'; Value = 'AudioTools' },
+        @{ Icon = 'Subtitle'; Label = 'Subtitle Tools'; Desc = 'Extract, add, remove, copy, or burn subtitle streams.'; Value = 'SubtitleTools' },
+        @{ Icon = 'FrameRate'; Label = 'Change Frame Rate'; Desc = 'Convert a video to a different playback frame rate.'; Value = 'FrameRate' },
+        @{ Icon = 'Filters'; Label = 'Filters & Color'; Desc = 'Apply common visual filters and color adjustments.'; Value = 'Filters' },
+        @{ Icon = 'Rotate'; Label = 'Crop / Rotate / Flip'; Desc = 'Crop the frame or change video orientation.'; Value = 'Transform' },
+        @{ Icon = 'Text'; Label = 'Text & Watermark'; Desc = 'Add text or an image/logo overlay to video.'; Value = 'Overlay' },
+        @{ Icon = 'Speed'; Label = 'Change Playback Speed'; Desc = 'Make video/audio slower or faster while controlling synchronization.'; Value = 'Speed' },
+        @{ Icon = 'Stream'; Label = 'Streaming / HLS'; Desc = 'Work with supported streams and create common HLS outputs.'; Value = 'Streaming' },
+        @{ Icon = 'Info'; Label = 'Media Information'; Desc = 'Inspect a media file using ffprobe in a readable summary.'; Value = 'MediaInfo' },
+        @{ Icon = 'Remux'; Label = 'Remux & Streams'; Desc = 'Change a container with no re-encoding, keep chosen tracks, fix track languages.'; Value = 'Remux' },
+        @{ Icon = 'Tag'; Label = 'Metadata & Chapters'; Desc = 'Edit tags, remove metadata, add chapters, or attach cover art without re-encoding.'; Value = 'Metadata' },
+        @{ Icon = 'Image'; Label = 'Images & Slideshows'; Desc = 'Slideshows from pictures, audio to video, or a thumbnail sheet of a video.'; Value = 'Images' },
+        @{ Icon = 'Enhance'; Label = 'Video Enhancement'; Desc = 'Deinterlace, denoise, stabilize, add bars for an aspect ratio, reverse or loop.'; Value = 'Enhance' },
+        @{ Icon = 'Record'; Label = 'Record / Capture'; Desc = 'Record the screen, a webcam or a microphone for a set time.'; Value = 'Capture' },
+        @{ Icon = 'Chart'; Label = 'Analyze & Detect'; Desc = 'Measure loudness, find silence, black frames and cuts, or compare video quality.'; Value = 'Analyze' },
+        @{ Icon = 'Batch'; Label = 'Batch Convert Folder'; Desc = 'Convert every video or audio file in a folder with the same settings.'; Value = 'Batch' },
+        @{ Icon = 'Code'; Label = 'Advanced FFmpeg'; Desc = 'Browse every codec and filter, test the GPU, or run your own FFmpeg options.'; Value = 'Advanced' },
+        @{ Icon = 'Settings'; Label = 'FFmpeg Status / Settings'; Desc = 'View FFmpeg version, detected capabilities, paths, and update status.'; Value = 'Status' },
+        @{ Icon = 'Quit'; Label = 'Exit'; Desc = 'Close FFmpeg User Manager. Nothing is left running.'; Value = 'Quit' }
     )
     return $items
 }
@@ -223,6 +233,14 @@ function Invoke-MainMenuAction {
         'Speed' { Start-SpeedWorkflow }
         'Streaming' { Start-StreamingWorkflow }
         'MediaInfo' { Start-MediaInfoWorkflow }
+        'Remux' { Start-RemuxStreamsWorkflow }
+        'Metadata' { Start-MetadataChaptersWorkflow }
+        'Images' { Start-ImagesAndVisualsWorkflow }
+        'Enhance' { Start-VideoEnhanceWorkflow }
+        'Capture' { Start-CaptureWorkflow }
+        'Analyze' { Start-AnalyzeWorkflow }
+        'Batch' { Start-BatchWorkflow }
+        'Advanced' { Start-AdvancedWorkflow }
         'Status' { Show-FFmpegStatus }
     }
 }
@@ -243,7 +261,7 @@ function Start-MainMenu {
     $idx = 0
     while ($true) {
         $note = $script:StartupNotice
-        $r = Show-Menu -Items $items -ShowHeader -InitialIndex $idx -FooterNote $note
+        $r = Show-Menu -Items $items -ShowHeader -InitialIndex $idx -FooterNote $note -AllowQuit
         if ($r.Action -eq 'Quit' -or ($r.Action -eq 'Select' -and $r.Item.Value -eq 'Quit')) { return }
         if ($r.Action -ne 'Select') { continue }
         $idx = $r.Index
@@ -279,7 +297,7 @@ function Start-FFmpegTuiApp {
         }
     }
     $sink = 'Console'; if ($BufferOutput) { $sink = 'Buffer' }
-    $ansi = Test-AnsiSupport; $uni = Test-UnicodeIconSupport
+    $ansi = Test-AnsiSupport; $uni = Get-IconTier
     if ($BufferOutput) { $ansi = $false }
     Initialize-Renderer -Ansi $ansi -Unicode $uni -Sink $sink -Width $(if ($BufferOutput) { 100 } else { 0 }) -Height $(if ($BufferOutput) { 40 } else { 0 })
     if ($ScriptedInput) { Set-TuiScriptedInput $ScriptedInput }

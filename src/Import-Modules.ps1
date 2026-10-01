@@ -11,6 +11,8 @@ function Import-FFTuiModules {
         'Workflows\CompressMedia', 'Workflows\ResizeVideo', 'Workflows\VideoToGif', 'Workflows\ExtractFrames',
         'Workflows\AudioTools', 'Workflows\SubtitleTools', 'Workflows\FrameRate', 'Workflows\Filters', 'Workflows\TransformVideo',
         'Workflows\OverlayTools', 'Workflows\PlaybackSpeed', 'Workflows\StreamingHls', 'Workflows\MediaInfo',
+        'Workflows\RemuxStreams', 'Workflows\MetadataChapters', 'Workflows\ImagesAndVisuals', 'Workflows\AudioEffects', 'Workflows\VideoEnhance',
+        'Workflows\CaptureMedia', 'Workflows\AnalyzeMedia', 'Workflows\BatchConvert', 'Workflows\AdvancedTools',
         'Core\App'
     )
     foreach ($m in $order) {

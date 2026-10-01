@@ -29,12 +29,12 @@ function Get-ResizeSteps {
                (New-Choice 'Stretch' 'Stretch (distorts the picture)' 'Force exact width x height. The picture may look squashed.' $both $r) )
         }
         Default = 'Preserve' }
-    $steps += @{ Id = 'pad'; Type = 'YesNo'; Prompt = 'Add black bars to reach the exact size?'; Help = 'Padding keeps the full picture and fills the rest with black.'; Default = $false
+    $steps += @{ Id = 'pad'; Type = 'YesNo'; Prompt = 'Add black bars to reach the exact size?'; Help = 'Padding keeps the full picture and fills the rest with black.'; YesDesc = 'The whole picture is kept and black bars fill the difference (no cropping).'; NoDesc = 'The result may be smaller than the exact size you typed, but has no bars.'; Default = $false
         When = { param($W) (Get-Answer $W 'mode') -eq 'Fit' } }
     $steps += Get-AdvancedGateStep -Prompt 'Configure advanced scaling options?'
     $steps += @{ Id = 'algo'; Type = 'Choice'; Prompt = 'Scaling algorithm'; Help = 'Recommended works well for nearly everything. Lanczos is sharper; bilinear is faster.'
         When = { param($W) (Get-Answer $W 'target') -ne 'keep' -and (Get-Answer $W 'advanced' $false) }
-        Choices = { param($W) @( (New-Choice '' 'Recommended (bicubic)'), (New-Choice 'lanczos' 'Lanczos (sharp)'), (New-Choice 'bilinear' 'Bilinear (fast)'), (New-Choice 'bicubic' 'Bicubic'), (New-Choice 'spline' 'Spline'), (New-Choice 'neighbor' 'Nearest neighbor (pixel art)') ) }
+        Choices = { param($W) @( (New-Choice '' 'Recommended (bicubic)' 'Good balance of sharpness and speed for almost every video.'), (New-Choice 'lanczos' 'Lanczos (sharp)' 'The sharpest result when shrinking; slightly slower.'), (New-Choice 'bilinear' 'Bilinear (fast)' 'Fastest, but softer.'), (New-Choice 'bicubic' 'Bicubic' 'Smooth and sharp; the standard choice.'), (New-Choice 'spline' 'Spline' 'Very smooth scaling for large enlargements.'), (New-Choice 'neighbor' 'Nearest neighbor (pixel art)' 'Keeps hard pixel edges; ideal for pixel art and screenshots.') ) }
         Default = '' }
     $steps += Get-VideoTailSteps -Suffix 'resized'
     return $steps

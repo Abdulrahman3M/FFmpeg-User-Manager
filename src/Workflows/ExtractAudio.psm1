@@ -23,7 +23,7 @@ function Get-ExtractAudioSteps {
     $steps += Get-InputFileStep -Id 'input' -Prompt 'Input video' -Require Audio
     $steps += @{ Id = 'stream'; Type = 'Choice'; Prompt = 'Audio track'; Help = 'This file contains several audio tracks. Choose the one to extract.'
         When = { param($W) (Get-Media $W 'input').Audio.Count -gt 1 }
-        Choices = { param($W) $m = Get-Media $W 'input'; $l = @(); for ($i = 0; $i -lt $m.Audio.Count; $i++) { $l += , (New-Choice $m.Audio[$i].Index (Get-AudioStreamLabel $m.Audio[$i] $i)) }; $l }
+        Choices = { param($W) $m = Get-Media $W 'input'; $l = @(); for ($i = 0; $i -lt $m.Audio.Count; $i++) { $l += , (New-Choice $m.Audio[$i].Index (Get-AudioStreamLabel $m.Audio[$i] $i) 'An audio track in the video (for example a language version).') }; $l }
         Default = { param($W) (Get-Media $W 'input').Audio[0].Index } }
     $steps += @{ Id = 'mode'; Type = 'Choice'; Prompt = 'Output mode'; Help = 'Copying keeps the original quality and is instant; converting lets you choose another format.'
         Choices = { param($W) $m = Get-Media $W 'input'; @( (New-Choice 'copy' 'Copy original audio stream' 'No re-encoding: fastest, no quality loss.'), (New-Choice 'convert' 'Convert to another format' 'Choose format, codec, bitrate, sample rate and channels.') ) }

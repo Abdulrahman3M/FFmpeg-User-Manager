@@ -116,18 +116,47 @@ function Test-AnsiSupport {
     return $false
 }
 
-function Test-UnicodeIconSupport {
-    if ($env:FFTUI_ASCII -eq '1') { return $false }
-    if ($env:FFTUI_UNICODE -eq '1') { return $true }
-    try { if ([Console]::IsOutputRedirected) { return $false } } catch { return $false }
-    if (-not (Test-IsWindows)) { return ($env:LANG -match 'UTF-?8' -or $env:LC_ALL -match 'UTF-?8') }
-    # Windows Terminal / VS Code / ConEmu render emoji; legacy conhost usually does not.
-    if ($env:WT_SESSION -or $env:TERM_PROGRAM -or $env:ConEmuANSI -eq 'ON') {
-        try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
-        return $true
-    }
-    return $false
+function Set-ConsoleUtf8Output {
+    # Makes the console write UTF-8 so the icon/box characters reach the screen unchanged. Returns $true on success.
+    if (-not (Test-IsWindows)) { return $true }
+    try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); return $true } catch { return $false }
 }
+
+function Resolve-IconTier {
+    # Pure decision logic (unit tested): Emoji | Symbol | Ascii. $Env is a hashtable of the relevant variables.
+    #   Emoji  - modern terminals (Windows Terminal, VS Code, ConEmu, UTF-8 Linux/macOS)
+    #   Symbol - legacy Windows console (conhost, the Windows PowerShell 5.1 window): single-column glyphs from the
+    #            Windows Glyph List 4 that every console font draws, so an icon is always visible
+    #   Ascii  - redirected output, or forced with FFTUI_ASCII=1 (FFTUI_ICONS=emoji|symbol|ascii overrides detection)
+    param([hashtable]$Env, [bool]$IsWin, [bool]$Redirected, [bool]$Utf8Ok = $true)
+    $force = ([string]$Env['FFTUI_ICONS']).ToLowerInvariant()
+    if ($force -eq 'emoji') { return 'Emoji' }
+    if ($force -eq 'symbol') { return 'Symbol' }
+    if ($force -eq 'ascii') { return 'Ascii' }
+    if ($Env['FFTUI_ASCII'] -eq '1') { return 'Ascii' }
+    if ($Env['FFTUI_UNICODE'] -eq '1') { return 'Emoji' }
+    if ($Redirected) { return 'Ascii' }
+    if (-not $IsWin) {
+        if ([string]$Env['LANG'] -match 'UTF-?8' -or [string]$Env['LC_ALL'] -match 'UTF-?8') { return 'Emoji' }
+        return 'Ascii'
+    }
+    if (-not $Utf8Ok) { return 'Ascii' }
+    if ($Env['WT_SESSION'] -or $Env['TERM_PROGRAM'] -or $Env['ConEmuANSI'] -eq 'ON') { return 'Emoji' }
+    return 'Symbol'
+}
+
+function Get-IconTier {
+    $names = 'FFTUI_ICONS', 'FFTUI_ASCII', 'FFTUI_UNICODE', 'LANG', 'LC_ALL', 'WT_SESSION', 'TERM_PROGRAM', 'ConEmuANSI'
+    $e = @{}; foreach ($n in $names) { $e[$n] = [Environment]::GetEnvironmentVariable($n) }
+    $redirected = $false
+    try { $redirected = [Console]::IsOutputRedirected } catch { $redirected = $true }
+    $win = Test-IsWindows
+    $utf8 = $true
+    if ($win -and -not $redirected) { $utf8 = Set-ConsoleUtf8Output }
+    return (Resolve-IconTier -Env $e -IsWin $win -Redirected $redirected -Utf8Ok $utf8)
+}
+
+function Test-UnicodeIconSupport { return ((Get-IconTier) -ne 'Ascii') }
 
 function Get-TerminalSize {
     $w = 100; $h = 30
@@ -138,4 +167,4 @@ function Get-TerminalSize {
     return [pscustomobject]@{ Width = $w; Height = $h }
 }
 
-Export-ModuleMember -Function Get-AppName, Test-SemVer, Get-AppVersion, Set-AppRoot, Get-AppRoot, Get-AppConfig, Test-IsWindows, Get-RuntimeInfo, Test-InteractiveConsole, Test-AnsiSupport, Test-UnicodeIconSupport, Get-TerminalSize
+Export-ModuleMember -Function Get-AppName, Test-SemVer, Get-AppVersion, Set-AppRoot, Get-AppRoot, Get-AppConfig, Test-IsWindows, Get-RuntimeInfo, Test-InteractiveConsole, Test-AnsiSupport, Test-UnicodeIconSupport, Resolve-IconTier, Get-IconTier, Set-ConsoleUtf8Output, Get-TerminalSize

@@ -12,7 +12,7 @@ $script:HeaderInfo = ''
 $script:HeaderTitle = 'FFmpeg User Manager'
 
 function Initialize-Renderer {
-    param([bool]$Ansi, [bool]$Unicode, [ValidateSet('Console', 'Buffer')][string]$Sink = 'Console', [int]$Width = 0, [int]$Height = 0)
+    param([bool]$Ansi, $Unicode = $true, [ValidateSet('Console', 'Buffer')][string]$Sink = 'Console', [int]$Width = 0, [int]$Height = 0)
     $script:Ansi = $Ansi
     $script:Sink = $Sink
     $script:FixedWidth = $Width
@@ -55,7 +55,7 @@ function Get-TextWidth {
         $c = [int]$Text[$i]
         if ($c -ge 0xD800 -and $c -le 0xDBFF) { $w += 2; $i++; continue }
         if ($c -eq 0xFE0F -or $c -eq 0x200D) { continue }
-        if (($c -ge 0x1100 -and $c -le 0x115F) -or ($c -ge 0x2E80 -and $c -le 0xA4CF) -or ($c -ge 0xAC00 -and $c -le 0xD7A3) -or ($c -ge 0xF900 -and $c -le 0xFAFF) -or ($c -ge 0xFE30 -and $c -le 0xFE6F) -or ($c -ge 0xFF00 -and $c -le 0xFF60) -or $c -eq 0x2702 -or $c -eq 0x26A1 -or $c -eq 0x2B06 -or $c -eq 0x274C) { $w += 2; continue }
+        if (($c -ge 0x1100 -and $c -le 0x115F) -or ($c -ge 0x2E80 -and $c -le 0xA4CF) -or ($c -ge 0xAC00 -and $c -le 0xD7A3) -or ($c -ge 0xF900 -and $c -le 0xFAFF) -or ($c -ge 0xFE30 -and $c -le 0xFE6F) -or ($c -ge 0xFF00 -and $c -le 0xFF60) -or $c -eq 0x2702 -or $c -eq 0x26A1 -or $c -eq 0x2B06 -or $c -eq 0x2B05 -or $c -eq 0x274C -or $c -eq 0x2705 -or $c -eq 0x23E9 -or $c -eq 0x23EB -or $c -eq 0x2728 -or $c -eq 0x23FA -or $c -eq 0x27A1 -or $c -eq 0x2795 -or $c -eq 0x2796) { $w += 2; continue }
         $w += 1
     }
     return $w
@@ -238,7 +238,7 @@ function Write-Header {
     $b = Get-BoxChars
     $w = Get-UiWidth
     $inner = $w - 2
-    $mark = if ((Get-BoxChars).H -eq '-') { '>>' } else { [string][char]0x25C6 }
+    $mark = switch (Get-IconTierInUse) { 'Emoji' { [string][char]0x25C6 } 'Symbol' { [string][char]0x25BA } default { '>>' } }
     $l1 = '  ' + $mark + ' ' + $Title
     $l2 = '  ' + $Subtitle + $(if ($script:HeaderInfo) { ' ' + $script:HeaderInfo } else { '' })
     $l1 = Limit-Text $l1 $inner; $l2 = Limit-Text $l2 $inner

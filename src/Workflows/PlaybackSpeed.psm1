@@ -7,7 +7,7 @@ function Get-SpeedSteps {
     $steps = @()
     $steps += Get-InputFileStep -Id 'input' -Prompt 'Input media (video or audio)' -Require Media
     $steps += @{ Id = 'speed'; Type = 'Choice'; Prompt = 'Playback speed'; Help = '1.0x is the original speed. Below 1 = slow motion, above 1 = fast forward.'
-        Choices = { param($W) @($speedList | ForEach-Object { New-Choice ([double]$_) (("{0:0.0#}x" -f $_) + $(if ($_ -eq 1.0) { '  (unchanged)' } else { '' })) }) }.GetNewClosure()
+        Choices = { param($W) @($speedList | ForEach-Object { New-Choice ([double]$_) (("{0:0.0#}x" -f $_) + $(if ($_ -eq 1.0) { '  (unchanged)' } else { '' })) (Get-SpeedDescription $_) }) }.GetNewClosure()
         AllowCustom = @{ Label = 'Custom...'; Type = 'Decimal'; Min = 0.1; Max = 10; Prompt = 'Custom speed'; Help = 'A multiplier between 0.1 and 10.'; Example = '1.35'; ValueLabel = 'Speed'; Desc = 'For example 1.35.' }
         Default = 1.5
         Validate = { param($v, $W) if ([math]::Abs($v - 1.0) -lt 1e-9) { return 'A speed of 1.0x changes nothing. Choose another speed.' }; $null } }
@@ -16,7 +16,7 @@ function Get-SpeedSteps {
         Choices = { param($W) @( (New-Choice 'standard' 'Standard (duplicate frames)' 'Fast; recommended.'), (New-Choice 'interpolate' 'Smooth (motion interpolation)' 'Slow to process.' (Test-FFFilter 'minterpolate') 'Requires the minterpolate filter (not in this FFmpeg build).') ) }; Default = 'standard' }
     $steps += @{ Id = 'audio'; Type = 'Choice'; Prompt = 'Audio behavior'; Help = 'Keeping audio synchronized changes its tempo (pitch stays natural).'
         When = { param($W) $m = Get-Media $W 'input'; [bool]($m.HasVideo -and $m.HasAudio) }
-        Choices = { param($W) @( (New-Choice 'sync' 'Keep audio synchronized'), (New-Choice 'remove' 'Remove audio') ) }; Default = 'sync' }
+        Choices = { param($W) @( (New-Choice 'sync' 'Keep audio synchronized' 'The sound speeds up or slows down with the picture (pitch stays natural).'), (New-Choice 'remove' 'Remove audio' 'The result has no sound.') ) }; Default = 'sync' }
     # video output
     $steps += @{ Id = 'format'; Type = 'Choice'; Prompt = 'Output format'; Help = 'The file type of the result.'; When = $isVideo
         Choices = { param($W) @(Get-AvailableVideoContainers | ForEach-Object { New-Choice $_.Id $_.Label $_.Desc }) }

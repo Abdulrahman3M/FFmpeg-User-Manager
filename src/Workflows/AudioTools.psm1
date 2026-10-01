@@ -15,7 +15,7 @@ function Get-VolumeSteps {
     $steps += @{ Id = 'voltype'; Type = 'Choice'; Prompt = 'How do you want to change the volume?'; Help = '100% means unchanged. +6 dB is roughly twice as loud.'
         Choices = { param($W) @( (New-Choice 'preset' 'Choose a preset' 'Common adjustments.'), (New-Choice 'percent' 'Percentage' 'For example 150% is louder, 50% is quieter.'), (New-Choice 'db' 'Decibels (dB)' 'Precise adjustment; negative values are quieter.') ) }; Default = 'preset' }
     $steps += @{ Id = 'volpreset'; Type = 'Choice'; Prompt = 'Volume preset'; Help = 'Louder presets may cause clipping (distortion) on loud audio.'; When = { param($W) (Get-Answer $W 'voltype') -eq 'preset' }
-        Choices = { param($W) @( (New-Choice 'p:0.5' '50% (much quieter)'), (New-Choice 'p:0.75' '75% (quieter)'), (New-Choice 'p:1.25' '125% (louder)'), (New-Choice 'p:1.5' '150% (much louder)'), (New-Choice 'p:2' '200% (double)'), (New-Choice 'd:-6' '-6 dB'), (New-Choice 'd:6' '+6 dB') ) }; Default = 'p:1.25' }
+        Choices = { param($W) @( (New-Choice 'p:0.5' '50% (much quieter)' 'Halves the loudness; good for audio that is far too loud.'), (New-Choice 'p:0.75' '75% (quieter)' 'A gentle reduction in loudness.'), (New-Choice 'p:1.25' '125% (louder)' 'A small boost; safe for most audio.'), (New-Choice 'p:1.5' '150% (much louder)' 'A strong boost; may distort if the audio is already loud.'), (New-Choice 'p:2' '200% (double)' 'Doubles the amplitude; likely to distort loud audio.'), (New-Choice 'd:-6' '-6 dB' 'Half the amplitude; clearly quieter without losing quality.'), (New-Choice 'd:6' '+6 dB' 'Twice the amplitude; clearly louder, watch for distortion.') ) }; Default = 'p:1.25' }
     $steps += @{ Id = 'volpct'; Type = 'Decimal'; Prompt = 'Volume (%)'; Help = '100 = unchanged. Range 1 to 1000.'; Example = '150'; Min = 1; Max = 1000; Label = 'Volume'; Unit = '%'; Default = 100; When = { param($W) (Get-Answer $W 'voltype') -eq 'percent' } }
     $steps += @{ Id = 'voldb'; Type = 'Decimal'; Prompt = 'Volume change (dB)'; Help = 'Positive = louder, negative = quieter. Range -60 to +40.'; Example = '-3  or  +6'; Min = -60; Max = 40; Label = 'Volume change'; Unit = 'dB'; Default = 3; When = { param($W) (Get-Answer $W 'voltype') -eq 'db' } }
     $steps += Get-AudioToolTailSteps -Suffix 'volume'
@@ -83,7 +83,7 @@ function Get-SampleRateSteps {
     $sr = Get-PresetList 'sampleRates' @(8000, 16000, 22050, 32000, 44100, 48000, 96000)
     $steps = @(); $steps += Get-AudioInputStep
     $steps += @{ Id = 'sr'; Type = 'Choice'; Prompt = 'New sample rate'; Help = '44.1 kHz is CD quality, 48 kHz is standard for video.'
-        Choices = { param($W) @($sr | ForEach-Object { New-Choice ([int]$_) ("{0:N0} Hz" -f $_) }) }.GetNewClosure()
+        Choices = { param($W) @($sr | ForEach-Object { New-Choice ([int]$_) ("{0:N0} Hz" -f $_) (Get-SampleRateDescription ([int]$_)) }) }.GetNewClosure()
         AllowCustom = @{ Label = 'Custom...'; Type = 'Integer'; Min = 8000; Max = 192000; Prompt = 'Custom sample rate (Hz)'; Help = 'Between 8000 and 192000.'; Example = '44100'; ValueLabel = 'Sample rate'; Desc = 'For example 44100.' }
         Default = 44100 }
     $steps += Get-AudioToolTailSteps -Suffix 'samplerate'
@@ -100,7 +100,7 @@ function Build-SampleRateJob {
 function Get-ChannelsSteps {
     $steps = @(); $steps += Get-AudioInputStep
     $steps += @{ Id = 'ch'; Type = 'Choice'; Prompt = 'Channel layout'; Help = 'Mono has one channel. Stereo has left and right. Downmixing is safe; upmixing duplicates channels.'
-        Choices = { param($W) $m = Get-Media $W 'input'; $cur = $m.Audio[0].Channels; @( (New-Choice 1 'Mono (1 channel)'), (New-Choice 2 'Stereo (2 channels)'), (New-Choice 6 '5.1 surround (6 channels)'), (New-Choice 8 '7.1 surround (8 channels)') ) }
+        Choices = { param($W) $m = Get-Media $W 'input'; $cur = $m.Audio[0].Channels; @( (New-Choice 1 'Mono (1 channel)' 'One channel for everything. Smallest size; good for speech.'), (New-Choice 2 'Stereo (2 channels)' 'Left and right channels. The normal choice for music and video.'), (New-Choice 6 '5.1 surround (6 channels)' 'Home-cinema layout with front, rear, center and bass channels.'), (New-Choice 8 '7.1 surround (8 channels)' 'Large cinema layout with eight channels.') ) }
         AllowCustom = @{ Label = 'Custom count...'; Type = 'Integer'; Min = 1; Max = 8; Prompt = 'Number of channels'; Help = 'Between 1 and 8.'; Example = '2'; ValueLabel = 'Channels'; Desc = 'For example 2.' }
         Default = 2 }
     $steps += Get-AudioToolTailSteps -Suffix 'channels'
@@ -122,7 +122,7 @@ function Get-AudioSpeedSteps {
     $steps += @{ Id = 'method'; Type = 'Choice'; Prompt = 'Speed method'; Help = 'Tempo change keeps the pitch (voices sound natural). Speed and pitch changes both, like a tape or record.'
         Choices = { param($W) @( (New-Choice 'tempo' 'Tempo only (keep pitch)' 'Recommended for speech and music.'), (New-Choice 'pitch' 'Speed and pitch together' 'Faster = higher pitch, slower = lower pitch.') ) }; Default = 'tempo' }
     $steps += @{ Id = 'speed'; Type = 'Choice'; Prompt = 'Speed'; Help = '1.0x is the original speed.'
-        Choices = { param($W) @($speedList | ForEach-Object { New-Choice ([double]$_) ("{0:0.0#}x" -f $_) }) }.GetNewClosure()
+        Choices = { param($W) @($speedList | ForEach-Object { New-Choice ([double]$_) ("{0:0.0#}x" -f $_) (Get-SpeedDescription $_) }) }.GetNewClosure()
         AllowCustom = @{ Label = 'Custom...'; Type = 'Decimal'; Min = 0.1; Max = 8; Prompt = 'Custom speed'; Help = 'A multiplier between 0.1 and 8.'; Example = '1.35'; ValueLabel = 'Speed'; Desc = 'For example 1.35.' }
         Default = 1.5 }
     $steps += Get-AudioToolTailSteps -Suffix 'speed'
@@ -173,10 +173,10 @@ function Get-ReplaceAudioSteps {
     $steps += Get-InputFileStep -Id 'audio' -Prompt 'Audio file to use' -Require Audio -NoPanel -PanelTitle 'New audio' -Example 'C:\Music\track.mp3' -Help 'The audio that will replace or be added to the video.'
     $steps += @{ Id = 'mode'; Type = 'Choice'; Prompt = 'What should happen to the existing audio?'; Help = 'Replace removes the original audio tracks; Add keeps them and adds the new track.'
         When = { param($W) (Get-Media $W 'input').HasAudio }
-        Choices = { param($W) @( (New-Choice 'replace' 'Replace the existing audio'), (New-Choice 'add' 'Add as an additional audio track') ) }; Default = 'replace' }
+        Choices = { param($W) @( (New-Choice 'replace' 'Replace the existing audio' 'The video keeps only the new sound; the old audio tracks are dropped.'), (New-Choice 'add' 'Add as an additional audio track' 'The video keeps its original sound and gets the new track as an extra choice.') ) }; Default = 'replace' }
     $steps += @{ Id = 'offset'; Type = 'Decimal'; Prompt = 'Audio start offset (seconds)'; Help = 'Delay the new audio by this many seconds to fix sync. Enter 0 for none.'; Example = '0.5'; Min = 0; Max = 3600; Default = 0; Label = 'Offset'; Unit = 'seconds' }
     $steps += @{ Id = 'length'; Type = 'Choice'; Prompt = 'Output length'; Help = 'What if the audio and video have different lengths?'
-        Choices = { param($W) @( (New-Choice 'video' 'Keep the full video length'), (New-Choice 'shortest' 'Stop at the shorter of the two') ) }; Default = 'video' }
+        Choices = { param($W) @( (New-Choice 'video' 'Keep the full video length' 'The video plays to its end; if the audio is shorter the rest is silent.'), (New-Choice 'shortest' 'Stop at the shorter of the two' 'The result ends when the shorter of the audio and video ends.') ) }; Default = 'video' }
     $steps += @{ Id = 'format'; Type = 'Choice'; Prompt = 'Output format'; Help = 'The file type of the result.'
         Choices = { param($W) @(Get-AvailableVideoContainers | ForEach-Object { New-Choice $_.Id $_.Label $_.Desc }) }
         Default = { param($W) $c = Get-ContainerIdFromPath (Get-Media $W 'input').Path; if ($c) { $c } else { 'mkv' } } }
@@ -226,14 +226,14 @@ function Build-ReplaceAudioJob {
 
 function Start-AudioToolsWorkflow {
     $items = @(
-        @{ Label = 'Adjust Volume'; Desc = 'Make audio louder or quieter using percent or dB.'; Key = '1'; Value = { Start-StandardWorkflow -Title 'Adjust Volume' -Description 'Change how loud the audio is.' -Icon 'AudioTools' -StepsFactory { Get-VolumeSteps } -Build { param($W) Build-VolumeJob $W } } },
-        @{ Label = 'Normalize Loudness'; Desc = 'Even out loudness with a two-pass analysis.'; Key = '2'; Enabled = (Test-FFFilter 'loudnorm'); Reason = 'Requires the loudnorm filter (not in this FFmpeg build).'; Value = { Start-StandardWorkflow -Title 'Normalize Loudness' -Description 'Make loudness consistent (analysis pass + processing pass).' -Icon 'AudioTools' -StepsFactory { Get-NormalizeSteps } -Build { param($W) Build-NormalizeJob $W } } },
-        @{ Label = 'Change Sample Rate'; Desc = 'Resample audio to another rate such as 44.1 or 48 kHz.'; Key = '3'; Value = { Start-StandardWorkflow -Title 'Change Sample Rate' -Description 'Resample the audio.' -Icon 'AudioTools' -StepsFactory { Get-SampleRateSteps } -Build { param($W) Build-SampleRateJob $W } } },
-        @{ Label = 'Change Channels'; Desc = 'Convert between mono, stereo and surround.'; Key = '4'; Value = { Start-StandardWorkflow -Title 'Change Channels' -Description 'Change the channel layout.' -Icon 'AudioTools' -StepsFactory { Get-ChannelsSteps } -Build { param($W) Build-ChannelsJob $W } } },
-        @{ Label = 'Change Audio Speed / Tempo'; Desc = 'Speed up or slow down audio, with or without changing pitch.'; Key = '5'; Value = { Start-StandardWorkflow -Title 'Change Audio Speed / Tempo' -Description 'Make audio faster or slower.' -Icon 'Speed' -StepsFactory { Get-AudioSpeedSteps } -Build { param($W) Build-AudioSpeedJob $W } } },
-        @{ Label = 'Remove Audio from Video'; Desc = 'Delete the sound track without re-encoding the video.'; Key = '6'; Value = { Start-StandardWorkflow -Title 'Remove Audio from Video' -Description 'Save a silent copy of a video.' -Icon 'AudioTools' -StepsFactory { Get-RemoveAudioSteps } -Build { param($W) Build-RemoveAudioJob $W } } },
-        @{ Label = 'Replace / Add Audio Track'; Desc = 'Put a different audio file on a video, or add another track.'; Key = '7'; Value = { Start-StandardWorkflow -Title 'Replace / Add Audio Track' -Description 'Combine a video with another audio file.' -Icon 'AudioTools' -StepsFactory { Get-ReplaceAudioSteps } -Build { param($W) Build-ReplaceAudioJob $W } } }
-    )
+        @{ Label = 'Adjust Volume'; Desc = 'Make audio louder or quieter using percent or dB.'; Value = { Start-StandardWorkflow -Title 'Adjust Volume' -Description 'Change how loud the audio is.' -Icon 'AudioTools' -StepsFactory { Get-VolumeSteps } -Build { param($W) Build-VolumeJob $W } } },
+        @{ Label = 'Normalize Loudness'; Desc = 'Even out loudness with a two-pass analysis.'; Enabled = (Test-FFFilter 'loudnorm'); Reason = 'Requires the loudnorm filter (not in this FFmpeg build).'; Value = { Start-StandardWorkflow -Title 'Normalize Loudness' -Description 'Make loudness consistent (analysis pass + processing pass).' -Icon 'AudioTools' -StepsFactory { Get-NormalizeSteps } -Build { param($W) Build-NormalizeJob $W } } },
+        @{ Label = 'Change Sample Rate'; Desc = 'Resample audio to another rate such as 44.1 or 48 kHz.'; Value = { Start-StandardWorkflow -Title 'Change Sample Rate' -Description 'Resample the audio.' -Icon 'AudioTools' -StepsFactory { Get-SampleRateSteps } -Build { param($W) Build-SampleRateJob $W } } },
+        @{ Label = 'Change Channels'; Desc = 'Convert between mono, stereo and surround.'; Value = { Start-StandardWorkflow -Title 'Change Channels' -Description 'Change the channel layout.' -Icon 'AudioTools' -StepsFactory { Get-ChannelsSteps } -Build { param($W) Build-ChannelsJob $W } } },
+        @{ Label = 'Change Audio Speed / Tempo'; Desc = 'Speed up or slow down audio, with or without changing pitch.'; Value = { Start-StandardWorkflow -Title 'Change Audio Speed / Tempo' -Description 'Make audio faster or slower.' -Icon 'Speed' -StepsFactory { Get-AudioSpeedSteps } -Build { param($W) Build-AudioSpeedJob $W } } },
+        @{ Label = 'Remove Audio from Video'; Desc = 'Delete the sound track without re-encoding the video.'; Value = { Start-StandardWorkflow -Title 'Remove Audio from Video' -Description 'Save a silent copy of a video.' -Icon 'AudioTools' -StepsFactory { Get-RemoveAudioSteps } -Build { param($W) Build-RemoveAudioJob $W } } },
+        @{ Label = 'Replace / Add Audio Track'; Desc = 'Put a different audio file on a video, or add another track.'; Value = { Start-StandardWorkflow -Title 'Replace / Add Audio Track' -Description 'Combine a video with another audio file.' -Icon 'AudioTools' -StepsFactory { Get-ReplaceAudioSteps } -Build { param($W) Build-ReplaceAudioJob $W } } }
+    ) + @(Get-AudioEffectMenuItems)
     Show-WorkflowSubmenu -Title ((Get-Icon 'AudioTools') + '  Audio Tools') -Subtitle 'Adjust volume, sample rate, channels, speed and other common audio properties.' -Items $items
 }
 

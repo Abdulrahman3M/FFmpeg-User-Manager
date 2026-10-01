@@ -175,7 +175,6 @@ function Read-ChoiceStep {
     $items = @()
     $custom = $null
     if ($Step.ContainsKey('AllowCustom') -and $Step.AllowCustom) { $custom = $Step.AllowCustom }
-    $hk = Get-MenuHotkeys $choices.Count $(if ($custom) { @('C') } else { @() })
     $idx = 0
     $selIndex = 0
     $def = $Initial
@@ -185,7 +184,8 @@ function Read-ChoiceStep {
         $en = $true; if ($c.ContainsKey('Enabled')) { $en = [bool]$c.Enabled }
         $desc = ''; if ($c.ContainsKey('Desc')) { $desc = [string]$c.Desc }
         $reason = ''; if ($c.ContainsKey('Reason')) { $reason = [string]$c.Reason }
-        $items += , @{ Label = [string]$c.Label; Desc = $desc; Key = $hk[$i]; Value = $i; Enabled = $en; Reason = $reason }
+        $ico = ''; if ($c.ContainsKey('Icon')) { $ico = [string]$c.Icon }
+        $items += , @{ Label = [string]$c.Label; Desc = $desc; Icon = $ico; Value = $i; Enabled = $en; Reason = $reason }
         if ($null -ne $def -and (Format-ValueForDisplay $c.Value) -eq (Format-ValueForDisplay $def)) { $selIndex = $i }
     }
     $customIndex = -1
@@ -193,7 +193,7 @@ function Read-ChoiceStep {
         $customIndex = $items.Count
         $cl = 'Custom...'; if ($custom.ContainsKey('Label')) { $cl = [string]$custom.Label }
         $cd = ''; if ($custom.ContainsKey('Desc')) { $cd = [string]$custom.Desc }
-        $items += , @{ Label = $cl; Desc = $cd; Key = 'C'; Value = -2; Enabled = $true }
+        $items += , @{ Label = $cl; Desc = $cd; Icon = 'Tag'; Value = -2; Enabled = $true }
         if ($null -ne $def -and $selIndex -eq 0 -and $choices.Count -gt 0 -and (Format-ValueForDisplay $choices[0].Value) -ne (Format-ValueForDisplay $def)) { $selIndex = $customIndex }
     }
     while ($true) {
@@ -239,18 +239,17 @@ function Read-MultiChoiceStep {
     foreach ($v in @($start)) { if ($null -ne $v) { [void]$selected.Add((Format-ValueForDisplay $v)) } }
     $min = 0; if ($Step.ContainsKey('Min')) { $min = [int]$Step.Min }
     $cursor = 0
-    $hk = Get-MenuHotkeys $choices.Count @('C')
     while ($true) {
         $items = @()
         for ($i = 0; $i -lt $choices.Count; $i++) {
             $c = $choices[$i]
             $mark = if ($selected.Contains((Format-ValueForDisplay $c.Value))) { '[x] ' } else { '[ ] ' }
             $d = ''; if ($c.ContainsKey('Desc')) { $d = [string]$c.Desc }
-            $items += , @{ Label = $mark + [string]$c.Label; Desc = $d; Key = $hk[$i]; Value = $i }
+            $items += , @{ Label = $mark + [string]$c.Label; Desc = $d; Icon = $(if ($selected.Contains((Format-ValueForDisplay $c.Value))) { 'Ok' } else { 'Option' }); Value = $i }
         }
-        $items += , @{ Label = 'Continue'; Desc = "Select at least $min item(s), then continue."; Key = 'C'; Value = -1; Enabled = ($selected.Count -ge $min); Reason = "Select at least $min item(s) first." }
+        $items += , @{ Label = 'Continue'; Desc = "Select at least $min item(s), then continue."; Icon = 'Continue'; Value = -1; Enabled = ($selected.Count -ge $min); Reason = "Select at least $min item(s) first." }
         $help = 'Select an item to toggle it, then choose Continue.'; if ($Step.ContainsKey('Help') -and $Step.Help) { $help = [string]$Step.Help }
-        $r = Show-Menu -Title ([string]$Step.Prompt) -Subtitle $help -Items $items -AllowBack -InitialIndex $cursor -InfoRenderer $top -InfoLines (Get-WizardTopLineCount $W) -ExtraHints @(, @('C', 'Continue'))
+        $r = Show-Menu -Title ([string]$Step.Prompt) -Subtitle $help -Items $items -AllowBack -InitialIndex $cursor -InfoRenderer $top -InfoLines (Get-WizardTopLineCount $W)
         if ($r.Action -eq 'Back') { return @{ Status = 'Back'; Value = $null } }
         if ($r.Action -eq 'Quit') { return @{ Status = 'Quit'; Value = $null } }
         if ($r.Item.Value -eq -1) {
@@ -273,7 +272,7 @@ function Read-YesNoStep {
     if ($Step.ContainsKey('NoLabel')) { $no = [string]$Step.NoLabel }
     $yd = ''; if ($Step.ContainsKey('YesDesc')) { $yd = [string]$Step.YesDesc }
     $nd = ''; if ($Step.ContainsKey('NoDesc')) { $nd = [string]$Step.NoDesc }
-    $items = @(@{ Label = $yes; Key = 'Y'; Desc = $yd; Value = $true }, @{ Label = $no; Key = 'N'; Desc = $nd; Value = $false })
+    $items = @(@{ Label = $yes; Icon = 'Yes'; Desc = $yd; Value = $true }, @{ Label = $no; Icon = 'No'; Desc = $nd; Value = $false })
     $sel = 1; if ($def -eq $true) { $sel = 0 }
     $help = ''; if ($Step.ContainsKey('Help')) { $help = [string]$Step.Help }
     $r = Show-Menu -Title ([string]$Step.Prompt) -Subtitle $help -Items $items -AllowBack -InitialIndex $sel -InfoRenderer $top -InfoLines (Get-WizardTopLineCount $W)
@@ -300,10 +299,10 @@ function Read-FilesStep {
         }
         $items = @()
         for ($i = 0; $i -lt $files.Count; $i++) {
-            $items += , @{ Label = ('{0}. {1}' -f ($i + 1), [System.IO.Path]::GetFileName($files[$i])); Desc = $files[$i]; Value = $i }
+            $items += , @{ Label = [System.IO.Path]::GetFileName($files[$i]); Desc = $files[$i]; Icon = 'Video'; Value = $i }
         }
-        $items += , @{ Label = 'Add another file'; Key = 'A'; Value = 'add'; Desc = 'Append a file to the end of the list.' }
-        $items += , @{ Label = 'Done - continue'; Key = 'D'; Value = 'done'; Desc = "Continue with the files listed above (at least $min required)."; Enabled = ($files.Count -ge $min); Reason = "Add at least $min file(s) first." }
+        $items += , @{ Label = 'Add another file'; Icon = 'Add'; Value = 'add'; Desc = 'Append a file to the end of the list.' }
+        $items += , @{ Label = 'Done - continue'; Icon = 'Continue'; Value = 'done'; Desc = "Continue with the files listed above (at least $min required)."; Enabled = ($files.Count -ge $min); Reason = "Add at least $min file(s) first." }
         $r = Show-Menu -Title ([string]$Step.Prompt) -Subtitle 'Files are processed in this order. Select a file to reorder or remove it.' -Items $items -AllowBack -InitialIndex $cursor -InfoRenderer $top -InfoLines (Get-WizardTopLineCount $W)
         if ($r.Action -eq 'Back') { return @{ Status = 'Back'; Value = $null } }
         if ($r.Action -eq 'Quit') { return @{ Status = 'Quit'; Value = $null } }
@@ -318,9 +317,9 @@ function Read-FilesStep {
         $i = [int]$v
         $cursor = $i
         $sub = @(
-            @{ Label = 'Move up'; Key = 'U'; Value = 'up'; Enabled = ($i -gt 0); Reason = 'Already first.' },
-            @{ Label = 'Move down'; Key = 'D'; Value = 'down'; Enabled = ($i -lt $files.Count - 1); Reason = 'Already last.' },
-            @{ Label = 'Remove from list'; Key = 'R'; Value = 'remove' }
+            @{ Label = 'Move up'; Icon = 'MoveUp'; Desc = 'Swap this file with the one above it.'; Value = 'up'; Enabled = ($i -gt 0); Reason = 'Already first.' },
+            @{ Label = 'Move down'; Icon = 'MoveDown'; Desc = 'Swap this file with the one below it.'; Value = 'down'; Enabled = ($i -lt $files.Count - 1); Reason = 'Already last.' },
+            @{ Label = 'Remove from list'; Icon = 'Remove'; Desc = 'Take this file off the list (the file itself is not touched).'; Value = 'remove' }
         )
         $s = Show-Menu -Title ('File ' + ($i + 1) + ': ' + [System.IO.Path]::GetFileName($files[$i])) -Subtitle $files[$i] -Items $sub -AllowBack
         if ($s.Action -eq 'Select') {
@@ -356,29 +355,33 @@ function Invoke-WizardStep {
 }
 
 function Show-WizardSummary {
-    # Returns 'Start' | 'Back' | 'Quit'.
+    # Returns 'Start' | 'Back' | 'Quit'. The summary is drawn above a numbered menu (01 Start, 02 View command, 03 Back).
     param($W, $Job)
     $uiw = Get-UiWidth
-    while ($true) {
-        Hide-Cursor
-        Start-Frame
+    $rows = @($Job.Summary)
+    $notes = @($Job.Notes)
+    $render = {
         Write-WizardTopForSummary $W
         Write-Rule -Title 'Summary'
-        $rows = @($Job.Summary)
         Write-KeyValueTable -Rows $rows -LabelWidth ([math]::Min(16, [math]::Max(8, ($rows | ForEach-Object { ([string]$_[0]).Length } | Measure-Object -Maximum).Maximum + 1))) -Indent 1
         Write-Rule
-        foreach ($n in @($Job.Notes)) { if ($n) { foreach ($l in (Split-TextLines ([string]$n) ($uiw - 4))) { Write-Ui -Text ('  ' + (Get-Icon 'Warn') + ' ' + $l) -Role Warning } } }
-        Write-KeyHints @(@('Enter', 'Start'), @('V', 'View FFmpeg command (Advanced)'), @('Esc', 'Back'))
-        Stop-Frame
-        $k = Read-TuiKey
-        if ($k.Name -eq 'Enter') { return 'Start' }
-        if ($k.Name -eq 'Esc') { return 'Back' }
-        if ($k.Name -eq 'CtrlC') { return 'Quit' }
-        if ($k.Name -eq 'Char') {
-            $c = $k.Char.ToUpperInvariant()
-            if ($c -eq 'S') { return 'Start' }
-            if ($c -eq 'B') { return 'Back' }
-            if ($c -eq 'V') {
+        foreach ($n in $notes) { if ($n) { foreach ($l in (Split-TextLines ([string]$n) ($uiw - 4))) { Write-Ui -Text ('  ' + (Get-Icon 'Warn') + ' ' + $l) -Role Warning } } }
+        Write-UiBlank
+    }.GetNewClosure()
+    $lineCount = 6 + $rows.Count + @($W.Panels.Keys).Count * 4 + $notes.Count
+    $items = @(
+        @{ Label = 'Start'; Icon = 'Continue'; Desc = 'Run FFmpeg with the settings shown above.'; Value = 'Start' },
+        @{ Label = 'View FFmpeg command (Advanced)'; Icon = 'Code'; Desc = 'Show the exact command that will run. Nothing is executed by looking at it.'; Value = 'View' },
+        @{ Label = 'Back'; Icon = 'Back'; Desc = 'Return to the previous question and change an answer.'; Value = 'Back' }
+    )
+    while ($true) {
+        $r = Show-Menu -Items $items -InfoRenderer $render -InfoLines $lineCount -AllowBack
+        if ($r.Action -eq 'Quit') { return 'Quit' }
+        if ($r.Action -eq 'Back') { return 'Back' }
+        switch ($r.Item.Value) {
+            'Start' { return 'Start' }
+            'Back' { return 'Back' }
+            'View' {
                 $lines = @('Advanced view. This is the exact command the application will run (arguments are passed as separate tokens, never through a shell).', '')
                 foreach ($st in @($Job.Stages)) { $lines += ('[' + $st.Name + ']'); $lines += (Format-FFmpegCommandLine $st.Arguments); $lines += '' }
                 Show-TextViewer -Title 'Generated FFmpeg command' -Lines $lines
@@ -468,4 +471,4 @@ function Invoke-Wizard {
     }
 }
 
-Export-ModuleMember -Function New-WizardState, Set-WizardPanel, Remove-WizardPanel, Write-WizardTop, Convert-TextAnswer, Read-TextStep, Read-ChoiceStep, Read-MultiChoiceStep, Read-YesNoStep, Read-FilesStep, Invoke-WizardStep, Show-WizardSummary, Invoke-Wizard
+Export-ModuleMember -Function New-WizardState, Set-WizardPanel, Remove-WizardPanel, Write-WizardTop, Write-WizardTopForSummary, Convert-TextAnswer, Read-TextStep, Read-ChoiceStep, Read-MultiChoiceStep, Read-YesNoStep, Read-FilesStep, Invoke-WizardStep, Show-WizardSummary, Invoke-Wizard
