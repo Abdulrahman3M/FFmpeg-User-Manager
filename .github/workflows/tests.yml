@@ -29,4 +29,12 @@ jobs:
         shell: pwsh
         run: |
           Select-String -Path suite.log -Pattern '^FAIL:|SUMMARY' | ForEach-Object { $_.Line.Substring(0, [Math]::Min(300, $_.Line.Length)) }
-          Select-String -Path suite.log -Pattern '^\s+\[FAIL\]' -Context 0,4 | ForEach-Object { $_.Line; $_.Context.PostContext | ForEach-Object { '    ' + $_.Substring(0, [Math]::Min(250, $_.Length)) } } | Select-Object -First 90
+          Select-String -Path suite.log -Pattern 'DIAG:' | ForEach-Object { $_.Line }
+          Select-String -Path suite.log -Pattern '^\s+\[(FAIL|UNVERIFIED)\]' -Context 0,5 | ForEach-Object { $_.Line; $_.Context.PostContext | ForEach-Object { '    ' + $_.Substring(0, [Math]::Min(1800, $_.Length)) } } | Select-Object -First 120
+      - name: Keep the full log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suite-log-${{ matrix.shell }}
+          path: suite.log
+          retention-days: 30
