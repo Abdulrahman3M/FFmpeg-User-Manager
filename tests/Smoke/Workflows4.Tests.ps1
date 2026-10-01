@@ -1,4 +1,4 @@
-# Workflow smoke tests (part 4): crop/rotate/flip, text & watermark, speed, HLS, streaming, media info, status.
+﻿# Workflow smoke tests (part 4): crop/rotate/flip, text & watermark, speed, HLS, streaming, media info, status.
 $W = Get-TestWork
 $vid = New-Fixture 'c video.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=3:size=320x240:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest')
 $DONE = New-ScreenRule 'Completed successfully' '{#Main menu}'

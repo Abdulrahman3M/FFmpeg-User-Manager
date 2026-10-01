@@ -1,4 +1,4 @@
-# Unit tests: TUI components (menu, line editor, wizard, layout, theme, icons).
+﻿# Unit tests: TUI components (menu, line editor, wizard, layout, theme, icons).
 Set-TestGroup 'Menu: numbering, navigation and shortcuts'
 $items = @(@{ Label = 'One'; Value = 'a' }, @{ Label = 'Two'; Value = 'b' }, @{ Label = 'Three'; Value = 'c' }, @{ Label = 'Four'; Value = 'd' })
 $ui = Invoke-Ui { Show-Menu -Items $items -AllowBack -AllowQuit } '02'

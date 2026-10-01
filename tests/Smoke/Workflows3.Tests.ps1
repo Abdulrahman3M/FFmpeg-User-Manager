@@ -1,4 +1,4 @@
-# Workflow smoke tests (part 3): audio tools, subtitle tools, frame rate, filters.
+﻿# Workflow smoke tests (part 3): audio tools, subtitle tools, frame rate, filters.
 $W = Get-TestWork
 $vid = New-Fixture 'a video.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=3:size=320x240:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest')
 $aud = New-Fixture 'a audio.mp3' @('-f', 'lavfi', '-i', 'sine=frequency=880:duration=4', '-af', 'volume=0.3', '-c:a', 'libmp3lame')

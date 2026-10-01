@@ -1,4 +1,4 @@
-# Unit tests: validation, paths, command builder, capability parsing, probe.
+﻿# Unit tests: validation, paths, command builder, capability parsing, probe.
 Set-TestGroup 'Validation'
 $r = ConvertFrom-TimestampText '90'; Assert-Equal 'timestamp seconds' 90 $r.Value
 $r = ConvertFrom-TimestampText '1:30'; Assert-Equal 'timestamp MM:SS' 90 $r.Value
