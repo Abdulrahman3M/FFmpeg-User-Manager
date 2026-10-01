@@ -91,7 +91,9 @@ function Read-TuiKey {
     if ($script:Scripted) {
         if ($script:Queue.Count -eq 0 -and $script:Provider) {
             $script:ProviderCalls++
-            if ($script:ProviderCalls -gt $script:ProviderMax) { throw 'Scripted provider exceeded the call limit.' }
+            if ($script:ProviderCalls -gt $script:ProviderMax) { $lastFrame = ((Get-CapturedOutput) -split '=====(?:FRAME|CLEAR)=====' | Select-Object -Last 1)
+            $flat = ((($lastFrame -split "`r?`n") | Where-Object { $_.Trim() } | Select-Object -First 30) -join ' | ')
+            throw ('Scripted provider exceeded the call limit. Last screen: ' + $flat.Substring(0, [Math]::Min(1500, $flat.Length))) }
             $parts = (Get-CapturedOutput) -split '=====(?:FRAME|CLEAR)====='
             $keys = & $script:Provider $parts[$parts.Count - 1]
             if ($null -ne $keys) { Add-TuiScriptedKeys ([string]$keys) }

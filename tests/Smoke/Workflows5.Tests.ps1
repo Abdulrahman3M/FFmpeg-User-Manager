@@ -98,7 +98,7 @@ $ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((N
 $o = Join-Path $W 'n audio_visual.mp4'
 Assert-JobOk 'audio to a black-screen video' $ui $o
 $j = Get-ProbeJson $o
-Assert-True 'result has one video and one audio stream of about 4 s' ((Get-StreamOf $j 'video').Count -eq 1 -and (Get-StreamOf $j 'audio').Count -eq 1 -and [math]::Abs([double]$j.format.duration - 4.0) -lt 0.6)
+Assert-True 'result has one video and one audio stream of about 4 s' ((Get-StreamOf $j 'video').Count -eq 1 -and (Get-StreamOf $j 'audio').Count -eq 1 -and [math]::Abs([double]$j.format.duration - 4.0) -lt 0.6) ('video streams={0} audio streams={1} duration={2}' -f @(Get-StreamOf $j 'video').Count, @(Get-StreamOf $j 'audio').Count, $j.format.duration)
 $ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((New-Rule 'Audio file' "$aud{Enter}"), (New-Rule 'What should the picture show?' '{#Animated sound waves}'), (New-Rule 'Video size' '{#1280x720}'), (New-Rule 'Output file name' '{Clear}n audio_waves.mp4{Enter}'), $DONE, $FAIL)
 Assert-JobOk 'audio to a waveform video' $ui (Join-Path $W 'n audio_waves.mp4')
 $ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Contact Sheet}' @((New-Rule 'Input video' "$vid{Enter}"), $DONE, $FAIL)
