@@ -11,6 +11,26 @@
 Windows-only behavior that could not be exercised on Linux: native file/folder picker, `explorer.exe /select`, real `winget list/upgrade/install` text output
 (the parser is exercised with sample text and mocks), legacy-console ANSI enabling (P/Invoke), Windows path/lock/permission errors.
 
+## Windows investigation (root causes found by running the suite on a real Windows runner)
+
+The first runs of the suite on GitHub's Windows runner (FFmpeg 9.0.2 from Chocolatey, Windows PowerShell 5.1 and PowerShell 7) failed in 35-40 places. Each failure was traced to evidence in the run logs; nothing was
+"fixed" by weakening a check. The confirmed causes:
+
+| # | Symptom on Windows | Confirmed root cause (evidence) | Where | Fix |
+|---|---|---|---|---|
+| 1 | About 20 workflow tests failed (loudness normalization, noise reduction, silence removal, subtitles, GIF dithering, rotate, waveform ...) and the menus said "requires the afftdn filter (not in this FFmpeg build)" | **Product bug.** FFmpeg 9 prints two flag columns in `ffmpeg -filters` (` TS afftdn  A->A`) where FFmpeg 6-8 print three. The parser found 0 filters (`caps: enc=221 mux=184 filt=0` in the log, while `ffmpeg -filters` listed 535) | `ConvertFrom-FFFilterList` in `src/FFmpeg/FFmpegCapabilities.psm1` | The third flag column is optional; regression test with the FFmpeg 9 format in `Core.Tests.ps1` |
+| 2 | "H.265 with a chosen quality level" ended with `Scripted provider exceeded the call limit`; `Workflows1.Tests.ps1` then crashed with "property 'streams' cannot be found" | **Test bug, proven by an isolated reproduction** (`tests/Repro/Repro-H265.ps1`, workflow `repro`). The app lists `h264_mf` (Media Foundation, usable on the runner) as option 04, which shifted `libx265` to 05. The old test computed the position from a list WITHOUT hardware encoders, so it chose 04: the wizard then showed "Quality level - This encoder does not support quality-based mode" (disabled) and the scripted key `02` did nothing, 60 times. The `Workflows1` crash was only the consequence (the output file did not exist) | `tests/Smoke/Workflows1.Tests.ps1` | The codec is chosen by its label `{#[libx265]}`, like a user would; the old and new answers are kept side by side in the repro |
+| 3 | `Audio to Video` (black screen) sometimes produced a 5.8 s video for a 4 s sound | **Product bug.** The black/picture source is endless and only `-shortest` bounded it; since FFmpeg 7 the encoder threads can run ahead of the audio end, so the result is nondeterministic | `Build-AudioVisualJob` in `src/Workflows/ImagesAndVisuals.psm1` | The source is bounded explicitly with the audio duration (`color=...:d=` / `-t`); test checks the command and the duration |
+| 4 | Launcher: "a failing run is reported and pauses" never printed the message | **Test bug on real `cmd`.** The stub was a `.cmd`; a batch file started from a batch file without `call` never returns to the caller (real `pwsh.exe` does). Separately the double-click detection echoed the raw command line, so `&` in a folder name was executed as a command | `FFmpeg-User-Manager.bat`, `tests/Smoke/Launcher.Tests.ps1` | The detection uses delayed expansion in a small block and strips quotes first; on Windows the stub is a compiled executable (`csc.exe` that ships with Windows) |
+| 5 | Unicode icon test: emoji missing in captured output | **Product bug.** The console was switched to UTF-8 only when output was not redirected, so a forced emoji set reached a parent process through the OEM code page | `Get-IconTier` in `src/Core/Environment.psm1` | UTF-8 output is set whenever the host is Windows |
+| 6 | Windows PowerShell 5.1: test files with Cyrillic/Arabic/box-drawing text were misread; `Static`/`UiRules` crashed with "Access denied" on folders | 5.1 reads BOM-less files as ANSI; `Get-ChildItem -LiteralPath ... -Include` returns directories in 5.1 | `tests/**/*.ps1` | UTF-8 BOM on test files that contain non-ASCII text; file-only enumeration |
+| 7 | "winget missing" / status tests behaved differently | The runner has a real winget; `Get-WingetPath` ignored the test hook | `Get-WingetPath` in `src/FFmpeg/FFmpegManager.psm1` | The hook is honoured; tests hide winget explicitly |
+| 8 | `ffmpeg without ffprobe` test; Windows file names | Chocolatey's `ffmpeg.exe` is a shim that only works next to its install folder; `"` and `:` are illegal in Windows file names | `tests/Smoke/App.Tests.ps1`, `Workflows2/3` | The real executable is copied; those characters are skipped on Windows |
+
+Method that was used (and should be used again): one isolated reproduction per failure (`tests/Repro`, run by the `repro` workflow, which prints every wizard screen, its options and the keys sent), proof from the logs,
+then one deliberate full run. The full-suite workflow is started by hand (Actions tab -> *tests* -> *Run workflow*), by pull requests and by pushes to `main`; it no longer starts on every branch push.
+The full `suite.log` of each run is kept as an artifact (`suite-log-powershell`, `suite-log-pwsh`).
+
 ## Running
 
 ```powershell
