@@ -61,6 +61,8 @@ Set-FFManagerHooks -Winget { param($a, $t) throw 'boom' }
 $u = Get-FFmpegUpdateStatus
 Assert-Equal 'unexpected errors in the check are swallowed (Unknown)' 'Unknown' $u.State
 Set-FFManagerHooks -Reset
+# hide winget but keep the real ffmpeg/ffprobe (a Windows machine or runner usually has a real winget)
+Set-FFManagerHooks -FindCommand { param($n) if ($n -eq 'winget') { return $null }; $c = Get-Command $n -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($c) { return [string]$c.Source } }
 $null = Find-FFmpegInstallation
 $u = Get-FFmpegUpdateStatus
 Assert-True 'winget missing -> Unknown with explanation' ($u.State -eq 'Unknown' -and $u.Message -like '*winget*')

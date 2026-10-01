@@ -18,7 +18,13 @@ set "FFUM_RC=0"
 
 rem --- a double-click start runs as: cmd.exe /c ""<path>\FFmpeg-User-Manager.bat"" (the command line names this file); keep errors visible then
 set "FFUM_DBLCLICK="
-echo %CMDCMDLINE% | find /i " /c " >nul 2>&1 && echo %CMDCMDLINE% | find /i "%~nx0" >nul 2>&1 && set "FFUM_DBLCLICK=1"
+rem (delayed expansion only inside this small block: the command line may contain & | ( ) or quotes, which must never be parsed as commands)
+setlocal EnableDelayedExpansion
+set "FFUM_CL=!CMDCMDLINE!"
+set "FFUM_T1=!FFUM_CL: /c =!"
+set "FFUM_D="
+if not "!FFUM_T1!"=="!FFUM_CL!" if not "!FFUM_CL:%~nx0=!"=="!FFUM_CL!" set "FFUM_D=1"
+endlocal & set "FFUM_DBLCLICK=%FFUM_D%"
 
 if exist "%FFUM_ENTRY%" goto :have_entry
 echo.

@@ -117,6 +117,9 @@ Assert-True 'header lines are not parsed as formats' (-not $m.ContainsKey('='))
 $flt = "Filters:`n T.. = Timeline support`n ... = Slice threading`n ---`n T.C acrossfade       AA->A      Cross fade`n ... palettegen        V->V       Generate a palette"
 $f = ConvertFrom-FFFilterList $flt
 Assert-True 'filter list parses' ($f.ContainsKey('palettegen') -and $f.ContainsKey('acrossfade'))
+$flt9 = "Filters:`n T. = Timeline support`n .S = Slice threading`n ---`n TS afftdn            A->A       Denoise audio samples using FFT.`n .. loudnorm          A->A       EBU R128 loudness normalization`n T. silenceremove     A->A       Remove silence."
+$f9 = ConvertFrom-FFFilterList $flt9
+Assert-True 'filter list parses the two-flag-column format of FFmpeg 9' ($f9.ContainsKey('afftdn') -and $f9.ContainsKey('loudnorm') -and $f9.ContainsKey('silenceremove') -and $f9.Count -eq 3)
 $prot = "Supported file protocols:`nInput:`n  file`n  https`nOutput:`n  file`n  rtmp"
 $pr = ConvertFrom-FFProtocolList $prot
 Assert-True 'protocol list parses input and output' ($pr.In.ContainsKey('https') -and $pr.Out.ContainsKey('rtmp') -and -not $pr.Out.ContainsKey('https'))

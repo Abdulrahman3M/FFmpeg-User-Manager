@@ -112,6 +112,7 @@ function Get-WingetSource {
 
 function Get-WingetPath {
     if ($script:Hooks.Winget) { return 'winget' }
+    if ($script:Hooks.FindCommand -and -not (& $script:Hooks.FindCommand 'winget')) { return $null }
     $c = Get-Command winget -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($c) { return [string]$c.Source }
     return $null

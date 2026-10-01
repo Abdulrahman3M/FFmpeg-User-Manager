@@ -25,7 +25,7 @@ Assert-Contains 'non-interactive refusal explains why' $r.StdOut 'interactive co
 Assert-True 'non-interactive refusal is not a crash (no stack trace)' (-not $r.StdOut.Contains('at <ScriptBlock>') -and -not $r.StdErr.Contains('at <ScriptBlock>'))
 
 Set-TestGroup 'Terminal: ANSI mode and restoration'
-$r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '29') @{ FFTUI_FORCE_ANSI = '1'; FFTUI_UNICODE = '1' }
+$r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '29') @{ FFTUI_FORCE_ANSI = '1'; FFTUI_UNICODE = '1'; FFTUI_ICONS = 'emoji' }
 Assert-Contains 'ANSI: color escape sequences are emitted' $r.StdOut ($ESC + '[')
 Assert-Contains 'ANSI: alternate screen entered (scrollback preserved)' $r.StdOut ($ESC + '[?1049h')
 Assert-Contains 'ANSI: alternate screen left on exit' $r.StdOut ($ESC + '[?1049l')
@@ -57,7 +57,15 @@ Assert-Equal 'missing FFmpeg: choosing Exit ends cleanly' 0 $r.ExitCode
 Assert-Contains 'missing FFmpeg without winget: manual help is shown instead of a silent install' $r.StdOut 'winget'
 $onlyFfmpeg = Join-Path $W 'ffonlybin'; [void](New-Item -ItemType Directory -Path $onlyFfmpeg -Force)
 try {
-    if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6) { Copy-Item -LiteralPath (Get-FFmpegPath) -Destination (Join-Path $onlyFfmpeg 'ffmpeg.exe') }
+    if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6) {
+        # a package-manager shim (for example Chocolatey's) only works next to its install folder: copy the real executable instead
+        $realFf = (Get-FFmpegPath)
+        if ($realFf -like '*\chocolatey\bin\*' -and $env:ChocolateyInstall) {
+            $found = Get-ChildItem -LiteralPath (Join-Path $env:ChocolateyInstall 'lib') -Recurse -Filter 'ffmpeg.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $realFf = $found.FullName }
+        }
+        Copy-Item -LiteralPath $realFf -Destination (Join-Path $onlyFfmpeg 'ffmpeg.exe')
+    }
     else { New-Item -ItemType SymbolicLink -Path (Join-Path $onlyFfmpeg 'ffmpeg') -Target (Get-FFmpegPath) | Out-Null }
     $r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '02') @{ PATH = $onlyFfmpeg }
     Assert-Contains 'ffmpeg without ffprobe: the ffprobe-missing screen is shown' $r.StdOut 'ffprobe is missing.'

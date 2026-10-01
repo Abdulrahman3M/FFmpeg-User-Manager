@@ -32,4 +32,5 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          Select-String -Path suite.log -Pattern '^FAIL:|SUMMARY|path=\[' | ForEach-Object { $_.Line.Substring(0, [Math]::Min(900, $_.Line.Length)) }
+          Select-String -Path suite.log -Pattern '^FAIL:|SUMMARY' | ForEach-Object { $_.Line.Substring(0, [Math]::Min(300, $_.Line.Length)) }
+          Select-String -Path suite.log -Pattern '^\s+\[FAIL\] (path containing|double-click|ffmpeg without|Unicode icons)' -Context 0,14 | ForEach-Object { $_.Context.PostContext } | Select-Object -First 60
