@@ -10,6 +10,7 @@ everything below is unreleased work that will ship as **0.1.0** once the owner a
 ## [Unreleased]
 
 ### Added
+- **Video to GIF:** new width presets **1080**, **2K**, **4K** and **8K** before *Custom*. As with the existing sizes the values are widths in pixels (the height follows the aspect ratio): 1080 = 1080 px, 2K = 2560 px, 4K = 3840 px, 8K = 7680 px, shown on screen. Widths of 2560 px and more show a short warning (memory, time and file size). *Custom* now accepts 16 to 7680 px wide (custom height up to 4320 px).
 - GitHub Actions workflow (`.github/workflows/tests.yml`) that runs the full test suite on a Windows runner with Windows PowerShell 5.1 and PowerShell 7 (started by hand, by pull requests and by pushes to `main`; the full log is kept as an artifact), and an isolated-reproduction workflow (`repro.yml`, `tests/Repro/`).
 - `tools/Test-WindowsLocal.ps1`: runs the suite under every installed PowerShell edition, reports what the application detects about the terminal and lists the checks that need a real Windows Terminal or real devices.
 - Tests: real "read permission denied" and "file locked by another program" checks, a regression test for the FFmpeg 9 filter list, flow tracing for diagnosing scripted wizards.

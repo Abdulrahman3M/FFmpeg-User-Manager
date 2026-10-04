@@ -90,6 +90,45 @@ $ui = Invoke-Flow { Start-GifWorkflow } @((New-Rule 'Input video' "$vid{Enter}")
 Assert-True 'invalid custom FPS is rejected with a message' ($ui.Output.Contains('at least') -or $ui.Output.Contains('must be a number') -or $ui.Output.Contains('between 0.1 and 240'))
 $ui = Invoke-Flow { Start-GifWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Width' '{#LAST}'), (New-Rule 'Custom width' '12.5{Enter}' 1), (New-Rule 'Custom width' '{Esc}' 5), (New-Rule 'Width' '{Esc}{Esc}{Esc}' 3)) -MaxCalls 40
 Assert-Contains 'invalid custom width is rejected' $ui.Output 'must be a whole number'
+
+# ---- size presets 1080 / 2K / 4K / 8K (all values are widths in pixels; the height follows the aspect ratio) ----------
+Set-TestGroup 'Workflow 8: Video to GIF - width presets incl. 1080 / 2K / 4K / 8K'
+$tiny = New-Fixture 'g tiny source.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=1:size=320x240:rate=10', '-c:v', 'libx264', '-pix_fmt', 'yuv420p')
+$trace = New-Object 'System.Collections.Generic.List[string]'
+$null = Invoke-Flow { Start-GifWorkflow } @((New-Rule 'Input video' "$tiny{Enter}"), (New-Rule 'Width' '{Esc}{Esc}{Esc}' 3)) -Trace $trace -MaxCalls 20 -Height 70
+$widthScreen = @($trace | Where-Object { $_ -match 'Keep original size' } | Select-Object -First 1)
+Assert-True 'the Width screen lists: original, 320, 480, 640, 720, 1080, 2K, 4K, 8K and Custom last (old options unchanged, new ones before Custom)' ($widthScreen.Count -eq 1 -and $widthScreen[0] -match 'Keep original size.*320 px.*480 px.*640 px.*720 px.*1080 px.*2K.*4K.*8K.*Custom\.\.\.\s*\]') ($widthScreen -join '')
+Assert-True 'the K presets state their real pixel widths on screen (2560 / 3840 / 7680)' ($widthScreen.Count -eq 1 -and $widthScreen[0] -match '2K  \(2560 px wide\)' -and $widthScreen[0] -match '4K  \(3840 px wide\)' -and $widthScreen[0] -match '8K  \(7680 px wide\)')
+Assert-Equal 'width text for a K preset' '2560 px (2K)' (Get-GifWidthText 2560)
+Assert-Equal 'width text for an ordinary width' '720 px' (Get-GifWidthText 720)
+Assert-Equal 'width text for 1080 is a plain pixel width' '1080 px' (Get-GifWidthText 1080)
+Assert-Equal 'no warning for ordinary sizes' '' (Get-GifGiantSizeNote 1080)
+Assert-True 'a warning is produced from 2560 px up' ((Get-GifGiantSizeNote 2560) -match 'memory' -and (Get-GifGiantSizeNote 7680) -match 'memory')
+foreach ($case in @(@('320 px', 320), @('480 px', 480), @('640 px', 640), @('720 px', 720), @('1080 px', 1080), @('2K', 2560), @('4K', 3840), @('8K', 7680))) {
+    $label = $case[0]; $wpx = $case[1]
+    $o = Join-Path $W 'g tiny source_gif.gif'
+    if (Test-Path -LiteralPath $o) { Remove-Item -LiteralPath $o -Force }
+    $ui = Invoke-Flow { Start-GifWorkflow } @((New-Rule 'Input video' "$tiny{Enter}"), (New-Rule 'Width' "{#$label}"), (New-Rule 'Maximum number of frames' '2{Enter}'), (New-ScreenRule '── Summary' '{#View FFmpeg command}{Esc}{Enter}' 1), $DONE, $FAIL) -Height 60
+    Assert-JobOk "width $label ($wpx px)" $ui $o
+    $gi = Get-GifInfo $o
+    $wantH = [int]($wpx * 3 / 4)
+    Assert-True "width $label gives a $wpx x $wantH GIF (got $($gi.W)x$($gi.H))" ($gi.Codec -eq 'gif' -and $gi.W -eq $wpx -and $gi.H -eq $wantH)
+    Assert-Contains "width $label reaches the FFmpeg command" (Get-FlatText $ui.Output) ("scale=${wpx}:-1:flags=lanczos")
+    if ($wpx -ge 2560) { Assert-Contains "width $label shows the large-GIF warning" (Get-FlatText $ui.Output) 'can use a lot of memory' }
+    else { Assert-NotContains "width $label shows no large-GIF warning" (Get-FlatText $ui.Output) 'can use a lot of memory' }
+    if (Test-Path -LiteralPath $o) { Remove-Item -LiteralPath $o -Force }
+}
+# Custom: a valid value, then the invalid ones
+$o = Join-Path $W 'g tiny source_gif.gif'
+$ui = Invoke-Flow { Start-GifWorkflow } @((New-Rule 'Input video' "$tiny{Enter}"), (New-Rule 'Width' '{#LAST}'), (New-Rule 'Custom width' '1000{Enter}'), (New-Rule 'Maximum number of frames' '2{Enter}'), $DONE, $FAIL)
+Assert-JobOk 'Custom width 1000' $ui $o
+Assert-True 'Custom width 1000 gives a 1000 x 750 GIF' ((Get-GifInfo $o).W -eq 1000 -and (Get-GifInfo $o).H -eq 750)
+Remove-Item -LiteralPath $o -Force
+foreach ($bad in @(@('5', 'at least 16'), @('7681', 'at most 7680'), @('abc', 'must be a whole number'), @('-4', 'at least 16'))) {
+    $ui = Invoke-Flow { Start-GifWorkflow } @((New-Rule 'Input video' "$tiny{Enter}"), (New-Rule 'Width' '{#LAST}'), (New-Rule 'Custom width' ($bad[0] + '{Enter}') 1), (New-Rule 'Custom width' '{Esc}' 5), (New-Rule 'Width' '{Esc}{Esc}{Esc}' 3)) -MaxCalls 40
+    Assert-True ("Custom width '" + $bad[0] + "' is rejected") ((Get-FlatText $ui.Output) -match ('16|7680|whole number') -and -not $ui.Output.Contains('Completed successfully')) ($bad[1])
+}
+Assert-Equal 'no GIF was created by the rejected custom values' $false (Test-Path -LiteralPath $o)
 # output path with spaces in a new folder
 $newDir = Join-Path $W 'out dir with spaces (gif)'
 $ui = Invoke-Flow { Start-GifWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Output folder' '{#LAST}'), (New-Rule 'Output folder path' "$newDir{Enter}"), (New-Rule 'The output folder does not exist. Create it?' '01'), $DONE, $FAIL)
