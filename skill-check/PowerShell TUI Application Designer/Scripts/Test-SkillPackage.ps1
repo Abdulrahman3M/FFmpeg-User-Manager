@@ -8,7 +8,7 @@
 #>
 [CmdletBinding()]
 param([switch]$SkipGenerate)
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'   # native stderr must not abort the checker
 Set-StrictMode -Version 2.0
 $root = Split-Path -Parent $PSScriptRoot
 $res = New-Object System.Collections.Generic.List[object]
@@ -76,7 +76,8 @@ if (-not $SkipGenerate) {
     try {
         $proj = Join-Path $tmp 'Sample App'
         $out = & $hostExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'New-TuiProject.ps1') -Name 'Sample App' -Path $proj -RunTests 2>&1
-        Add-Check 'template generates a project whose own tests pass (0 FAIL)' (($LASTEXITCODE -eq 0) -and ((($out | Out-String) -match ' 0 FAIL'))) (($out | Select-Object -Last 3) -join ' | ')
+        $outText = ($out | Out-String)
+        Add-Check 'template generates a project whose own tests pass (0 FAIL)' (($LASTEXITCODE -eq 0) -and ($outText -match ' 0 FAIL')) ((@($outText -split "`r?`n" | Where-Object { $_ -match 'FAIL' } | Select-Object -First 8)) -join ' | ')
         $null = & $hostExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-TuiProject.ps1') -Path $proj 2>&1
         Add-Check 'generated project passes Test-TuiProject' ($LASTEXITCODE -eq 0)
         $v = & $hostExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $proj 'Start-SampleApp.ps1') -Version 2>&1

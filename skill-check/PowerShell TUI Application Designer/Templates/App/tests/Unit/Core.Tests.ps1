@@ -12,7 +12,7 @@ Assert-Equal 'embedded quote is escaped' '"a\"b c"' (ConvertTo-ProcessArgument '
 Assert-Equal 'trailing backslash before the closing quote is doubled' '"C:\my dir\\"' (ConvertTo-ProcessArgument 'C:\my dir\')
 $child = Join-Path (Get-TestWork) 'child args.ps1'
 [System.IO.File]::WriteAllText($child, 'Write-Output ("n=" + $args.Count + " first=" + $args[0])')
-$r = Invoke-External -FilePath (Get-CurrentPowerShellPath) -Arguments @('-NoProfile', '-File', $child, 'one two', 'three') -TimeoutSec 60
+$r = Invoke-External -FilePath (Get-CurrentPowerShellPath) -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $child, 'one two', 'three') -TimeoutSec 60
 Assert-True 'external program runs and exits 0' ($r.Started -and $r.ExitCode -eq 0) ($r.Error)
 Assert-Equal 'an argument with a space arrives as ONE argument' 'n=2 first=one two' $r.StdOut.Trim()
 $r2 = Invoke-External -FilePath 'definitely-not-a-real-program-xyz' -TimeoutSec 5

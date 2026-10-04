@@ -39,7 +39,7 @@ if (-not $exe) { Write-Line 'PowerShell was not found on PATH.' 'Red'; exit 1 }
 # a child script that reports how many arguments it received: arguments with spaces must arrive as ONE argument each
 $child = Join-Path ([System.IO.Path]::GetTempPath()) ('child-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.ps1')
 [System.IO.File]::WriteAllText($child, 'Write-Output ("args=" + $args.Count + " first=[" + $args[0] + "]")')
-$r = Invoke-Program -File $exe.Source -Arguments @('-NoProfile', '-File', $child, 'a file with spaces.txt', 'second')
+$r = Invoke-Program -File $exe.Source -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $child, 'a file with spaces.txt', 'second')
 Remove-Item -LiteralPath $child -Force
 Write-Line ('Started={0} Exit={1} Output={2}' -f $r.Started, $r.ExitCode, $r.StdOut.Trim()) 'Green'
 $m = Invoke-Program -File 'this-program-does-not-exist' -TimeoutSec 5
