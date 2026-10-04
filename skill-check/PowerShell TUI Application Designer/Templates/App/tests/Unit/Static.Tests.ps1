@@ -12,7 +12,7 @@ foreach ($f in $files) {
     foreach ($c in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)) {
         $n = $c.GetCommandName(); if ($n -in @('Invoke-Expression', 'iex')) { $forbidden += ($f.Name + ': ' + $n) }
     }
-    if ($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.TernaryExpressionAst] }, $true).Count -gt 0) { $forbidden += ($f.Name + ': ternary operator') }
+    if ($ast.FindAll({ param($n) $n.GetType().Name -eq 'TernaryExpressionAst' }, $true).Count -gt 0) { $forbidden += ($f.Name + ': ternary operator') }
     if ($text -match '\?\?' -and $f.Name -ne 'Static.Tests.ps1') { $forbidden += ($f.Name + ': null-coalescing') }
     if ($f.Name -ne 'Platform.psm1' -and $text -match '\$Is(Windows|Linux|MacOS)\b') { $winVar += $f.Name }
 }

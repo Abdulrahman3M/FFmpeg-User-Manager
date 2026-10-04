@@ -36,7 +36,7 @@ foreach ($f in $src) {
         if ($n -in @('Invoke-Expression', 'iex')) { $bad.Iex += ($f.Name + ':' + $c.Extent.StartLineNumber) }
         if ($n -eq 'ForEach-Object' -and ($c.CommandElements | Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -eq 'Parallel' })) { $bad.Parallel += $f.Name }
     }
-    if ($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.TernaryExpressionAst] }, $true).Count -gt 0) { $bad.Ternary += $f.Name }
+    if ($ast.FindAll({ param($n) $n.GetType().Name -eq 'TernaryExpressionAst' }, $true).Count -gt 0) { $bad.Ternary += $f.Name }
     if ($ast.FindAll({ param($n) $n.GetType().Name -eq 'PipelineChainAst' }, $true).Count -gt 0) { $bad.Ternary += ($f.Name + ' (&& / ||)') }
     if ($f.FullName -notmatch '[\\/]tests[\\/]' -and $text -match '\$\w+\s*\?\?\s') { $bad.Coalesce += $f.Name }
     if ($f.Name -ne 'Platform.psm1' -and $f.FullName -notmatch '[\\/]tests[\\/]' -and $text -match '\$Is(Windows|Linux|MacOS)\b') { $bad.WinVar += $f.Name }
