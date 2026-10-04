@@ -83,7 +83,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Merge** | Lossless concatenation when compatible, otherwise re-encode to common settings; reorderable list |
 | **Compress** | Smaller file, quality target, bitrate, or approximate target size; video and audio |
 | **Resize / scale** | Presets or custom size; preserve aspect, fit, fill/crop or stretch |
-| **Video to GIF** | Clip range, FPS, speed, size, high-quality palette, dithering, loop control |
+| **Video to GIF** | Clip range, FPS, speed, size (from 320 px up to 1080 / 2K / 4K / 8K wide, or custom), high-quality palette, dithering, loop control |
 | **Extract frames** | Single frame, interval, FPS or range as PNG / JPEG / WebP / BMP / TIFF |
 | **Audio tools** | Volume, loudness normalization (two-pass), sample rate, channels, tempo/speed, remove or replace audio, fades, bass/treble, noise reduction, silence removal, frequency filters, sync offset, reverse |
 | **Subtitle tools** | Extract, add (mux), burn in, remove, keep selected streams |
@@ -121,7 +121,7 @@ Every option of every workflow is described in [docs/Workflows.md](docs/Workflow
 ## Installation
 
 1. **Get the project** - either
-   * download the ZIP from GitHub (*Code -> Download ZIP*) and extract it completely, or
+   * download `FFmpeg-User-Manager-vX.Y.Z.zip` from the *Releases* page (recommended) or the repository ZIP (*Code -> Download ZIP*) and extract it completely, or
    * clone it:
      ```powershell
      git clone https://github.com/Abdulrahman3M/FFmpeg-User-Manager.git
@@ -264,8 +264,8 @@ Details, pre-release labels and the release checklist: [docs/Versioning-and-Rele
 
 ## Releases
 
-No official release has been published yet, so there is no downloadable release package at the moment. Until then, use the repository contents as described in
-[Installation](#installation). When releases exist they will appear under the repository's *Releases* page as `FFmpeg-User-Manager-vX.Y.Z.zip`.
+Official releases are published on the repository's *Releases* page as `FFmpeg-User-Manager-vX.Y.Z.zip`; the notes of each release summarize its features, fixes and known limitations.
+The current release is **v0.1.0** (see [CHANGELOG.md](CHANGELOG.md)). To use a release, download the ZIP, extract it completely and follow [Installation](#installation).
 
 ## Documentation
 
@@ -305,6 +305,8 @@ FFmpeg itself is **not** part of this project and is not distributed with it: th
 
 ## Project status
 
-**Pre-release (version 0.x).** All workflows listed above are implemented. The automated test suite (more than 1,200 checks) passes on PowerShell 7.4 with FFmpeg 6.1 on Linux, and the
-launcher logic is tested with a real `cmd` interpreter. **Verification on real Windows (Windows PowerShell 5.1 and PowerShell 7 on Windows, winget install/update, the native file picker, Explorer integration) is still pending**,
-so expect rough edges on Windows until that is done. See [docs/Testing.md](docs/Testing.md) for exactly what has and has not been verified.
+**Pre-release series (version 0.x), first release v0.1.0.** All workflows listed above are implemented. The automated suite (more than 1,300 checks) passes on **Windows PowerShell 5.1** and on **PowerShell 7** on a
+GitHub-hosted Windows runner (FFmpeg 9.0.2) and on PowerShell 7.4 on Linux (FFmpeg 6.1); the launcher is tested with the real `cmd` interpreter.
+**Not yet verified by any automated run and therefore not claimed:** rendering in a real Windows Terminal / classic console, real `winget` installs and updates, the native file picker and Explorer integration,
+and screen / webcam / microphone recording on real devices. `tools/Test-WindowsLocal.ps1` lists these checks. Version 1.0.0 is reserved until they are done (see
+[docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md)). Details: [docs/Testing.md](docs/Testing.md).
