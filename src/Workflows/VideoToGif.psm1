@@ -1,6 +1,32 @@
 # VideoToGif.psm1 - workflow 8: Video to GIF (palette-based high quality path).
 Set-StrictMode -Version 2.0
 
+function Get-GifLargeSizePresets {
+    # Named size presets offered after the pixel widths. All values are WIDTHS in pixels (the height follows the aspect ratio),
+    # exactly like the numeric choices before them: 1080 = 1080 px wide; 2K = 2560 (QHD), 4K = 3840 (UHD) and 8K = 7680 (UHD) px wide.
+    return @(
+        @{ Name = '1080'; Width = 1080; Label = '1080 px'; Desc = 'Make the GIF 1080 pixels wide; the height follows. Large file.' },
+        @{ Name = '2K'; Width = 2560; Label = '2K  (2560 px wide)'; Desc = 'Make the GIF 2560 pixels wide (QHD width); the height follows. Very large file and high memory use.' },
+        @{ Name = '4K'; Width = 3840; Label = '4K  (3840 px wide)'; Desc = 'Make the GIF 3840 pixels wide (UHD width); the height follows. Huge file and a lot of memory; short clips only.' },
+        @{ Name = '8K'; Width = 7680; Label = '8K  (7680 px wide)'; Desc = 'Make the GIF 7680 pixels wide (UHD width); the height follows. Extreme memory use and file size; very short clips only.' }
+    )
+}
+
+function Get-GifGiantSizeNote {
+    # A short warning for very large GIFs (returns '' for ordinary sizes). Never blocks the job.
+    param([int]$Width)
+    if ($Width -ge 2560) { return ("A GIF {0} pixels wide can use a lot of memory and processing time and may produce a very large file. Use a short clip and a low frame rate." -f $Width) }
+    return ''
+}
+
+function Get-GifWidthText {
+    # '2560 px (2K)' for a named preset width, '480 px' otherwise.
+    param([int]$Width)
+    $p = @(Get-GifLargeSizePresets | Where-Object { $_.Width -eq $Width -and $_.Name -match 'K$' })
+    if ($p.Count -gt 0) { return ("$Width px (" + $p[0].Name + ')') }
+    return "$Width px"
+}
+
 function Get-GifSteps {
     $fpsList = Get-PresetList 'gifFps' @(10, 15, 20, 24, 30)
     $widthList = Get-PresetList 'gifWidths' @(320, 480, 640, 720)
@@ -19,12 +45,12 @@ function Get-GifSteps {
         AllowCustom = @{ Label = 'Custom...'; Type = 'Decimal'; Min = 0.1; Max = 8; Prompt = 'Custom speed'; Help = 'A multiplier between 0.1 and 8.'; Example = '1.75'; ValueLabel = 'Speed'; Desc = 'For example 1.75.' }
         Default = 1.0 }
     $steps += @{ Id = 'width'; Type = 'Choice'; Prompt = 'Width'; Help = 'Smaller dimensions reduce file size significantly.'
-        Choices = { param($W) $m = Get-Media $W 'input'; @(New-Choice 0 'Keep original size' 'Use the video width; larger file.') + @($widthList | ForEach-Object { New-Choice ([int]$_) (("{0} px" -f $_) + $(if ($_ -eq 480) { '  (Recommended)' } else { '' })) ("Make the GIF $_ pixels wide; the height follows. Smaller widths give much smaller files.") }) }.GetNewClosure()
-        AllowCustom = @{ Label = 'Custom...'; Type = 'Integer'; Min = 16; Max = 4096; Prompt = 'Custom width'; Help = 'Enter a positive pixel value, e.g. 1280.'; Example = '1280'; ValueLabel = 'Width'; Desc = 'Enter a pixel value.' }
+        Choices = { param($W) $m = Get-Media $W 'input'; @(New-Choice 0 'Keep original size' 'Use the video width; larger file.') + @($widthList | ForEach-Object { New-Choice ([int]$_) (("{0} px" -f $_) + $(if ($_ -eq 480) { '  (Recommended)' } else { '' })) ("Make the GIF $_ pixels wide; the height follows. Smaller widths give much smaller files.") }) + @(Get-GifLargeSizePresets | Where-Object { $_.Width -notin @($widthList | ForEach-Object { [int]$_ }) } | ForEach-Object { New-Choice ([int]$_.Width) $_.Label $_.Desc }) }.GetNewClosure()
+        AllowCustom = @{ Label = 'Custom...'; Type = 'Integer'; Min = 16; Max = 7680; Prompt = 'Custom width'; Help = 'Enter a positive pixel value, e.g. 1280. Allowed: 16 to 7680 (widths of 2560 and more need a lot of memory and make very large files).'; Example = '1280'; ValueLabel = 'Width'; Desc = 'Enter a pixel value.' }
         Default = 480 }
     $steps += @{ Id = 'keepaspect'; Type = 'YesNo'; Prompt = 'Preserve the aspect ratio?'; Help = 'Recommended: the height is calculated automatically so the picture is not distorted.'; YesDesc = 'Only the width is used; the height follows so nothing looks stretched.'; NoDesc = 'You set both width and height; the picture may look stretched.'; Default = $true
         YesLabel = 'Yes, keep the proportions'; NoLabel = 'No, set the height myself'; When = { param($W) [int](Get-Answer $W 'width' 0) -gt 0 } }
-    $steps += @{ Id = 'height'; Type = 'Integer'; Prompt = 'Height'; Help = 'Enter a positive pixel value.'; Example = '360'; Min = 16; Max = 4096; Label = 'Height'
+    $steps += @{ Id = 'height'; Type = 'Integer'; Prompt = 'Height'; Help = 'Enter a positive pixel value.'; Example = '360'; Min = 16; Max = 4320; Label = 'Height'
         When = { param($W) ([int](Get-Answer $W 'width' 0) -gt 0) -and -not (Get-Answer $W 'keepaspect' $true) } }
     $steps += @{ Id = 'palette'; Type = 'Choice'; Prompt = 'Palette quality'; Help = 'High Quality creates a better color palette before generating the GIF.'
         Choices = { param($W) $ok = Test-FFAllFilters @('palettegen', 'paletteuse'); @( (New-Choice 'high' 'High Quality / Recommended' 'Generates an optimized palette (best colors).' $ok 'Your FFmpeg build lacks palettegen/paletteuse.'), (New-Choice 'fast' 'Fast' 'Uses the default palette; quicker but lower color quality.') ) }
@@ -79,6 +105,8 @@ function Build-GifJob {
     Add-FFOutOpt $cmd @('-loop', [string][int](Get-Answer $W 'loop' 0), '-f', 'gif')
     Set-FFOutput $cmd $out.Path -Overwrite:$out.Overwrite
     $notes = @(); if ($out.Overwrite) { $notes += 'The existing output file will be overwritten.' }
+    $big = Get-GifGiantSizeNote $(if ($width -gt 0) { $width } else { [int]$info.Video[0].Width })
+    if ($big) { $notes += $big }
     if ($fps -gt 30) { $notes += 'Frame rates above 30 FPS are often played more slowly by browsers and viewers.' }
     $dur = $range.Duration; if ($dur) { $dur = $dur / $speed }
     $loopTxt = switch ([int](Get-Answer $W 'loop' 0)) { 0 { 'Infinite' } -1 { 'Play once' } default { ('Repeat ' + (Get-Answer $W 'loop') + ' time(s)') } }
@@ -86,7 +114,7 @@ function Build-GifJob {
         @('Input', $info.FileName),
         @('Range', $(if ($range.Full) { 'Entire video' } else { ('{0} + {1} s' -f (Format-Duration $range.Start), (Format-FFNumber $range.Duration 2)) })),
         @('Frame rate', ("{0:0.##} FPS" -f $fps)), @('Speed', ("{0:0.##}x" -f $speed)),
-        @('Width', $(if ($width -gt 0) { "$width px" + $(if ($height) { " x $height px" } else { ' (aspect kept)' }) } else { 'Original' })),
+        @('Width', $(if ($width -gt 0) { (Get-GifWidthText $width) + $(if ($height) { " x $height px" } else { ' (aspect kept)' }) } else { 'Original' })),
         @('Palette', $(if ($palette -eq 'high') { "High quality, $(Get-Answer $W 'colors' 256) colors, dither $(Get-Answer $W 'dither' 'sierra2_4a')" } else { 'Fast (default palette)' })),
         @('Loop', $loopTxt), @('Output', $out.Path)
     )
@@ -97,4 +125,4 @@ function Start-GifWorkflow {
     Start-StandardWorkflow -Title 'Video to GIF' -Description 'Convert a video or selected clip into an animated GIF.' -Icon 'Gif' -StepsFactory { Get-GifSteps } -Build { param($W) Build-GifJob $W }
 }
 
-Export-ModuleMember -Function Get-GifSteps, Get-GifFilterGraph, Build-GifJob, Start-GifWorkflow
+Export-ModuleMember -Function Get-GifLargeSizePresets, Get-GifGiantSizeNote, Get-GifWidthText, Get-GifSteps, Get-GifFilterGraph, Build-GifJob, Start-GifWorkflow

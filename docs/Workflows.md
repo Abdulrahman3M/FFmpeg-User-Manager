@@ -119,7 +119,7 @@ Advanced: scaling algorithm (bicubic default, Lanczos, bilinear, spline, nearest
 
 ## 08 Video to GIF
 Input - clip range (entire / start+end / start+duration) - frame rate (10/15/20/24/30/custom) - optional maximum frame count - speed (0.25x-2x, custom 0.1-8) -
-width (keep, 320, 480, 640, 720, custom) - preserve aspect ratio (else an explicit height) - palette quality (**High Quality** = `palettegen` + `paletteuse`, **Fast**) -
+width (keep, 320, 480, 640, 720, 1080, 2K, 4K, 8K, custom - all values are widths in pixels: 1080 = 1080 px, **2K = 2560 px, 4K = 3840 px, 8K = 7680 px**, the height follows the aspect ratio; custom accepts 16 to 7680; widths of 2560 px and more show a warning because they need a lot of memory and make very large files) - preserve aspect ratio (else an explicit height) - palette quality (**High Quality** = `palettegen` + `paletteuse`, **Fast**) -
 number of colors (2-256) - dithering (Sierra 2-4A, Floyd-Steinberg, Bayer, none) - loop (infinite, once, N repeats) - output.
 
 ## 09 Extract Frames / Images
