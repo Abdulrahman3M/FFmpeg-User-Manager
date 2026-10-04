@@ -4,10 +4,13 @@ All notable user-facing changes are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (see [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md)).
 
-The current working version is the content of the [`VERSION`](VERSION) file. No release has been tagged yet;
-everything below is unreleased work that will ship as **0.1.0** once the owner approves the first release.
+The current version is the content of the [`VERSION`](VERSION) file. Released versions are tagged `vX.Y.Z` and published under the repository's *Releases* page.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-10-04
+
+First official release (pre-release series 0.x): the complete application as developed so far.
 
 ### Added
 - **Video to GIF:** new width presets **1080**, **2K**, **4K** and **8K** before *Custom*. As with the existing sizes the values are widths in pixels (the height follows the aspect ratio): 1080 = 1080 px, 2K = 2560 px, 4K = 3840 px, 8K = 7680 px, shown on screen. Widths of 2560 px and more show a short warning (memory, time and file size). *Custom* now accepts 16 to 7680 px wide (custom height up to 4320 px).

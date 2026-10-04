@@ -11,7 +11,7 @@ The project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.h
 | **MAJOR** | Breaking changes: removed or incompatible behavior, incompatible configuration changes, anything users must adapt to. MINOR and PATCH reset to `0` | `1.3.4` -> `2.0.0` |
 
 `VERSION` changes only when a release is prepared (checklist below). Work done after the last release, or before the first one, is collected under `[Unreleased]` in the changelog and does **not** bump the
-version on its own; the increment is decided once, for the whole set of changes, when the release is cut. (The work recorded so far is still part of the unreleased `0.1.0`.)
+version on its own; the increment is decided once, for the whole set of changes, when the release is cut. The first release, `0.1.0` (2026-10-04), collected all the work done before it.
 
 While the major version is `0` the project is pre-release: anything may change between MINOR versions.
 `1.0.0` is reserved for the point where the full application is implemented, tested on Windows under both PowerShell runtimes,
