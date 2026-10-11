@@ -1,6 +1,6 @@
 <div align="center">
 
-# FFmpeg User Manager
+# FFmpeg User Manager `v0.1.0`
 
 **A modern interactive PowerShell TUI for FFmpeg on Windows.**
 Convert, compress, trim, merge, extract, resize, make GIFs, slideshows and recordings, manage subtitles, metadata and streams, analyze and batch-process media - without writing FFmpeg commands.
@@ -305,8 +305,8 @@ FFmpeg itself is **not** part of this project and is not distributed with it: th
 
 ## Project status
 
-**Pre-release series (version 0.x), first release v0.1.0.** All workflows listed above are implemented. The automated suite (more than 1,300 checks) passes on **Windows PowerShell 5.1** and on **PowerShell 7** on a
-GitHub-hosted Windows runner (FFmpeg 9.0.2) and on PowerShell 7.4 on Linux (FFmpeg 6.1); the launcher is tested with the real `cmd` interpreter.
+**Pre-release series (version 0.x), first release v0.1.0.** All workflows listed above are implemented. The automated suite (more than 1,300 checks) passes on **Windows PowerShell 5.1** and on
+**PowerShell 7** on a GitHub-hosted Windows runner (FFmpeg 9.0.2) and on PowerShell 7.4 on Linux (FFmpeg 6.1); the launcher is tested with the real `cmd` interpreter.
 **Not yet verified by any automated run and therefore not claimed:** rendering in a real Windows Terminal / classic console, real `winget` installs and updates, the native file picker and Explorer integration,
 and screen / webcam / microphone recording on real devices. `tools/Test-WindowsLocal.ps1` lists these checks. Version 1.0.0 is reserved until they are done (see
 [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md)). Details: [docs/Testing.md](docs/Testing.md).
