@@ -49,6 +49,7 @@ Read this file **before** starting any task.
 ## 6. Documentation, versions and history
 * After each task, synchronize only the documentation that is actually affected (`README.md`, `docs/`, `CHANGELOG.md`).
 * The canonical version is the `VERSION` file (Semantic Versioning 2.0.0). Never hand-edit version numbers elsewhere; see `docs/Versioning-and-Releases.md`.
+* Whenever a system change requires a version increment, determine the increment using Semantic Versioning 2.0.0 and update every affected version reference in all project documents and release artifacts in the same change. Keep `VERSION`, the README badge and version mentions, application header, changelog/release notes, and other documented version references consistent. Do not change the version during unreleased development unless the release process requires it.
 * Screenshots must come from the real application. Never fabricate or mock up screenshots.
 * Do not invent a license, badges, releases or features.
 
