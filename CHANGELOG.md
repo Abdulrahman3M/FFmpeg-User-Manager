@@ -8,6 +8,9 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ## [Unreleased]
 
+### Changed
+- The README title now shows the current application version beside the tool name.
+
 ## [0.1.0] - 2026-10-04
 
 First official release (pre-release series 0.x): the complete application as developed so far.
