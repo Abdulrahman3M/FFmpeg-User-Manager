@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/images/repository-cover.jpg" alt="FFmpeg User Manager cover" width="760">
+
 # FFmpeg User Manager `v0.1.1`
 
 **A modern interactive PowerShell TUI for FFmpeg on Windows.**
@@ -13,10 +15,6 @@ Convert, compress, trim, merge, extract, resize, make GIFs, slideshows and recor
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 </div>
-
-<p align="center">
-  <img src="docs/images/repository-cover.jpg" alt="FFmpeg User Manager product cover" width="100%">
-</p>
 
 <p align="center">
   <img src="docs/images/main-menu.png" alt="FFmpeg User Manager main menu" width="760">
