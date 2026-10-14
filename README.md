@@ -20,6 +20,9 @@ Convert, compress, trim, merge, extract, resize, make GIFs, slideshows and recor
 
 ## Overview
 
+**Navigation rendering:** In VT-capable interactive terminals, menu navigation uses a centralized ANSI in-place renderer with differential changed-row updates. Ordinary arrow keys do not clear the complete screen, and color/icon/description styling is preserved. A legacy console cursor-based fallback is retained. This requires a real Windows Terminal/conhost visual check; scripted tests alone cannot establish that every host is flicker-free.
+
+
 FFmpeg User Manager turns FFmpeg into a guided, keyboard-driven terminal application. You pick what you want to do, answer a few plain-English
 questions (mostly multiple choice, with sensible defaults and short explanations), review a summary, and the app builds and runs the correct FFmpeg command for you.
 
