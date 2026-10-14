@@ -1,4 +1,11 @@
-﻿# Unit tests: TUI components (menu, line editor, wizard, layout, theme, icons).
+﻿Set-TestGroup 'Centralized differential frame renderer'
+Assert-Equal 'Unchanged frame has no changed rows' 0 @(Get-ChangedFrameRows -Previous @('A','B') -Current @('A','B')).Count
+Assert-Equal 'Changing only an ANSI selection role changes one row' '1' (@(Get-ChangedFrameRows -Previous @('Header','Normal Choice') -Current @('Header','Selected Choice')) -join ',')
+Assert-Equal 'Moving selected row repaints old and new rows' '0,1' (@(Get-ChangedFrameRows -Previous @('Selected','Normal') -Current @('Normal','Selected')) -join ',')
+Assert-Equal 'Shrinking the frame erases the trailing row' '1' (@(Get-ChangedFrameRows -Previous @('A','B') -Current @('A')) -join ',')
+Assert-Equal 'Adding a row repaints only that row' '1' (@(Get-ChangedFrameRows -Previous @('A') -Current @('A','B')) -join ',')
+
+# Unit tests: TUI components (menu, line editor, wizard, layout, theme, icons).
 Set-TestGroup 'Menu: numbering, navigation and shortcuts'
 $items = @(@{ Label = 'One'; Value = 'a' }, @{ Label = 'Two'; Value = 'b' }, @{ Label = 'Three'; Value = 'c' }, @{ Label = 'Four'; Value = 'd' })
 $ui = Invoke-Ui { Show-Menu -Items $items -AllowBack -AllowQuit } '02'

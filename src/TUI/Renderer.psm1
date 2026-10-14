@@ -10,6 +10,32 @@ $script:FixedHeight = 0
 $script:ESC = [string][char]27
 $script:HeaderInfo = ''
 $script:HeaderTitle = 'FFmpeg User Manager'
+$script:FrameActive = $false
+$script:PendingFrame = New-Object System.Text.StringBuilder
+$script:PreviousFrame = @()
+$script:PreviousViewport = ''
+
+function Get-ChangedFrameRows {
+    # Compare styled ANSI text, not just the displayed characters.
+    param([string[]]$Previous = @(),[string[]]$Current = @())
+    for ($i = 0; $i -lt [Math]::Max($Previous.Count,$Current.Count); $i++) {
+        $before = if ($i -lt $Previous.Count) { $Previous[$i] } else { $null }
+        $after = if ($i -lt $Current.Count) { $Current[$i] } else { $null }
+        if ($null -eq $before -or $null -eq $after -or $before -cne $after) { Write-Output $i }
+    }
+}
+
+function Reset-FrameCache {
+    $script:PreviousFrame = @()
+    $script:PreviousViewport = ''
+}
+function Write-FrameChunk {
+    param([AllowEmptyString()][string]$Text)
+    if ($script:FrameActive -and $script:Ansi -and $script:Sink -eq 'Console') {
+        [void]$script:PendingFrame.Append($Text)
+    } else { [Console]::Out.Write($Text) }
+}
+
 
 function Initialize-Renderer {
     param([bool]$Ansi, $Unicode = $true, [ValidateSet('Console', 'Buffer')][string]$Sink = 'Console', [int]$Width = 0, [int]$Height = 0)
@@ -17,6 +43,9 @@ function Initialize-Renderer {
     $script:Sink = $Sink
     $script:FixedWidth = $Width
     $script:FixedHeight = $Height
+    $script:FrameActive = $false
+    $script:PendingFrame = New-Object System.Text.StringBuilder
+    Reset-FrameCache
     Initialize-Theme -Ansi $Ansi -Unicode $Unicode
 }
 
@@ -106,7 +135,7 @@ function Split-TextLines {
 function Write-Raw {
     param([string]$Text)
     if ($script:Sink -eq 'Buffer') { [void]$script:Buffer.Append($Text); return }
-    [Console]::Out.Write($Text)
+    Write-FrameChunk $Text
 }
 
 function Write-Ui {
@@ -120,7 +149,7 @@ function Write-Ui {
         $code = Get-ThemeAnsi $Role
         $s = $script:ESC + '[' + $code + 'm' + $Text + $script:ESC + '[0m'
         if (-not $NoNewline) { $s += $script:ESC + '[K' + "`n" }
-        [Console]::Out.Write($s)
+        Write-FrameChunk $s
     } else {
         $color = Get-ThemeConsoleColor $Role
         if ($NoNewline) { Write-Host -NoNewline $Text -ForegroundColor $color } else { Write-Host $Text -ForegroundColor $color }
@@ -140,7 +169,7 @@ function Write-UiSegments {
     foreach ($seg in $Segments) { Write-Ui -Text ([string]$seg[0]) -Role ([string]$seg[1]) -NoNewline }
     if (-not $NoNewline) {
         if ($script:Sink -eq 'Buffer') { [void]$script:Buffer.Append("`n") }
-        elseif ($script:Ansi) { [Console]::Out.Write($script:ESC + '[K' + "`n") }
+        elseif ($script:Ansi) { Write-FrameChunk ($script:ESC + '[K' + "`n") }
         else { Write-Host '' }
     }
 }
@@ -148,18 +177,67 @@ function Write-UiSegments {
 function Write-UiBlank { Write-Ui -Text '' -Role NormalText }
 
 function Start-Frame {
-    # ANSI: home the cursor and overwrite (no flicker). Legacy: clear the screen.
+    # Build a complete logical frame in memory; the centralized renderer paints only changed rows.
     if ($script:Sink -eq 'Buffer') { [void]$script:Buffer.Append("`n=====FRAME=====`n"); return }
-    if ($script:Ansi) { [Console]::Out.Write($script:ESC + '[H') }
-    else { try { Clear-Host } catch { } }
+    if ($script:Ansi) {
+        $script:PendingFrame = New-Object System.Text.StringBuilder
+        $script:FrameActive = $true
+    } else {
+        # Fallback for conhost without VT; do not blank the screen if cursor addressing works.
+        try { [Console]::SetCursorPosition(0, 0) } catch { try { Clear-Host } catch { } }
+    }
 }
 
 function Stop-Frame {
     if ($script:Sink -eq 'Buffer') { return }
-    if ($script:Ansi) { [Console]::Out.Write($script:ESC + '[J') }
+    if (-not $script:Ansi) {
+        # Clear old tails on legacy terminals without blanking the complete screen.
+        try {
+            $left = [Console]::CursorLeft
+            $top = [Console]::CursorTop
+            $width = [Console]::WindowWidth
+            $height = [Console]::WindowHeight
+            if ($top -lt $height - 1) {
+                [Console]::Out.Write(' ' * [Math]::Max(0, $width - $left - 1))
+                for ($row = $top + 1; $row -lt $height - 1; $row++) {
+                    [Console]::SetCursorPosition(0, $row)
+                    [Console]::Out.Write(' ' * [Math]::Max(0, $width - 1))
+                }
+            }
+        } catch { }
+        return
+    }
+    if (-not $script:FrameActive) { return }
+    try {
+        $pending = $script:PendingFrame.ToString()
+        $rows = @($pending -split "`n")
+        if ($pending.EndsWith("`n") -and $rows.Count -gt 0) { $rows = @($rows | Select-Object -SkipLast 1) }
+        $size = Get-UiSize
+        $viewport = [string]$size.Width + 'x' + [string]$size.Height
+        if ($script:PreviousViewport -and $script:PreviousViewport -ne $viewport) {
+            [Console]::Out.Write($script:ESC + '[H' + $script:ESC + '[J')
+            Reset-FrameCache
+        }
+        foreach ($row in @(Get-ChangedFrameRows -Previous $script:PreviousFrame -Current $rows)) {
+            if ($row -ge $size.Height - 1) { continue }
+            $home = $script:ESC + '[' + ($row + 1) + ';1H'
+            if ($row -lt $rows.Count) {
+                [Console]::Out.Write($home + $rows[$row] + $script:ESC + '[K')
+            } else {
+                [Console]::Out.Write($home + $script:ESC + '[2K')
+            }
+        }
+        $script:PreviousFrame = $rows
+        $script:PreviousViewport = $viewport
+    } finally {
+        $script:FrameActive = $false
+        [void]$script:PendingFrame.Clear()
+    }
 }
 
 function Clear-Ui {
+    Reset-FrameCache
+    $script:FrameActive = $false
     if ($script:Sink -eq 'Buffer') { [void]$script:Buffer.Append("`n=====CLEAR=====`n"); return }
     if ($script:Ansi) { [Console]::Out.Write($script:ESC + '[2J' + $script:ESC + '[H') } else { try { Clear-Host } catch { } }
 }
@@ -195,12 +273,15 @@ function Hide-Cursor {
 }
 
 function Enter-AltScreen {
+    Reset-FrameCache
     if ($script:Sink -eq 'Buffer' -or -not $script:Ansi) { return }
     [Console]::Out.Write($script:ESC + '[?1049h' + $script:ESC + '[2J' + $script:ESC + '[H')
     $script:AltScreen = $true
 }
 
 function Restore-TerminalState {
+    $script:FrameActive = $false
+    Reset-FrameCache
     # Safe to call repeatedly, including from finally blocks after an exception.
     if ($script:Sink -eq 'Buffer') { return }
     try {
@@ -309,4 +390,4 @@ function Format-ProgressBar {
     return @(($ch * $filled), (($b.H) * ($Width - $filled)))
 }
 
-Export-ModuleMember -Function Clear-LineRemainder, Set-CursorColumn, Set-HeaderInfo, Write-PlainError, Initialize-Renderer, Test-AnsiMode, Get-CapturedOutput, Clear-CapturedOutput, Get-UiSize, Get-UiWidth, Test-CompactLayout, Get-TextWidth, Limit-Text, Limit-PathText, Split-TextLines, Write-Raw, Write-Ui, Write-UiSegments, Write-UiBlank, Start-Frame, Stop-Frame, Clear-Ui, Show-Cursor, Hide-Cursor, Enter-AltScreen, Restore-TerminalState, Write-Rule, Write-Header, Write-KeyHints, Write-KeyValueTable, Write-Panel, Format-ProgressBar
+Export-ModuleMember -Function Get-ChangedFrameRows, Clear-LineRemainder, Set-CursorColumn, Set-HeaderInfo, Write-PlainError, Initialize-Renderer, Test-AnsiMode, Get-CapturedOutput, Clear-CapturedOutput, Get-UiSize, Get-UiWidth, Test-CompactLayout, Get-TextWidth, Limit-Text, Limit-PathText, Split-TextLines, Write-Raw, Write-Ui, Write-UiSegments, Write-UiBlank, Start-Frame, Stop-Frame, Clear-Ui, Show-Cursor, Hide-Cursor, Enter-AltScreen, Restore-TerminalState, Write-Rule, Write-Header, Write-KeyHints, Write-KeyValueTable, Write-Panel, Format-ProgressBar
