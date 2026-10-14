@@ -4,11 +4,13 @@
 
 | Environment | Result (actual, from the logs) | Run / commit |
 |---|---|---|
-| Windows PowerShell 5.1 on a Windows runner (FFmpeg 9.0.2) | **1263 PASS, 0 FAIL, 1 UNVERIFIED** | Actions run #12 (`tests`, manual dispatch), commit `3f96e26` |
-| PowerShell 7 on a Windows runner (FFmpeg 9.0.2) | **1263 PASS, 0 FAIL, 1 UNVERIFIED** | Actions run #12, commit `3f96e26` |
+| Windows PowerShell 5.1 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
+| PowerShell 7 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7.4 on Linux (FFmpeg 6.1, Wine for the `.bat` tests) | **1261 PASS, 0 FAIL, 5 UNVERIFIED** | local run, commit `3f96e26` |
 
-History of the Windows work (same suite): run #3 (first diagnosable run) PowerShell 7 1034 PASS / 35 FAIL / 3 UNVERIFIED, PowerShell 5.1 893 PASS / 40 FAIL / 5 UNVERIFIED -> run #12 above. The causes are listed in the investigation table below.
+History of the Windows work (same suite): run #12 established 1263 PASS / 0 FAIL / 1 UNVERIFIED under both Windows runtimes at commit `3f96e26`; run #3 (first diagnosable run) PowerShell 7 1034 PASS / 35 FAIL / 3 UNVERIFIED, PowerShell 5.1 893 PASS / 40 FAIL / 5 UNVERIFIED -> run #12 above. The causes are listed in the investigation table below.
+
+The current tracked source version is v0.1.1. The previous run's 1323-PASS results establish renderer compatibility at its tested commit, but the new version-only metadata commit needs its own CI outcome before claiming full-release verification. Physical rapid-arrow/no-flicker behavior still requires Windows Terminal and classic conhost observation.
 
 Remaining UNVERIFIED items (never reported as PASS):
 
