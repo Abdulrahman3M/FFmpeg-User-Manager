@@ -189,7 +189,24 @@ function Start-Frame {
 }
 
 function Stop-Frame {
-    if ($script:Sink -eq 'Buffer' -or -not $script:Ansi) { return }
+    if ($script:Sink -eq 'Buffer') { return }
+    if (-not $script:Ansi) {
+        # Clear old tails on legacy terminals without blanking the complete screen.
+        try {
+            $left = [Console]::CursorLeft
+            $top = [Console]::CursorTop
+            $width = [Console]::WindowWidth
+            $height = [Console]::WindowHeight
+            if ($top -lt $height - 1) {
+                [Console]::Out.Write(' ' * [Math]::Max(0, $width - $left - 1))
+                for ($row = $top + 1; $row -lt $height - 1; $row++) {
+                    [Console]::SetCursorPosition(0, $row)
+                    [Console]::Out.Write(' ' * [Math]::Max(0, $width - 1))
+                }
+            }
+        } catch { }
+        return
+    }
     if (-not $script:FrameActive) { return }
     try {
         $pending = $script:PendingFrame.ToString()
