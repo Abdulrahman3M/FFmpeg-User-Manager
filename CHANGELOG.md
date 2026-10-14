@@ -20,6 +20,7 @@ This backward-compatible PATCH advances the tracked source version following the
 - Updated the README to show the current source version next to the project name and in its version badge, distinguishing the source version from any previously published release.
 
 ### Added
+- Professional repository cover image (`docs/images/repository-cover.jpg`), featured at the top of the README.
 - Regression tests for unchanged frames, selection/style-only changes, frame growth/shrink and screen repaint invariants.
 - Verified the renderer code on Windows PowerShell 5.1 and PowerShell 7 in GitHub Actions (1323 PASS / 0 FAIL / 1 UNVERIFIED on both editions, run 38545320395). Physical terminal flicker behavior remains UNVERIFIED without local visual checks.
 

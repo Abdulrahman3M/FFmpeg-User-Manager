@@ -15,6 +15,10 @@ Convert, compress, trim, merge, extract, resize, make GIFs, slideshows and recor
 </div>
 
 <p align="center">
+  <img src="docs/images/repository-cover.jpg" alt="FFmpeg User Manager product cover" width="100%">
+</p>
+
+<p align="center">
   <img src="docs/images/main-menu.png" alt="FFmpeg User Manager main menu" width="760">
 </p>
 
