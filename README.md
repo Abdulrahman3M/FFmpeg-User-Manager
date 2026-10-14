@@ -1,6 +1,6 @@
 <div align="center">
 
-# FFmpeg User Manager `v0.1.0`
+# FFmpeg User Manager `v0.1.1`
 
 **A modern interactive PowerShell TUI for FFmpeg on Windows.**
 Convert, compress, trim, merge, extract, resize, make GIFs, slideshows and recordings, manage subtitles, metadata and streams, analyze and batch-process media - without writing FFmpeg commands.
@@ -8,7 +8,7 @@ Convert, compress, trim, merge, extract, resize, make GIFs, slideshows and recor
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?logo=powershell&logoColor=white)
 ![FFmpeg](https://img.shields.io/badge/requires-FFmpeg-007808?logo=ffmpeg&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.1.1-blue)
 ![Status](https://img.shields.io/badge/status-pre--release-orange)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
@@ -268,7 +268,7 @@ Details, pre-release labels and the release checklist: [docs/Versioning-and-Rele
 ## Releases
 
 Official releases are published on the repository's *Releases* page as `FFmpeg-User-Manager-vX.Y.Z.zip`; the notes of each release summarize its features, fixes and known limitations.
-The current release is **v0.1.0** (see [CHANGELOG.md](CHANGELOG.md)). To use a release, download the ZIP, extract it completely and follow [Installation](#installation).
+The current **source-code version is v0.1.1** (see [CHANGELOG.md](CHANGELOG.md)), incorporating the flicker-free TUI rendering reliability update. The last previously documented published GitHub Release is **v0.1.0**; do not assume a v0.1.1 tag or downloadable release exists until it is separately published. To use a published release, download its ZIP, extract it completely and follow [Installation](#installation).
 
 ## Documentation
 
@@ -308,7 +308,7 @@ FFmpeg itself is **not** part of this project and is not distributed with it: th
 
 ## Project status
 
-**Pre-release series (version 0.x), first release v0.1.0.** All workflows listed above are implemented. The automated suite (more than 1,300 checks) passes on **Windows PowerShell 5.1** and on
+**Pre-release series (version 0.x), current source version v0.1.1 (first published release v0.1.0).** All workflows listed above are implemented. The automated suite (more than 1,300 checks) passes on **Windows PowerShell 5.1** and on
 **PowerShell 7** on a GitHub-hosted Windows runner (FFmpeg 9.0.2) and on PowerShell 7.4 on Linux (FFmpeg 6.1); the launcher is tested with the real `cmd` interpreter.
 **Not yet verified by any automated run and therefore not claimed:** rendering in a real Windows Terminal / classic console, real `winget` installs and updates, the native file picker and Explorer integration,
 and screen / webcam / microphone recording on real devices. `tools/Test-WindowsLocal.ps1` lists these checks. Version 1.0.0 is reserved until they are done (see
