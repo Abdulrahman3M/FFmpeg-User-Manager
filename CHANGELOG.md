@@ -10,6 +10,10 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ### Changed
 - The README title now shows the current application version beside the tool name.
+- Interactive ANSI terminal navigation now uses a centralized, style-aware differential frame renderer. Ordinary arrow presses repaint only modified rows rather than rewriting the entire frame; unchanged frames emit no row updates. Frame transitions and terminal resize invalidate the row cache. Legacy console cursor positioning is retained as a fallback, with readable scripted buffer output.
+
+### Tests
+- Added pure tests for unchanged frames, selection/style changes, multiple row updates, and frame growth/shrink. Actual Windows Terminal and classic console visual flicker must still be verified interactively.
 
 ## [0.1.0] - 2026-10-04
 
