@@ -8,12 +8,20 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ## [Unreleased]
 
-### Changed
-- The README title now shows the current application version beside the tool name.
-- Interactive ANSI terminal navigation now uses a centralized, style-aware differential frame renderer. Ordinary arrow presses repaint only modified rows rather than rewriting the entire frame; unchanged frames emit no row updates. Frame transitions and terminal resize invalidate the row cache. Legacy console cursor positioning is retained as a fallback, with readable scripted buffer output.
+## [0.1.1] - 2026-10-14
 
-### Tests
-- Added pure tests for unchanged frames, selection/style changes, multiple row updates, and frame growth/shrink. Actual Windows Terminal and classic console visual flicker must still be verified interactively.
+This backward-compatible PATCH advances the tracked source version following the flicker-free PowerShell TUI rendering reliability work. The GitHub Release/tag and distributable archive are not claimed as published by the version metadata alone.
+
+### Fixed
+- Reworked interactive ANSI terminal navigation around a centralized, style-aware differential frame renderer. Ordinary arrow presses paint only changed rows, unchanged frames produce zero updates, and terminal-resize/menu-transition state is safely invalidated.
+- Preserved a console-compatible cursor fallback and stale-row cleanup while keeping semantic colors, selectable icons and contextual descriptions.
+
+### Changed
+- Updated the README to show the current source version next to the project name and in its version badge, distinguishing the source version from any previously published release.
+
+### Added
+- Regression tests for unchanged frames, selection/style-only changes, frame growth/shrink and screen repaint invariants.
+- Verified the renderer code on Windows PowerShell 5.1 and PowerShell 7 in GitHub Actions (1323 PASS / 0 FAIL / 1 UNVERIFIED on both editions, run 38545320395). Physical terminal flicker behavior remains UNVERIFIED without local visual checks.
 
 ## [0.1.0] - 2026-10-04
 
