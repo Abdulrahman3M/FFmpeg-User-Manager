@@ -33,6 +33,11 @@ functions can call each other. Module-private state uses `$script:` variables.
 
 ## TUI
 
+### Flicker-Free Centralized Frame Rendering
+
+The Renderer composes a logical ANSI frame in memory via `Start-Frame`, semantic `Write-Ui` / `Write-UiSegments` calls and `Stop-Frame`. It compares the complete rendered ANSI text (including colors and styles) row-by-row to the last committed frame. Only changed rows are positioned with CSI `row;1H` and emitted with CSI `K`, while removed rows are erased with CSI `2K`. Stable frames require zero writes; the old and new selection rows are usually the only changed ones. The frame cache is invalidated at explicit clears, alternate-screen transitions, renderer initialization and terminal resize. Non-VT terminals use safe console cursor positioning with legacy clear fallback, and scripted `Buffer` output remains unchanged. Emoji/symbol/ASCII icons and muted descriptions are not removed. Physical flicker and right-edge/Unicode behavior remain subject to Windows Terminal/conhost manual validation.
+
+
 * **Theme** - the only place with color values. Semantic roles: `PrimaryAccent SecondaryAccent Title NormalText DimText
   Success Warning Error Border Selected Muted`, each with an ANSI code and a legacy `ConsoleColor`. It also owns the **icons** (see
   [Icons](#icons-why-they-always-appear)).
