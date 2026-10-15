@@ -65,6 +65,10 @@ try {
             if ($found) { $realFf = $found.FullName }
         }
         Copy-Item -LiteralPath $realFf -Destination (Join-Path $onlyFfmpeg 'ffmpeg.exe')
+        $runtimeDir = Split-Path -Parent $realFf
+        foreach ($dll in (Get-ChildItem -LiteralPath $runtimeDir -Filter '*.dll' -File -ErrorAction SilentlyContinue)) {
+            [void](New-Item -ItemType HardLink -Path (Join-Path $onlyFfmpeg $dll.Name) -Target $dll.FullName -ErrorAction Stop)
+        }
     }
     else { New-Item -ItemType SymbolicLink -Path (Join-Path $onlyFfmpeg 'ffmpeg') -Target (Get-FFmpegPath) | Out-Null }
     $r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '02') @{ PATH = $onlyFfmpeg }

@@ -3,9 +3,17 @@ Set-StrictMode -Version 2.0
 
 function Get-BatchFilesFromFolder {
     param([string]$Folder, [string[]]$Extensions, [bool]$Recurse = $false)
+    return @((Get-BatchFolderInventory -Folder $Folder -Extensions $Extensions -Recurse $Recurse).Files)
+}
+
+function Get-BatchFolderInventory {
+    param([string]$Folder, [string[]]$Extensions, [bool]$Recurse = $false)
     $opts = @{ LiteralPath = $Folder; File = $true; ErrorAction = 'SilentlyContinue' }
     if ($Recurse) { $opts['Recurse'] = $true }
-    return @(Get-ChildItem @opts | Where-Object { $Extensions -contains $_.Extension.ToLowerInvariant() } | Sort-Object FullName)
+    $all = @(Get-ChildItem @opts | Sort-Object FullName)
+    $allowed = @($Extensions | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    $compatible = @($all | Where-Object { $allowed -contains $_.Extension.ToLowerInvariant() })
+    return [pscustomobject]@{ Total = $all.Count; Compatible = $compatible.Count; Unsupported = ($all.Count - $compatible.Count); Files = $compatible }
 }
 
 function New-BatchQueue {
@@ -48,4 +56,4 @@ function Resolve-BatchOutputPath {
     }
 }
 
-Export-ModuleMember -Function Get-BatchFilesFromFolder, New-BatchQueue, Get-BatchQueueSummary, Resolve-BatchOutputPath
+Export-ModuleMember -Function Get-BatchFilesFromFolder, Get-BatchFolderInventory, New-BatchQueue, Get-BatchQueueSummary, Resolve-BatchOutputPath

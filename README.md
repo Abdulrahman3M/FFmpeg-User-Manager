@@ -105,7 +105,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Video enhancement** | Deinterlace, denoise, stabilize, add bars for an aspect ratio, reverse, loop |
 | **Record / capture** | Screen, webcam and microphone recording for a set time (Windows) |
 | **Analyze & detect** | Volume, loudness, silence, black frames, scene changes, black bars, PSNR/SSIM quality comparison |
-| **Batch convert** | One video or audio conversion applied to selected files or a folder; optional sub-folders, sequential queue, per-file failure reporting and safe collision policy |
+| **Batch convert** | One video or audio conversion applied to selected files or a folder; compatible/unsupported scan counts, optional sub-folders, sequential queue, per-file failure reporting and safe collision policy |
 | **Check & maintain** | Guided health check of the FFmpeg setup: install/repair FFmpeg, check for updates, emoji font, icon style, capability re-scan - each step explained and asked first |
 | **Advanced FFmpeg** | Capability browser (all encoders, filters, formats...), custom command, GPU check, build details |
 | **FFmpeg status** | Paths, version, capabilities, hardware accelerators, update check |

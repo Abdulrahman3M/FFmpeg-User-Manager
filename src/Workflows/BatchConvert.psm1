@@ -13,13 +13,28 @@ function Get-BatchCandidates {
     return @(Get-BatchFilesFromFolder -Folder $Folder -Extensions $exts -Recurse $Recurse)
 }
 
-function Get-BatchSelectedCandidates {
+function Get-BatchSelectedInventory {
     param($W, [ValidateSet('video', 'audio')][string]$Kind)
     $exts = $(if ($Kind -eq 'video') { $script:BatchVideoExt } else { $script:BatchAudioExt })
-    if ((Get-Answer $W 'inputmode' 'folder') -eq 'multiple') {
-        return @(@(Get-Answer $W 'files' @()) | Where-Object { $_ -and $exts -contains [System.IO.Path]::GetExtension($_).ToLowerInvariant() } | ForEach-Object { Get-Item -LiteralPath $_ -ErrorAction SilentlyContinue } | Where-Object { $_ })
+    if ((Get-Answer $W 'inputmode' 'folder') -eq 'folder') {
+        return Get-BatchFolderInventory -Folder ([string](Get-Answer $W 'folder')) -Extensions $exts -Recurse ([bool](Get-Answer $W 'sub' $false))
     }
-    return @(Get-BatchCandidates ([string](Get-Answer $W 'folder')) $Kind ([bool](Get-Answer $W 'sub' $false)))
+    $all = @(Get-Answer $W 'files' @())
+    $files = @($all | Where-Object { $_ -and $exts -contains [System.IO.Path]::GetExtension($_).ToLowerInvariant() } | ForEach-Object { Get-Item -LiteralPath $_ -ErrorAction SilentlyContinue } | Where-Object { $_ })
+    return [pscustomobject]@{ Total = $all.Count; Compatible = $files.Count; Unsupported = ($all.Count - $files.Count); Files = $files }
+}
+
+function Get-BatchSelectedCandidates {
+    param($W, [ValidateSet('video', 'audio')][string]$Kind)
+    return @((Get-BatchSelectedInventory $W $Kind).Files)
+}
+
+function Test-BatchPathWithinDirectory {
+    param([string]$Path, [string]$Directory)
+    $fullPath = [System.IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    $fullDir = [System.IO.Path]::GetFullPath($Directory).TrimEnd('\', '/')
+    $prefix = $fullDir + [System.IO.Path]::DirectorySeparatorChar
+    return $fullPath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -or [string]::Equals($fullPath, $fullDir, [StringComparison]::OrdinalIgnoreCase)
 }
 
 function Get-BatchSteps {
@@ -33,15 +48,21 @@ function Get-BatchSteps {
         Help = 'Add one or more readable media files. The queue processes them in the order shown.' }
     $steps += @{ Id = 'folder'; Type = 'Directory'; Prompt = 'Folder with the files to convert'; Label = 'Folder'; MustExist = $true; Example = 'C:\Videos\Holiday'; When = { param($W) (Get-Answer $W 'inputmode') -eq 'folder' }
         Help = 'Every matching file in this folder will be converted with the same settings. Your originals are never changed.'
-        Validate = { param($v, $W) $n = @(Get-BatchCandidates $v 'video').Count + @(Get-BatchCandidates $v 'audio').Count; if ($n -eq 0) { return 'No video or audio files were found in that folder.' }; $null } }
+        Validate = {
+            param($v, $W)
+            $inventory = Get-BatchFolderInventory -Folder $v -Extensions @($script:BatchVideoExt + $script:BatchAudioExt)
+            if ($inventory.Compatible -eq 0) { return 'No compatible video or audio files were found in that folder.' }
+            Set-WizardPanel $W 'batch.input' 'Folder scan' @(@('Files scanned', [string]$inventory.Total), @('Compatible media', [string]$inventory.Compatible), @('Unsupported', [string]$inventory.Unsupported)) 18
+            $null
+        } }
     $steps += @{ Id = 'sub'; Type = 'YesNo'; Prompt = 'Include files in sub-folders too?'; Help = 'When you choose Yes, folders inside the folder are searched as well.'; Default = $false; When = { param($W) (Get-Answer $W 'inputmode') -eq 'folder' }
         YesLabel = 'Yes, include sub-folders'; NoLabel = 'No, only this folder'; YesDesc = 'Converted files from sub-folders are placed directly in the output folder.'; NoDesc = 'Only files directly inside the folder are used.' }
     $steps += @{ Id = 'kind'; Type = 'Choice'; Prompt = 'What do you want to convert?'; Help = 'A batch converts one kind of file at a time.'
         Choices = { param($W)
-            $nv = @(Get-BatchSelectedCandidates $W 'video').Count; $na = @(Get-BatchSelectedCandidates $W 'audio').Count
-            @( (New-Choice 'video' "Video files ($nv found)" 'Convert videos to another format.' ($nv -gt 0) 'There are no video files in the folder.'),
-               (New-Choice 'audio' "Audio files ($na found)" 'Convert music or recordings to another audio format.' ($na -gt 0) 'There are no audio files in the folder.') ) }
-        Default = { param($W) if (@(Get-BatchSelectedCandidates $W 'video').Count -gt 0) { 'video' } else { 'audio' } } }
+            $vi = Get-BatchSelectedInventory $W 'video'; $ai = Get-BatchSelectedInventory $W 'audio'
+            @( (New-Choice 'video' "Video files ($($vi.Compatible) compatible)" ("Convert $($vi.Compatible) video file(s); $($vi.Unsupported) other or unsupported file(s) will be ignored.") ($vi.Compatible -gt 0) 'There are no compatible video files in this input.'),
+               (New-Choice 'audio' "Audio files ($($ai.Compatible) compatible)" ("Convert $($ai.Compatible) audio file(s); $($ai.Unsupported) other or unsupported file(s) will be ignored.") ($ai.Compatible -gt 0) 'There are no compatible audio files in this input.') ) }
+        Default = { param($W) if ((Get-BatchSelectedInventory $W 'video').Compatible -gt 0) { 'video' } else { 'audio' } } }
     $steps += @{ Id = 'format'; Type = 'Choice'; Prompt = 'Convert videos to'; Help = 'The file type of every result.'; When = $isVideo
         Choices = { param($W) @(Get-AvailableVideoContainers | ForEach-Object { New-Choice $_.Id $_.Label $_.Desc }) }; Default = 'mp4' }
     $steps += Get-VideoEncodeSteps -Prefix 'v' -ContainerScript $cont -Level Simple -GateWhen $isVideo
@@ -63,9 +84,15 @@ function Build-BatchJob {
     $outDir = [string](Get-Answer $W 'outdir')
     $policy = [string](Get-Answer $W 'exists' 'skip')
     $files = @(Get-BatchSelectedCandidates $W $kind)
-    # Never convert files that already live in the output folder.
-    $outFull = [System.IO.Path]::GetFullPath($outDir).TrimEnd('\', '/')
-    $files = @($files | Where-Object { -not ([System.IO.Path]::GetFullPath($_.DirectoryName).TrimEnd('\', '/')).StartsWith($outFull, [StringComparison]::OrdinalIgnoreCase) })
+    # For folder scans, ignore prior results only when the output is a nested directory.
+    # An output folder equal to the source folder is valid and must not exclude every input.
+    if ((Get-Answer $W 'inputmode' 'folder') -eq 'folder') {
+        $sourceFull = [System.IO.Path]::GetFullPath([string](Get-Answer $W 'folder')).TrimEnd('\', '/')
+        $outFull = [System.IO.Path]::GetFullPath($outDir).TrimEnd('\', '/')
+        if (-not [string]::Equals($sourceFull, $outFull, [StringComparison]::OrdinalIgnoreCase) -and (Test-BatchPathWithinDirectory -Path $outFull -Directory $sourceFull)) {
+            $files = @($files | Where-Object { -not (Test-BatchPathWithinDirectory -Path $_.DirectoryName -Directory $outFull) })
+        }
+    }
     if ($files.Count -eq 0) { throw 'No files to convert were found.' }
     if ($files.Count -gt $script:BatchMaxFiles) { throw "That is $($files.Count) files; a batch is limited to $script:BatchMaxFiles. Use a smaller folder." }
     if ($kind -eq 'video') { $ext = (Get-VideoContainer ([string](Get-Answer $W 'format' 'mp4'))).Ext } else { $ext = (Get-AudioFormat ([string](Get-Answer $W 'afmt' 'mp3'))).Ext }

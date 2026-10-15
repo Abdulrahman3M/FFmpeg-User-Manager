@@ -1,4 +1,11 @@
 ﻿# Unit tests: validation, paths, command builder, capability parsing, probe.
+Set-TestGroup 'Terminal environment'
+$savedNoColor = $env:NO_COLOR; $savedForceAnsi = $env:FFTUI_FORCE_ANSI
+try {
+    $env:NO_COLOR = '1'; $env:FFTUI_FORCE_ANSI = '1'
+    Assert-True 'explicit ANSI override wins over NO_COLOR' (Test-AnsiSupport)
+} finally { $env:NO_COLOR = $savedNoColor; $env:FFTUI_FORCE_ANSI = $savedForceAnsi }
+
 Set-TestGroup 'Validation'
 $r = ConvertFrom-TimestampText '90'; Assert-Equal 'timestamp seconds' 90 $r.Value
 $r = ConvertFrom-TimestampText '1:30'; Assert-Equal 'timestamp MM:SS' 90 $r.Value

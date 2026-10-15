@@ -14,6 +14,11 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ### Changed
 - A failed batch conversion is recorded and no longer stops later independent files in the same sequential queue.
+- Folder scans show files scanned, compatible media, and unsupported files before processing; an empty or incompatible folder is rejected.
+
+### Fixed
+- Completed local HLS Event exports are finalized as the requested `.m3u8` playlist after FFmpeg exits instead of being left at its temporary `.m3u8.tmp` path.
+- An explicit `FFTUI_FORCE_ANSI=1` setting now takes precedence over the system-wide `NO_COLOR` preference.
 
 ## [0.1.1] - 2026-10-14
 

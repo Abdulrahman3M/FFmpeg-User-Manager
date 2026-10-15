@@ -133,7 +133,7 @@ Assert-True 'HLS: playlist is playable by FFmpeg' (Test-ValidMediaFile (Join-Pat
 $hd2 = Join-Path $W 'hls encode'
 $ui = Invoke-Sub { Start-StreamingWorkflow } $HM '1' @((New-Rule 'Input media file' "$vid{Enter}"), (New-Rule 'Output folder' '{#LAST}'), (New-Rule 'Output folder path' "$hd2{Enter}"), (New-Rule 'The output folder does not exist. Create it?' '01'), (New-Rule 'Playlist name' 'stream{Enter}'), (New-Rule 'Segment duration' '01'), (New-Rule 'Encoding mode' '02'), (New-Rule 'Playlist type' '02'), $DONE, $FAIL)
 Assert-True 'HLS re-encode + event playlist: completes' ($ui.Error -eq '' -and $ui.Output.Contains('Completed successfully')) (Get-LastFrame $ui.Output)
-Assert-True 'HLS re-encode: custom playlist name is used' (Test-Path -LiteralPath (Join-Path $hd2 'stream.m3u8'))
+Assert-True 'HLS re-encode: custom playlist name is used' (Test-Path -LiteralPath (Join-Path $hd2 'stream.m3u8')) (Get-LastFrame $ui.Output)
 Assert-True 'HLS event playlist type is written' ((Get-Content -LiteralPath (Join-Path $hd2 'stream.m3u8') -Raw) -match 'EXT-X-PLAYLIST-TYPE:EVENT')
 $ui = Invoke-Sub { Start-StreamingWorkflow } $HM '1' @((New-Rule 'Input media file' "$vid{Enter}"), (New-Rule 'Output folder' '{#LAST}'), (New-Rule 'Output folder path' "$hd{Enter}"), (New-Rule 'Playlist name' '{Enter}' 1), (New-Rule 'HLS files already exist in that folder' '01'), (New-Rule 'Playlist name' '{Clear}other{Enter}'), $DONE, $FAIL)
 Assert-Contains 'HLS: existing playlist triggers the overwrite question' $ui.Output 'HLS files already exist in that folder'
@@ -184,7 +184,7 @@ Set-TestGroup 'Workflow 19: FFmpeg Status / Settings'
 Set-FFManagerHooks -FindCommand { param($n) if ($n -eq 'winget') { return $null }; $c = Get-Command $n -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($c) { return [string]$c.Source } }
 $ui = Invoke-Ui { Show-FFmpegStatus } '0102{Enter}0305'
 Set-FFManagerHooks -Reset
-foreach ($needle in @('FFmpeg Status / Settings', (Get-FFmpegPath), (Get-FFprobePath), (Get-FFmpegInfo).Version, 'PowerShell', 'Terminal', 'Accelerators', 'Capabilities', 'Updates', 'Re-scan capabilities', 'Check for updates', 'Re-detect FFmpeg paths')) { Assert-Contains "status shows: $needle" $ui.Output $needle }
+foreach ($needle in @('FFmpeg Status / Settings', [System.IO.Path]::GetFileName((Get-FFmpegPath)), [System.IO.Path]::GetFileName((Get-FFprobePath)), (Get-FFmpegInfo).Version, 'PowerShell', 'Terminal', 'Accelerators', 'Capabilities', 'Updates', 'Re-scan capabilities', 'Check for updates', 'Re-detect FFmpeg paths')) { Assert-Contains "status shows: $needle" $ui.Output $needle }
 Assert-True 'status actions (re-scan, update check, re-detect, back) run without errors' ($ui.Error -eq '') $ui.Error
 Assert-Contains 'update check without winget is a non-fatal notice' $ui.Output 'Update status'
 Assert-True 'capabilities are still loaded after a re-scan' ((Get-FFCapabilityStatus).Loaded)

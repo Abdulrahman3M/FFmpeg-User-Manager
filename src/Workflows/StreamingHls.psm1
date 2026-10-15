@@ -83,7 +83,19 @@ function Build-HlsJob {
     if ($ov) { $notes += 'Existing HLS files with the same names will be overwritten.' }
     $rows = @(@('Input', $info.FileName), @('Mode', $(if ($mode -eq 'copy') { 'Copy streams' } else { 'Re-encode (H.264 + AAC)' })), @('Segments', ("{0} s, {1}" -f (Get-Answer $W 'segdur' 6), (Get-Answer $W 'ptype' 'vod'))), @('Playlist', $playlist))
     $dirLocal = $dir; $cnt = { @(Get-ChildItem -LiteralPath $dirLocal -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.ts', '.m4s', '.m3u8', '.mp4') }).Count }.GetNewClosure()
-    return New-JobObject -Title 'Creating HLS output' -Summary $rows -Stages @(@{ Name = 'Creating HLS'; Arguments = (Get-FFTokens $cmd); DurationSec = $info.Duration }) -OutputPath $dir -OutputKind 'Folder' -EnsureDirs @($dir) -Notes $notes -CountOutputs $cnt -ResultNotes @("Playlist: $playlist")
+    $job = New-JobObject -Title 'Creating HLS output' -Summary $rows -Stages @(@{ Name = 'Creating HLS'; Arguments = (Get-FFTokens $cmd); DurationSec = $info.Duration }) -OutputPath $dir -OutputKind 'Folder' -EnsureDirs @($dir) -Notes $notes -CountOutputs $cnt -ResultNotes @("Playlist: $playlist")
+    $playlistPath = $playlist; $temporaryPlaylistPath = $playlist + '.tmp'; $replaceExisting = $ov
+    $job.FinalizeOutput = {
+        param($Context, $StageResults)
+        if (Test-Path -LiteralPath $temporaryPlaylistPath -PathType Leaf) {
+            $content = [System.IO.File]::ReadAllText($temporaryPlaylistPath)
+            if ($content -notmatch '(?m)^#EXTM3U\s*$') { throw 'FFmpeg created an invalid temporary HLS playlist.' }
+            [System.IO.File]::Copy($temporaryPlaylistPath, $playlistPath, $replaceExisting)
+        }
+        if (-not (Test-Path -LiteralPath $playlistPath -PathType Leaf)) { throw 'FFmpeg did not produce the requested HLS playlist.' }
+    }.GetNewClosure()
+    $job.TempFiles = @($temporaryPlaylistPath)
+    return $job
 }
 
 # ---- 2. Read / save a network stream ------------------------------------------------------------------

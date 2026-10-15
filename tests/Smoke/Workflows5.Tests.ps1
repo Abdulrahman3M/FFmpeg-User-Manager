@@ -94,7 +94,7 @@ Assert-JobOk 'image sequence to video' $ui $o
 Assert-True 'sequence video has 10 frames at 12 FPS (about 0.83 s)' ([math]::Abs([double](Get-ProbeJson $o).format.duration - 0.833) -lt 0.2)
 $ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Numbered Image Sequence}' @((New-Rule 'Image sequence pattern' "$(Join-Path $seq 'nothing_%04d.png'){Enter}"), (New-Rule 'Number of the first picture' '{Enter}'), (New-Rule 'Number of the first picture' '{Esc}{Esc}{Esc}{Esc}' 10)) -MaxCalls 40
 Assert-Contains 'a sequence that does not exist is rejected' $ui.Output 'No picture with that number was found'
-$ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((New-Rule 'Audio file' "$aud{Enter}"), (New-Rule 'What should the picture show?' '{#Plain black}'), (New-Rule 'Video size' '{#1280x720}'), (New-ScreenRule '?? Summary' '{#View FFmpeg command}{Esc}{Enter}' 1), $DONE, $FAIL)
+$ui = Invoke-Sub { Start-ImagesAndVisualsWorkflow } $IM '{#Audio to Video}' @((New-Rule 'Audio file' "$aud{Enter}"), (New-Rule 'What should the picture show?' '{#Plain black}'), (New-Rule 'Video size' '{#1280x720}'), (New-ScreenRule 'Summary' '{#View FFmpeg command}{Esc}{Enter}' 1), $DONE, $FAIL)
 $o = Join-Path $W 'n audio_visual.mp4'
 Assert-JobOk 'audio to a black-screen video' $ui $o
 $j = Get-ProbeJson $o
@@ -190,10 +190,26 @@ $bo = Join-Path $bd 'Converted'
 Assert-True 'both videos were converted into the Converted folder (MKV) and the MP3 was left alone' ((Test-ValidMediaFile (Join-Path $bo 'one clip.mkv') 'video') -and (Test-ValidMediaFile (Join-Path $bo 'two clip.mkv') 'video') -and -not (Test-Path -LiteralPath (Join-Path $bo 'song.mkv')))
 Assert-True 'originals were not touched' ((Test-Path -LiteralPath (Join-Path $bd 'one clip.mp4')) -and (Test-Path -LiteralPath (Join-Path $bd 'two clip.mp4')))
 Assert-Contains 'batch shows per-file progress stages' $ui.Output 'File 2 of 2'
+Assert-Contains 'folder scan reports compatible media and unsupported files' (Get-FlatText $ui.Output) 'Unsupported'
+$multiDir = Join-Path $W 'multi input folder'; [void](New-Item -ItemType Directory -Path $multiDir -Force)
+$multiOneName = ([string][char]0x0645) + ([string][char]0x0644) + ([string][char]0x0641) + ' one.mp4'
+$multiOne = Join-Path $multiDir $multiOneName; $multiTwo = Join-Path $multiDir 'second clip.mp4'
+Copy-Item -LiteralPath $vid -Destination $multiOne; Copy-Item -LiteralPath $blk -Destination $multiTwo
+$multiRules = @((New-Rule 'Select input' '{#Multiple files}')) + (New-FileListRules 'Files to convert' @($multiOne, $multiTwo)) + @((New-Rule 'What do you want to convert?' '{#Video files}'), (New-Rule 'Convert videos to' '{#MKV}'), $DONE, $FAIL)
+$ui = Invoke-Flow { Start-BatchWorkflow } $multiRules -MaxCalls 180
+$multiOut = Join-Path $multiDir 'Converted'
+$multiOutOne = Join-Path $multiOut ($multiOneName -replace '\.mp4$', '.mkv')
+Assert-True 'multiple selected files with Unicode names, spaces and a spaced folder use one shared settings wizard' ($ui.Error -eq '' -and $ui.Output.Contains('Completed successfully') -and (Test-ValidMediaFile $multiOutOne 'video') -and (Test-ValidMediaFile (Join-Path $multiOut 'second clip.mkv') 'video')) "error=[$($ui.Error)]"
+$existingSize = (New-Object System.IO.FileInfo($multiOutOne)).Length
+$namePlan = Resolve-BatchOutputPath -InputPath $multiOne -OutputFolder $multiOut -Extension '.mkv' -Policy 'rename' -ReservedNames @{}
+Assert-True 'auto-rename preserves an existing output and plans a numbered result' ((Get-FileSizeSafe $multiOutOne) -eq $existingSize -and $namePlan.Action -eq 'Process' -and $namePlan.ActionPath -like '*_2.mkv')
 $ui = Invoke-Flow { Start-BatchWorkflow } @((New-Rule 'Folder with the files to convert' "$bd{Enter}"), (New-Rule 'What do you want to convert?' '{#Video files}'), (New-Rule 'Convert videos to' '{#MKV}'), (New-ScreenRule 'Nothing to convert' '{Enter}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}' 1), (New-ScreenRule 'Summary' '{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}')) -MaxCalls 120
 Assert-Contains 'running the batch again skips files that already exist (never overwrites silently)' (Get-FlatText $ui.Output) 'output already exists'
 $ui = Invoke-Flow { Start-BatchWorkflow } @((New-Rule 'Folder with the files to convert' "$(Join-Path $W 'no such folder'){Enter}" 1), (New-Rule 'Folder with the files to convert' '{Esc}{Esc}' 10)) -MaxCalls 20
 Assert-Contains 'a missing folder is rejected' (Get-FlatText $ui.Output) 'Folder not found'
+$emptyBatchFolder = Join-Path $W 'empty batch folder'; [void](New-Item -ItemType Directory -Path $emptyBatchFolder -Force)
+$ui = Invoke-Flow { Start-BatchWorkflow } @((New-Rule 'Folder with the files to convert' "$emptyBatchFolder{Enter}"), (New-Rule 'Folder with the files to convert' '{Esc}' 1)) -MaxCalls 20
+Assert-Contains 'an empty folder is rejected during the scan' (Get-FlatText $ui.Output) 'No compatible video or audio files were found'
 
 # ---- Advanced tools ------------------------------------------------------------------------------------------------------
 Set-TestGroup 'Advanced FFmpeg'

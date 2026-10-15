@@ -664,7 +664,16 @@ function Invoke-FFJob {
             $onTick = {
                 param($state)
                 $script:JobTick++
-                Show-JobProgress -Title $(if ($Job.Title) { [string]$Job.Title } else { 'Processing' }) -StageText $(if (@($Job.Stages).Count -gt 1) { $stageText } else { '' }) -Percent $state.Percent -OutTime $state.OutTime -TotalSec $state.TotalSec -Speed $state.Speed -Elapsed $swAll.Elapsed -Tick $script:JobTick -Status $stageName
+                $batchLines = @()
+                if ($Job.ContainsKey('BatchQueue') -and $Job.BatchQueue -and $st.ContainsKey('BatchItem') -and $st.BatchItem) {
+                    $queueState = Get-BatchQueueSummary $Job.BatchQueue
+                    $batchLines = @(
+                        ('Current: ' + [System.IO.Path]::GetFileName($st.BatchItem.InputPath)),
+                        ('File: {0} / {1}' -f $st.BatchItem.Index, $queueState.Total),
+                        ('Complete: {0}   Failed: {1}   Remaining: {2}' -f $queueState.Completed, $queueState.Failed, $queueState.Remaining)
+                    )
+                }
+                Show-JobProgress -Title $(if ($Job.Title) { [string]$Job.Title } else { 'Processing' }) -StageText $(if (@($Job.Stages).Count -gt 1) { $stageText } else { '' }) -Percent $state.Percent -OutTime $state.OutTime -TotalSec $state.TotalSec -Speed $state.Speed -Elapsed $swAll.Elapsed -Tick $script:JobTick -Status $stageName -ExtraLines $batchLines
                 if (Test-TuiKeyAvailable) {
                     $k = Read-TuiKey
                     $isQ = ($k.Name -eq 'CtrlC') -or ($k.Name -eq 'Esc')
@@ -682,10 +691,14 @@ function Invoke-FFJob {
             $stageFailed = ((-not $r.Started) -or $r.ExitCode -ne 0)
             if ($stageFailed) {
                 if ($st.ContainsKey('BatchItem') -and $st.BatchItem) { $st.BatchItem.Status = 'Failed'; $st.BatchItem.Error = $(if ($r.Error) { $r.Error } else { Get-FFmpegFailureReason $r.StdErr $r.ExitCode }) }
-                if ($Job.ContainsKey('ContinueOnFailure') -and $Job.ContinueOnFailure) { $batchFailures += , $r; continue }
+                if (($Job.ContainsKey('ContinueOnFailure') -and $Job.ContinueOnFailure) -and $r.Started -and $r.ExitCode -ne 0) { $batchFailures += , $r; continue }
                 $failure = $r; break
             }
             if ($st.ContainsKey('BatchItem') -and $st.BatchItem) { $st.BatchItem.Status = 'Completed' }
+        }
+        if ($null -eq $failure -and -not $cancelled -and $Job.ContainsKey('FinalizeOutput') -and $Job.FinalizeOutput) {
+            try { & $Job.FinalizeOutput $Job $stageResults }
+            catch { $failure = [pscustomobject]@{ Started = $true; ExitCode = 0; StdErr = ''; Cancelled = $false; Error = $_.Exception.Message } }
         }
         $swAll.Stop()
         Restore-JobCursor
@@ -720,6 +733,8 @@ function Invoke-FFJob {
         # ---- success
         $lines = @('Output:')
         $rows = @()
+        $resultTitle = 'Completed successfully'
+        $resultKind = 'Success'
         if ($Job.OutputKind -eq 'Folder') {
             $count = 0
             if ($Job.ContainsKey('CountOutputs') -and $Job.CountOutputs) { $count = [int](& $Job.CountOutputs) }
@@ -730,6 +745,7 @@ function Invoke-FFJob {
                 $lines += ''; $lines += ('Completed: {0}   Failed: {1}   Skipped: {2}' -f $q.Completed, $q.Failed, $q.Skipped)
                 $failedNames = @($Job.BatchQueue | Where-Object { $_.Status -eq 'Failed' } | ForEach-Object { ([System.IO.Path]::GetFileName($_.InputPath) + ': ' + $_.Error) })
                 if ($failedNames.Count -gt 0) { $lines += ''; $lines += 'Failed files:'; $lines += @($failedNames | Select-Object -First 10) }
+                if ($q.Failed -gt 0) { $resultTitle = 'Batch completed with failures'; $resultKind = 'Warning' }
             }
         } elseif ($Job.OutputKind -eq 'Network') {
             $lines = @('Sent to:', [string]$Job.OutputDisplay)
@@ -749,7 +765,7 @@ function Invoke-FFJob {
         while ($true) {
             $doneActions = @(@('O', 'Open output folder'), @('R', 'Run again'), @('M', 'Main menu'))
             if ($Job.OutputKind -eq 'Network') { $doneActions = @(@('R', 'Run again'), @('M', 'Main menu')) }
-            $act = Show-Notice -Title 'Completed successfully' -Lines $lines -Kind Success -Actions $doneActions
+            $act = Show-Notice -Title $resultTitle -Lines $lines -Kind $resultKind -Actions $doneActions
             if ($act -eq 'O') { $target = $outPath; [void](Open-OutputFolder -Path $target); continue }
             if ($act -eq 'R') { return 'Again' }
             return 'Menu'

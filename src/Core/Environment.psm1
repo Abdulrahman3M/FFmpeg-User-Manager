@@ -87,8 +87,8 @@ function Test-InteractiveConsole {
 
 function Test-AnsiSupport {
     # Windows PowerShell 5.1 on legacy conhost does not process VT sequences by default.
-    if ($env:NO_COLOR) { return $false }
     if ($env:FFTUI_FORCE_ANSI -eq '1') { return $true }
+    if ($env:NO_COLOR) { return $false }
     if ($env:FFTUI_NO_ANSI -eq '1') { return $false }
     try { if ([Console]::IsOutputRedirected) { return $false } } catch { return $false }
     if (-not (Test-IsWindows)) { return ($env:TERM -and $env:TERM -ne 'dumb') }
