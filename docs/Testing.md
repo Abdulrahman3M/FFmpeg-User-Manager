@@ -4,21 +4,21 @@
 
 | Environment | Result (actual, from the logs) | Run / commit |
 |---|---|---|
-| Windows PowerShell 5.1.26100.9444 on the local Windows host | **1483 PASS, 0 FAIL, 3 UNVERIFIED** | local run, current unreleased development branch; `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Run-Tests.ps1` (process-scoped policy only) |
-| PowerShell 7.6.5 on the local Windows host | **1483 PASS, 0 FAIL, 3 UNVERIFIED** | local run, current unreleased development branch; `pwsh -NoProfile -File .\tests\Run-Tests.ps1` |
+| Windows PowerShell 5.1.26100.9444 on the local Windows host | **39 PASS, 0 FAIL, 0 UNVERIFIED** (Failure smoke suite) | targeted regression run after process-lifetime fix; full suite pending |
+| PowerShell 7.6.5 on the local Windows host | **200 PASS, 0 FAIL, 0 UNVERIFIED** (App, Workflows4 and Failure smoke suites) | targeted regression runs after test-environment and process-lifetime fixes; full suite pending |
 | Windows PowerShell 5.1 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7.4 on Linux (FFmpeg 6.1, Wine for the `.bat` tests) | **1261 PASS, 0 FAIL, 5 UNVERIFIED** | local run, commit `3f96e26` |
 
 History of the Windows work (same suite): run #12 established 1263 PASS / 0 FAIL / 1 UNVERIFIED under both Windows runtimes at commit `3f96e26`; run #3 (first diagnosable run) PowerShell 7 1034 PASS / 35 FAIL / 3 UNVERIFIED, PowerShell 5.1 893 PASS / 40 FAIL / 5 UNVERIFIED -> run #12 above. The causes are listed in the investigation table below.
 
-The current unreleased source remains v0.1.1. The GitHub results above are historical results at their listed commits; the two local rows record the current development source. The 3 local `UNVERIFIED` results are: the missing-ffprobe PATH sandbox was denied access, the network workflow could not start a local HTTP listener, and an unexpected terminal close requires a real terminal window. Physical rapid-arrow/no-flicker behavior still requires Windows Terminal and classic conhost observation.
+The current source is still v0.1.1 while this work remains unreleased. The GitHub results above are historical results at their listed commits. The three previously `UNVERIFIED` Windows checks have now been converted into executable tests and passed in the targeted runs above: the missing-ffprobe PATH sandbox uses real file copies instead of privileged hardlinks; HTTP workflows use a raw loopback TCP server and passed with host networking; and a child PowerShell process is killed during a live FFmpeg stage to prove the encoder exits with it. The full suite is pending. Physical rapid-arrow/no-flicker behavior still requires Windows Terminal and classic conhost observation.
 
 Remaining UNVERIFIED items (never reported as PASS):
 
 | Environment | Test | Why it cannot run in the cloud | How to verify locally |
 |---|---|---|---|
-| Windows (both) and Linux | terminal closes unexpectedly while a job runs | needs a real terminal window to be closed | `tools/Test-WindowsLocal.ps1` manual check 6 (close the window during a conversion, then look for a leftover `ffmpeg.exe` in Task Manager) |
+| Linux | parent process exits while a job runs | Windows Job Objects are not available; the Windows integration test covers the supported Windows behavior | no Linux process-lifetime guarantee is claimed |
 | Linux | screen / webcam / microphone recording | needs Windows capture devices (gdigrab, dshow); parsing and command building are unit tested | `tools/Test-WindowsLocal.ps1` list item 5 on a Windows PC with devices |
 | Linux | read permission denied | the account is root; on Windows this check **ran and passed** on the runner | run the suite as a standard user on Linux |
 | Linux | two double-click launcher checks | Wine's `cmd` does not populate `%CMDCMDLINE%`; on Windows both **ran and passed** | none needed on Windows |
@@ -44,6 +44,10 @@ The first runs of the suite on GitHub's Windows runner (FFmpeg 9.0.2 from Chocol
 | 6 | Windows PowerShell 5.1: test files with Cyrillic/Arabic/box-drawing text were misread; `Static`/`UiRules` crashed with "Access denied" on folders | 5.1 reads BOM-less files as ANSI; `Get-ChildItem -LiteralPath ... -Include` returns directories in 5.1 | `tests/**/*.ps1` | UTF-8 BOM on test files that contain non-ASCII text; file-only enumeration |
 | 7 | "winget missing" / status tests behaved differently | The runner has a real winget; `Get-WingetPath` ignored the test hook | `Get-WingetPath` in `src/FFmpeg/FFmpegManager.psm1` | The hook is honoured; tests hide winget explicitly |
 | 8 | `ffmpeg without ffprobe` test; Windows file names | Chocolatey's `ffmpeg.exe` is a shim that only works next to its install folder; `"` and `:` are illegal in Windows file names | `tests/Smoke/App.Tests.ps1`, `Workflows2/3` | The real executable is copied; those characters are skipped on Windows |
+| 9 | `ffmpeg without ffprobe` PATH test was UNVERIFIED | Creating a hardlink was denied by NTFS/workspace access policy even though copying files was permitted | `tests/Smoke/App.Tests.ps1` | The isolated test directory now receives copies of the executable and runtime DLLs; the test passes on Windows |
+| 10 | Local HTTP stream tests were UNVERIFIED | `HttpListener` needed an HTTP URL reservation, and the workspace sandbox separately denied loopback client connections | `tests/TestHelpers.ps1`, `tests/Smoke/Workflows4.Tests.ps1` | A bounded raw `TcpListener` server avoids URL ACLs; host-level integration execution proved inspect and save-stream workflows |
+| 11 | Abrupt terminal close could orphan FFmpeg | `finally` cleanup is not guaranteed when the parent process is force-terminated | `src/Core/ProcessRunner.psm1`, `src/FFmpeg/FFmpegProgress.psm1` | FFmpeg is assigned to a Windows kill-on-job-close process job; the integration test confirmed the child exits when its PowerShell parent is killed |
+| 12 | Scripted smoke flows failed before reaching their scenarios | The TUI provider runs in the input module's scope and could not resolve a helper defined only in the test script scope | `tests/TestHelpers.ps1` | The test-only macro resolver is available to the provider scope; regression suites now reach their intended assertions |
 
 Method that was used (and should be used again): one isolated reproduction per failure (`tests/Repro`, run by the `repro` workflow, which prints every wizard screen, its options and the keys sent), proof from the logs,
 then one deliberate full run. The full-suite workflow is started by hand (Actions tab -> *tests* -> *Run workflow*), by pull requests and by pushes to `main`; it no longer starts on every branch push.

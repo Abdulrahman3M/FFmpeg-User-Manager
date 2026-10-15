@@ -29,7 +29,7 @@ functions can call each other. Module-private state uses `$script:` variables.
 | `Environment.psm1` | Runtime info (5.1 vs 7), interactive/ANSI/Unicode detection, terminal size, `config/defaults.json` loading. `Test-IsWindows` guards `$IsWindows` (absent in 5.1). |
 | `Paths.psm1` | Path cleaning (`"..."`, `'...'`, `& '...'`), resolution, input-file checks (missing, folder, empty, locked, denied), file-name validation (reserved names, illegal chars), size/duration formatting, open-folder, optional native picker. |
 | `Validation.psm1` | Parsers returning `{Ok, Value, Error}`: timestamps, integers, decimals, bitrates, frame rates, colors. Never throw for user mistakes. |
-| `ProcessRunner.psm1` | Argument quoting per `CommandLineToArgvW` (works on 5.1, which has no `ArgumentList`), capture and streaming child-process helpers. No shell is ever involved. |
+| `ProcessRunner.psm1` | Argument quoting per `CommandLineToArgvW` (works on 5.1, which has no `ArgumentList`), capture and streaming child-process helpers. Windows FFmpeg children are attached to a kill-on-job-close process job so terminal shutdown cannot orphan an encode. No shell is ever involved. |
 
 ## TUI
 

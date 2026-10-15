@@ -67,14 +67,14 @@ try {
         Copy-Item -LiteralPath $realFf -Destination (Join-Path $onlyFfmpeg 'ffmpeg.exe')
         $runtimeDir = Split-Path -Parent $realFf
         foreach ($dll in (Get-ChildItem -LiteralPath $runtimeDir -Filter '*.dll' -File -ErrorAction SilentlyContinue)) {
-            [void](New-Item -ItemType HardLink -Path (Join-Path $onlyFfmpeg $dll.Name) -Target $dll.FullName -ErrorAction Stop)
+            Copy-Item -LiteralPath $dll.FullName -Destination (Join-Path $onlyFfmpeg $dll.Name) -ErrorAction Stop
         }
     }
     else { New-Item -ItemType SymbolicLink -Path (Join-Path $onlyFfmpeg 'ffmpeg') -Target (Get-FFmpegPath) | Out-Null }
     $r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '02') @{ PATH = $onlyFfmpeg }
     Assert-Contains 'ffmpeg without ffprobe: the ffprobe-missing screen is shown' $r.StdOut 'ffprobe is missing.'
     Assert-NotContains 'ffmpeg without ffprobe: the main menu is NOT entered' $r.StdOut 'Convert Video Format'
-} catch { Skip-Test 'ffmpeg without ffprobe (real PATH)' "could not prepare the PATH sandbox: $($_.Exception.Message)" }
+} catch { Assert-True 'ffmpeg without ffprobe (real PATH sandbox can be prepared)' $false $_.Exception.Message }
 $staleBin = Join-Path $W 'stalebin'; [void](New-Item -ItemType Directory -Path $staleBin -Force)
 try {
     $fake = Join-Path $staleBin 'ffmpeg'; [System.IO.File]::WriteAllText($fake, "#!/bin/sh`nexit 3`n")

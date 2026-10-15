@@ -119,4 +119,50 @@ $holder = [System.IO.File]::Open($locked, 'Open', 'ReadWrite', 'None')
 try { $lockedMsg = Test-InputFile $locked } finally { $holder.Dispose() }
 if ($lockedMsg -like '*locked*') { Add-TestResult 'input file locked by another program: a clear message' 'PASS' }
 else { Skip-Test 'input file locked by another program' "this platform did not enforce the exclusive handle (Test-InputFile returned: [$lockedMsg]); sharing violations are enforced on Windows" }
-Skip-Test 'terminal closes unexpectedly while a job runs' 'cannot be automated; the child FFmpeg process is stopped in a finally block of Invoke-FFmpegStage'
+Set-TestGroup 'Failure tests: parent terminal shutdown'
+if (Test-IsWindows) {
+    $workerScript = Join-Path (Join-Path (Get-TestRoot) 'tests') 'Fixtures\ProcessLifetimeWorker.ps1'
+    $workerMarker = Join-Path (Get-TestWork) 'process-lifetime.marker'
+    $workerProc = $null; $workerStdOut = $null; $workerStdErr = $null; $ffmpegId = 0
+    try {
+        $workerPsi = New-ProcessStartInfo -FilePath (Get-Process -Id $PID).Path -Arguments @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $workerScript, '-Root', (Get-TestRoot), '-Marker', $workerMarker)
+        $workerProc = New-Object System.Diagnostics.Process
+        $workerProc.StartInfo = $workerPsi
+        [void]$workerProc.Start()
+        $workerStdOut = $workerProc.StandardOutput.ReadToEndAsync()
+        $workerStdErr = $workerProc.StandardError.ReadToEndAsync()
+        $deadline = [DateTime]::UtcNow.AddSeconds(20)
+        while (-not (Test-Path -LiteralPath $workerMarker) -and -not $workerProc.HasExited -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+        if (Test-Path -LiteralPath $workerMarker) {
+            $markerParts = [System.IO.File]::ReadAllText($workerMarker).Split('|')
+            if ($markerParts.Count -eq 2 -and [int]$markerParts[0] -eq $workerProc.Id) { $ffmpegId = [int]$markerParts[1] }
+        }
+        if ($workerProc -and -not $workerProc.HasExited) { $workerProc.Kill(); [void]$workerProc.WaitForExit(10000) }
+        if ($ffmpegId -gt 0) {
+            $exitDeadline = [DateTime]::UtcNow.AddSeconds(8)
+            while ([DateTime]::UtcNow -lt $exitDeadline) {
+                $remaining = $null
+                try { $remaining = [System.Diagnostics.Process]::GetProcessById($ffmpegId) } catch { break }
+                $remaining.Dispose()
+                Start-Sleep -Milliseconds 100
+            }
+            $alive = $false
+            try { $remaining = [System.Diagnostics.Process]::GetProcessById($ffmpegId); $alive = $true; $remaining.Kill(); $remaining.Dispose() } catch { }
+            Assert-True 'closing the parent PowerShell process terminates its active FFmpeg child' (-not $alive) $(if ($alive) { "orphan ffmpeg pid $ffmpegId survived parent shutdown" } else { '' })
+        } else {
+            $stderrText = ''; $stdoutText = ''
+            if ($workerProc -and $workerProc.HasExited) { try { $stderrText = $workerStdErr.Result; $stdoutText = $workerStdOut.Result } catch { } }
+            Assert-True 'the shutdown worker starts a long-running FFmpeg stage before its parent is terminated' $false ("worker did not publish the FFmpeg pid; exit=$($workerProc.ExitCode); stderr=$stderrText; stdout=$stdoutText")
+        }
+    } catch {
+        Assert-True 'the shutdown test can launch and terminate a real PowerShell worker' $false $_.Exception.Message
+    } finally {
+        if ($workerProc) {
+            try { if (-not $workerProc.HasExited) { $workerProc.Kill(); [void]$workerProc.WaitForExit(5000) } } catch { }
+            $workerProc.Dispose()
+        }
+        if (Test-Path -LiteralPath $workerMarker) { Remove-Item -LiteralPath $workerMarker -Force -ErrorAction SilentlyContinue }
+    }
+} else {
+    Skip-Test 'terminal closes unexpectedly while a job runs' 'Windows process job objects are only available on Windows.'
+}

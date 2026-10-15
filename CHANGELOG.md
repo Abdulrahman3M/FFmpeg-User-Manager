@@ -19,6 +19,9 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 - Folder scans show files scanned, compatible media, and unsupported files before processing; an empty or incompatible folder is rejected.
 
 ### Fixed
+- FFmpeg child processes are attached to a Windows kill-on-job-close job, so abruptly closing the parent terminal cannot leave an encode running unattended.
+- Smoke-test infrastructure no longer relies on privileged NTFS hardlinks or HTTP URL reservations: the PATH test makes isolated copies, and the local stream server uses a bounded loopback TCP listener.
+- Scripted TUI test providers can resolve their key macros from the provider scope, avoiding cascaded false failures in smoke tests.
 - Completed local HLS Event exports are finalized as the requested `.m3u8` playlist after FFmpeg exits instead of being left at its temporary `.m3u8.tmp` path.
 - An explicit `FFTUI_FORCE_ANSI=1` setting now takes precedence over the system-wide `NO_COLOR` preference.
 

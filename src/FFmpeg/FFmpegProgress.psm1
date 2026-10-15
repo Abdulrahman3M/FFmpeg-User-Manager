@@ -55,13 +55,16 @@ function Invoke-FFmpegStage {
     $res = [pscustomobject]@{ Started = $false; ExitCode = -1; StdErr = ''; Cancelled = $false; Elapsed = [TimeSpan]::Zero; State = $state; Error = '' }
     $all = @('-hide_banner', '-loglevel', 'warning', '-progress', 'pipe:1', '-nostats') + $Arguments
     $p = $null
+    $lifetimeJob = [IntPtr]::Zero
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     try {
+        if (Test-IsWindows) { $lifetimeJob = New-ProcessLifetimeJob }
         $psi = New-ProcessStartInfo -FilePath $FfmpegPath -Arguments $all -RedirectInput $true
         $p = New-Object System.Diagnostics.Process
         $p.StartInfo = $psi
         [void]$p.Start()
         $res.Started = $true
+        if ($lifetimeJob -ne [IntPtr]::Zero) { Add-ProcessToLifetimeJob -JobHandle $lifetimeJob -Process $p }
         $errTask = $p.StandardError.ReadToEndAsync()
         $lineTask = $p.StandardOutput.ReadLineAsync()
         $lastTick = [DateTime]::MinValue
@@ -103,6 +106,7 @@ function Invoke-FFmpegStage {
     } finally {
         $sw.Stop(); $res.Elapsed = $sw.Elapsed
         if ($p) { try { if (-not $p.HasExited) { $p.Kill() } } catch { }; $p.Dispose() }
+        if ($lifetimeJob -ne [IntPtr]::Zero) { Close-ProcessLifetimeJob -JobHandle $lifetimeJob }
     }
     return $res
 }

@@ -141,10 +141,8 @@ Assert-Contains 'HLS: existing playlist triggers the overwrite question' $ui.Out
 # Network streams via a local HTTP server (MPEG-TS needs no seeking)
 $tsDir = Join-Path $W 'www'; [void](New-Item -ItemType Directory -Path $tsDir -Force)
 $null = New-Fixture 'live.ts' @('-f', 'lavfi', '-i', 'testsrc=duration=3:size=160x120:rate=25', '-f', 'lavfi', '-i', 'sine=duration=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', '-f', 'mpegts') $tsDir
-$server = $null
-try { $server = Start-TestHttpServer -Root $tsDir } catch { $server = $null }
-if (-not $server) { Skip-Test 'network stream workflows' 'a local HTTP listener could not be started in this environment' }
-else {
+$server = Start-TestHttpServer -Root $tsDir
+try {
     $env:no_proxy = '127.0.0.1,localhost'; $env:NO_PROXY = '127.0.0.1,localhost'; $env:http_proxy = ''; $env:HTTP_PROXY = ''
     $url = $server.Url + '/live.ts'
     $ui = Invoke-Sub { Start-StreamingWorkflow } $HM '{#Inspect Stream}' @((New-Rule 'Stream address (URL) or file path' "$url{Enter}"), (New-ScreenRule 'Stream Information' '{Esc}'))
@@ -159,8 +157,7 @@ else {
     $sumFrames = @($ui.Output -split '=====(?:FRAME|CLEAR)=====' | Where-Object { $_ -match '── Summary' })
 Assert-True 'the stream summary was displayed' ($sumFrames.Count -gt 0)
 Assert-True 'credentials in a stream URL are never echoed in the summary or job screens' (-not (@($sumFrames | Where-Object { $_.Contains('secretpass') }).Count)) 'password visible in summary'
-    $server.Stop.Invoke()
-}
+} finally { $server.Stop.Invoke() }
 $ui = Invoke-Sub { Start-StreamingWorkflow } $HM '2' @((New-Rule 'Stream address (URL)' 'file:///etc/hostname{Enter}' 1), (New-Rule 'Stream address (URL)' '{Esc}' 5)) -MaxCalls 30
 Assert-Contains 'local file:// addresses are refused (network protocols only)' (Get-FlatText $ui.Output) 'not a supported network address'
 $ui = Invoke-Sub { Start-StreamingWorkflow } $HM '2' @((New-Rule 'Stream address (URL)' 'just some text{Enter}' 1), (New-Rule 'Stream address (URL)' '{Esc}' 5)) -MaxCalls 30

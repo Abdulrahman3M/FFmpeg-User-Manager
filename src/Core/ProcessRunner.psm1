@@ -43,6 +43,109 @@ function New-ProcessStartInfo {
     return $psi
 }
 
+function New-ProcessLifetimeJob {
+    # Windows closes this job handle when the parent terminal exits; KILL_ON_JOB_CLOSE then stops its child process.
+    if (-not (Test-IsWindows)) { return [IntPtr]::Zero }
+    if (-not ('FFTuiNativeProcessJob' -as [type])) {
+        $source = @"
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+public static class FFTuiNativeProcessJob
+{
+    private const uint JobObjectExtendedLimitInformation = 9;
+    private const uint JobObjectLimitKillOnJobClose = 0x00002000;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BasicLimitInformation
+    {
+        public long PerProcessUserTimeLimit;
+        public long PerJobUserTimeLimit;
+        public uint LimitFlags;
+        public UIntPtr MinimumWorkingSetSize;
+        public UIntPtr MaximumWorkingSetSize;
+        public uint ActiveProcessLimit;
+        public UIntPtr Affinity;
+        public uint PriorityClass;
+        public uint SchedulingClass;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct IoCounters
+    {
+        public ulong ReadOperationCount;
+        public ulong WriteOperationCount;
+        public ulong OtherOperationCount;
+        public ulong ReadTransferCount;
+        public ulong WriteTransferCount;
+        public ulong OtherTransferCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ExtendedLimitInformation
+    {
+        public BasicLimitInformation BasicLimitInformation;
+        public IoCounters IoInfo;
+        public UIntPtr ProcessMemoryLimit;
+        public UIntPtr JobMemoryLimit;
+        public UIntPtr PeakProcessMemoryUsed;
+        public UIntPtr PeakJobMemoryUsed;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateJobObject(IntPtr jobAttributes, string name);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetInformationJobObject(IntPtr job, uint informationClass, ref ExtendedLimitInformation information, uint informationLength);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    public static IntPtr CreateKillOnCloseJob()
+    {
+        IntPtr job = CreateJobObject(IntPtr.Zero, null);
+        if (job == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not create the FFmpeg process job.");
+        ExtendedLimitInformation information = new ExtendedLimitInformation();
+        information.BasicLimitInformation.LimitFlags = JobObjectLimitKillOnJobClose;
+        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, ref information, (uint)Marshal.SizeOf(typeof(ExtendedLimitInformation))))
+        {
+            int error = Marshal.GetLastWin32Error();
+            CloseHandle(job);
+            throw new Win32Exception(error, "Could not configure the FFmpeg process job.");
+        }
+        return job;
+    }
+
+    public static void Assign(IntPtr job, IntPtr process)
+    {
+        if (!AssignProcessToJobObject(job, process)) throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not attach FFmpeg to its lifetime job.");
+    }
+
+    public static void Close(IntPtr job)
+    {
+        if (job != IntPtr.Zero) CloseHandle(job);
+    }
+}
+"@
+        Add-Type -TypeDefinition $source -Language CSharp -ErrorAction Stop
+    }
+    return [FFTuiNativeProcessJob]::CreateKillOnCloseJob()
+}
+
+function Add-ProcessToLifetimeJob {
+    param([Parameter(Mandatory)][IntPtr]$JobHandle, [Parameter(Mandatory)][System.Diagnostics.Process]$Process)
+    [FFTuiNativeProcessJob]::Assign($JobHandle, $Process.Handle)
+}
+
+function Close-ProcessLifetimeJob {
+    param([IntPtr]$JobHandle)
+    [FFTuiNativeProcessJob]::Close($JobHandle)
+}
+
 function Invoke-ExternalCapture {
     # Runs a program to completion capturing stdout/stderr. Returns ExitCode/StdOut/StdErr/TimedOut/Started.
     param([Parameter(Mandatory)][string]$FilePath, [string[]]$Arguments = @(), [int]$TimeoutSec = 60)
@@ -122,4 +225,4 @@ function Invoke-ExternalStreaming {
     return $res
 }
 
-Export-ModuleMember -Function ConvertTo-ProcessArgument, ConvertTo-ProcessArgumentString, New-ProcessStartInfo, Invoke-ExternalCapture, Invoke-ExternalStreaming
+Export-ModuleMember -Function ConvertTo-ProcessArgument, ConvertTo-ProcessArgumentString, New-ProcessStartInfo, New-ProcessLifetimeJob, Add-ProcessToLifetimeJob, Close-ProcessLifetimeJob, Invoke-ExternalCapture, Invoke-ExternalStreaming

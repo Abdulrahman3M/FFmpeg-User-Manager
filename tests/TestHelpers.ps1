@@ -115,7 +115,7 @@ function Test-ValidMediaFile {
     return $true
 }
 
-function Expand-KeyMacros {
+function global:Expand-KeyMacros {
     <#
       Test-only key macros resolved against the screen that is currently displayed:
         {#LAST}    number of the last numbered option on screen (for example the Custom... entry or Continue)
@@ -240,31 +240,56 @@ function Get-Psnr {
 }
 
 function Start-TestHttpServer {
-    # Minimal file server on 127.0.0.1 (HttpListener) for network-stream tests. Returns @{ Url; Stop }.
+    # Minimal file server on 127.0.0.1 (raw TCP) for network-stream tests. Returns @{ Url; Stop }.
     param([string]$Root, [int]$Port = 0)
-    if ($Port -eq 0) { $l = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0); $l.Start(); $Port = $l.LocalEndpoint.Port; $l.Stop() }
-    $listener = New-Object System.Net.HttpListener
-    $listener.Prefixes.Add("http://127.0.0.1:$Port/")
+    $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
     $listener.Start()
+    $Port = $listener.LocalEndpoint.Port
     $rs = [runspacefactory]::CreateRunspace(); $rs.Open()
     $ps = [powershell]::Create(); $ps.Runspace = $rs
     [void]$ps.AddScript({
         param($listener, $root)
-        while ($listener.IsListening) {
-            try { $ctx = $listener.GetContext() } catch { break }
+        $rootFull = [System.IO.Path]::GetFullPath($root)
+        if (-not $rootFull.EndsWith([System.IO.Path]::DirectorySeparatorChar.ToString())) { $rootFull += [System.IO.Path]::DirectorySeparatorChar }
+        while ($true) {
+            try { $client = $listener.AcceptTcpClient() } catch { break }
+            $stream = $null
             try {
-                $name = [System.Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath.TrimStart('/'))
-                $file = Join-Path $root $name
-                if (Test-Path -LiteralPath $file -PathType Leaf) {
-                    $bytes = [System.IO.File]::ReadAllBytes($file)
-                    $ctx.Response.ContentLength64 = $bytes.Length
-                    $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length)
-                } else { $ctx.Response.StatusCode = 404 }
+                $stream = $client.GetStream()
+                $stream.ReadTimeout = 5000
+                $requestBuffer = New-Object System.IO.MemoryStream
+                $chunk = New-Object byte[] 1024
+                $requestText = ''
+                while ($requestBuffer.Length -lt 16384) {
+                    $read = $stream.Read($chunk, 0, $chunk.Length)
+                    if ($read -le 0) { break }
+                    $requestBuffer.Write($chunk, 0, $read)
+                    $requestText = [System.Text.Encoding]::ASCII.GetString($requestBuffer.ToArray())
+                    if ($requestText.Contains("`r`n`r`n")) { break }
+                }
+                $requestBuffer.Dispose()
+                $requestLine = ($requestText -split "`r?`n", 2)[0]
+                $parts = $requestLine -split ' ', 3
+                if ($parts.Count -lt 2 -or $parts[0] -notin @('GET', 'HEAD')) { throw 'Unsupported HTTP request.' }
+                $rawPath = ($parts[1] -split '\?', 2)[0]
+                $name = [System.Uri]::UnescapeDataString($rawPath.TrimStart('/'))
+                $file = [System.IO.Path]::GetFullPath((Join-Path $rootFull $name))
+                $content = New-Object byte[] 0
+                $status = '404 Not Found'
+                if ($file.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $file -PathType Leaf)) {
+                    $content = [System.IO.File]::ReadAllBytes($file)
+                    $status = '200 OK'
+                }
+                $headers = "HTTP/1.1 $status`r`nContent-Length: $($content.Length)`r`nContent-Type: application/octet-stream`r`nConnection: close`r`n`r`n"
+                $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($headers)
+                $stream.Write($headerBytes, 0, $headerBytes.Length)
+                if ($parts[0] -eq 'GET' -and $content.Length -gt 0) { $stream.Write($content, 0, $content.Length) }
+                $stream.Flush()
             } catch { }
-            try { $ctx.Response.OutputStream.Close() } catch { }
+            finally { if ($stream) { $stream.Dispose() }; $client.Close() }
         }
     }).AddArgument($listener).AddArgument($Root)
     $handle = $ps.BeginInvoke()
-    $stop = { try { $listener.Stop(); $listener.Close() } catch { }; try { $ps.Stop(); $ps.Dispose(); $rs.Dispose() } catch { } }.GetNewClosure()
+    $stop = { try { $listener.Stop() } catch { }; try { $ps.Stop(); $ps.Dispose(); $rs.Dispose() } catch { } }.GetNewClosure()
     return [pscustomobject]@{ Url = "http://127.0.0.1:$Port"; Stop = $stop }
 }

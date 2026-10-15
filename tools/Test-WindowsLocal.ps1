@@ -57,7 +57,8 @@ Write-Host @"
         saved choice.
  [ ] 5. Screen / webcam / microphone recording (main menu: Record / Capture): a short recording
         produces a playable file. (Needs real devices.)
- [ ] 6. While a conversion is running close the terminal window: no ffmpeg.exe process stays behind (Task Manager).
+ [ ] 6. Optional physical check: while a conversion runs, close the terminal window and confirm Task Manager shows no leftover ffmpeg.exe.
+        An automated integration test already force-terminates a parent PowerShell process during a live FFmpeg stage.
  [ ] 7. If winget is installed: run step 1 of the maintenance tool with FFmpeg removed from PATH and answer Yes only on
         a test machine - it installs Gyan.FFmpeg through winget after asking.
 "@
