@@ -1,0 +1,74 @@
+@echo off
+rem ======================================================================
+rem  FFmpeg User Manager - Windows launcher
+rem  Double-click this file (or run it from any terminal) to start the app.
+rem  Launcher logic only: it locates Start-FFmpegTUI.ps1 next to this file,
+rem  picks PowerShell 7 (pwsh.exe) when available, otherwise Windows
+rem  PowerShell 5.1, and passes all arguments through. No system policy is changed.
+rem  Optional: set FFUM_POWERSHELL to a full path to force a specific PowerShell,
+rem  and FFUM_TRACE=1 to print which one is used.
+rem  (No parenthesized blocks: paths such as "C:\Program Files (x86)\..." would break them.)
+rem ======================================================================
+setlocal EnableExtensions DisableDelayedExpansion
+
+rem --- directory of this file (always ends with a backslash), independent of the current directory
+set "FFUM_ROOT=%~dp0"
+set "FFUM_ENTRY=%FFUM_ROOT%Start-FFmpegTUI.ps1"
+set "FFUM_RC=0"
+
+rem --- a double-click start runs as: cmd.exe /c ""<path>\FFmpeg-User-Manager.bat"" (the command line names this file); keep errors visible then
+set "FFUM_DBLCLICK="
+rem (delayed expansion only inside this small block: the command line may contain & | ( ) or quotes, which must never be parsed as commands)
+setlocal EnableDelayedExpansion
+set "FFUM_CL=!CMDCMDLINE:"=!"
+set "FFUM_T1=!FFUM_CL: /c =!"
+set "FFUM_D="
+if not "!FFUM_T1!"=="!FFUM_CL!" if not "!FFUM_CL:%~nx0=!"=="!FFUM_CL!" set "FFUM_D=1"
+if defined FFUM_TRACE echo Launcher command line: !FFUM_CL!
+endlocal & set "FFUM_DBLCLICK=%FFUM_D%"
+
+if exist "%FFUM_ENTRY%" goto :have_entry
+echo.
+echo ERROR: The application entry script was not found:
+echo   "%FFUM_ENTRY%"
+echo Make sure the whole project folder is extracted and that
+echo Start-FFmpegTUI.ps1 is located next to this launcher.
+set "FFUM_RC=2"
+goto :finish
+
+:have_entry
+rem --- the console is switched to UTF-8 (code page 65001) while the app runs so its icons are drawn correctly; the original code page is restored afterwards
+set "FFUM_CP="
+for /f "tokens=2 delims=:." %%C in ('chcp 2^>nul') do set "FFUM_CP=%%C"
+if defined FFUM_CP set "FFUM_CP=%FFUM_CP: =%"
+chcp 65001 >nul 2>&1
+
+rem --- runtime: FFUM_POWERSHELL (optional override) > PowerShell 7 (pwsh.exe) > Windows PowerShell 5.1 (powershell.exe)
+set "FFUM_PS=%FFUM_POWERSHELL%"
+if defined FFUM_PS goto :run
+for %%P in (pwsh.exe) do set "FFUM_PS=%%~$PATH:P"
+if defined FFUM_PS goto :run
+for %%P in (powershell.exe) do set "FFUM_PS=%%~$PATH:P"
+if defined FFUM_PS goto :run
+if exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" set "FFUM_PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+if defined FFUM_PS goto :run
+echo.
+echo ERROR: Neither PowerShell 7 ^(pwsh.exe^) nor Windows PowerShell ^(powershell.exe^) was found on this computer.
+set "FFUM_RC=3"
+goto :finish
+
+:run
+rem --- -ExecutionPolicy Bypass applies to this launched process only; machine/user policy is never modified
+if defined FFUM_TRACE echo Launcher runtime: %FFUM_PS%
+"%FFUM_PS%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%FFUM_ENTRY%" %*
+set "FFUM_RC=%ERRORLEVEL%"
+
+:finish
+if defined FFUM_CP chcp %FFUM_CP% >nul 2>&1
+if "%FFUM_RC%"=="0" goto :done
+if not defined FFUM_DBLCLICK goto :done
+echo.
+echo The application exited with code %FFUM_RC%.
+pause
+:done
+endlocal & exit /b %FFUM_RC%

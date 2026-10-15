@@ -1,0 +1,43 @@
+name: tests
+# Runs the full test suite on a real Windows runner under BOTH Windows PowerShell 5.1 and PowerShell 7.
+# It only reads the repository and reports results; it never pushes, merges or publishes anything.
+# The full suite takes about 5 minutes per runtime, so it is NOT started by every push to a working branch:
+# start it deliberately (Actions tab -> tests -> Run workflow), or it runs for pull requests and for pushes to main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg (needed by the tests)
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          Add-Content -Path $env:GITHUB_PATH -Value 'C:\ProgramData\chocolatey\bin'
+      - name: Run the full suite (${{ matrix.shell }})
+        shell: cmd
+        run: ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File tests\Run-Tests.ps1 > suite.log 2>&1
+      - name: Failure summary
+        if: always()
+        shell: pwsh
+        run: |
+          Select-String -Path suite.log -Pattern '^FAIL:|SUMMARY' | ForEach-Object { $_.Line.Substring(0, [Math]::Min(300, $_.Line.Length)) }
+          Select-String -Path suite.log -Pattern 'DIAG:' | ForEach-Object { $_.Line }
+          Select-String -Path suite.log -Pattern '^\s+\[(FAIL|UNVERIFIED)\]' -Context 0,5 | ForEach-Object { $_.Line; $_.Context.PostContext | ForEach-Object { '    ' + $_.Substring(0, [Math]::Min(1800, $_.Length)) } } | Select-Object -First 120
+      - name: Keep the full log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suite-log-${{ matrix.shell }}
+          path: suite.log
+          retention-days: 30

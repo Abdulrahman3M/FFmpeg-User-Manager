@@ -1,0 +1,59 @@
+name: release
+# Publishes an official release: builds the package from the checked-out commit, verifies it, creates the annotated
+# tag vX.Y.Z and the GitHub Release (notes from docs/Release-Notes-vX.Y.Z.md, zip + SHA-256 attached).
+# Manual only (Actions tab -> release -> Run workflow); it never runs for ordinary pushes. Run it from `main`.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (must equal the VERSION file, e.g. 0.1.0)'
+        required: true
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the version and that the tag does not exist yet
+        shell: pwsh
+        run: |
+          $v = (Get-Content VERSION -TotalCount 1).Trim()
+          if ($v -ne '${{ inputs.version }}') { throw "VERSION is '$v' but '${{ inputs.version }}' was requested" }
+          if (-not (Test-Path "docs/Release-Notes-v$v.md")) { throw "docs/Release-Notes-v$v.md is missing" }
+          git fetch --tags --quiet
+          if (git tag --list "v$v") { throw "tag v$v already exists" }
+          "VER=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Build the package with Windows PowerShell 5.1
+        shell: powershell
+        run: .\tools\New-ReleasePackage.ps1 -OutputDirectory dist
+      - name: Verify the package (contents, version, start from a folder with spaces)
+        shell: pwsh
+        run: |
+          $zip = "dist/FFmpeg-User-Manager-v$env:VER.zip"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $names = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip)).Entries | ForEach-Object { $_.FullName }
+          foreach ($need in 'FFmpeg-User-Manager/LICENSE', 'FFmpeg-User-Manager/NOTICE', 'FFmpeg-User-Manager/VERSION', 'FFmpeg-User-Manager/FFmpeg-User-Manager.bat', 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') {
+            if ($names -notcontains $need -and $names -notcontains $need.Replace('/', '\')) { throw "missing in package: $need" }
+          }
+          if (@($names | Where-Object { $_ -match '(^|[\\/])(\.git|tests|dist)([\\/]|$)' }).Count -gt 0) { throw 'package contains .git, tests or dist' }
+          $dest = Join-Path $env:RUNNER_TEMP 'extract dir (check)'
+          Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
+          $out = & pwsh -NoProfile -File (Join-Path $dest 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') -Version
+          "$out"
+          if ("$out" -notmatch [regex]::Escape($env:VER)) { throw 'the extracted package does not report the expected version' }
+          $out2 = & powershell -NoProfile -File (Join-Path $dest 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') -Version
+          if ("$out2" -notmatch [regex]::Escape($env:VER)) { throw 'Windows PowerShell 5.1 does not report the expected version from the package' }
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + '  ' + (Split-Path $zip -Leaf) | Out-File "dist/SHA256SUMS.txt" -Encoding ascii
+          Get-Content dist/SHA256SUMS.txt
+      - name: Create the annotated tag and the GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "v$env:VER" -m "FFmpeg User Manager v$env:VER"
+          git push origin "v$env:VER"
+          gh release create "v$env:VER" "dist/FFmpeg-User-Manager-v$env:VER.zip" "dist/SHA256SUMS.txt" --title "FFmpeg User Manager v$env:VER" --notes-file "docs/Release-Notes-v$env:VER.md" --verify-tag
+          gh release view "v$env:VER" --json tagName,url,assets --jq '.tagName, .url, (.assets[].name)'
