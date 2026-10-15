@@ -73,7 +73,7 @@ Assert-True 'no code path still defines letter hotkeys' (-not (Get-Command Get-M
 
 Set-TestGroup 'Main menu definition'
 $mm = Get-MainMenuItems
-$labels = @('Convert Video Format', 'Convert Audio Format', 'Extract Audio from Video', 'Trim / Cut Media', 'Merge Media', 'Compress Media', 'Resize / Scale Video', 'Video to GIF', 'Extract Frames / Images', 'Audio Tools', 'Subtitle Tools', 'Change Frame Rate', 'Filters & Color', 'Crop / Rotate / Flip', 'Text & Watermark', 'Change Playback Speed', 'Streaming / HLS', 'Media Information', 'Remux & Streams', 'Metadata & Chapters', 'Images & Slideshows', 'Video Enhancement', 'Record / Capture', 'Analyze & Detect', 'Batch Convert', 'Advanced FFmpeg', 'FFmpeg Status / Settings', 'Check & Maintain FFmpeg Setup', 'Exit')
+$labels = @('Convert Video Format', 'Convert Audio Format', 'Extract Audio from Video', 'Trim / Cut Media', 'Merge Media', 'Compress Media', 'Upscale Image', 'Resize / Scale Video', 'Video to GIF', 'Extract Frames / Images', 'Audio Tools', 'Subtitle Tools', 'Change Frame Rate', 'Filters & Color', 'Crop / Rotate / Flip', 'Text & Watermark', 'Change Playback Speed', 'Streaming / HLS', 'Media Information', 'Remux & Streams', 'Metadata & Chapters', 'Images & Slideshows', 'Video Enhancement', 'Record / Capture', 'Analyze & Detect', 'Batch Convert', 'Advanced FFmpeg', 'FFmpeg Status / Settings', 'Check & Maintain FFmpeg Setup', 'Exit')
 Assert-Equal 'main menu labels match the required text' ($labels -join '|') (($mm | ForEach-Object { $_.Label }) -join '|')
 Assert-True 'Exit is the last numbered option (no exceptions, no letter key)' ($mm[$mm.Count - 1].Value -eq 'Quit')
 Assert-True 'every menu item (including Exit) has a description' (@($mm | Where-Object { -not $_.Desc }).Count -eq 0)
@@ -85,24 +85,24 @@ foreach ($tier in 'Emoji', 'Symbol') {
 }
 Initialize-Renderer -Ansi $false -Unicode $true -Sink Buffer -Width 100 -Height 40
 Assert-True 'main menu items carry no letter keys' (@($mm | Where-Object { $_.ContainsKey('Key') }).Count -eq 0)
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '11' -Height 60
-Assert-Equal 'main menu: 11 opens Subtitle Tools' 'SubtitleTools' $ui.Value.Item.Value
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '27' -Height 60
-Assert-Equal 'main menu: 27 opens Status' 'Status' $ui.Value.Item.Value
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '12' -Height 60
+Assert-Equal 'main menu: 12 opens Subtitle Tools' 'SubtitleTools' $ui.Value.Item.Value
 $ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '28' -Height 60
-Assert-Equal 'main menu: 28 opens Check & Maintain' 'Maintenance' $ui.Value.Item.Value
+Assert-Equal 'main menu: 28 opens Status' 'Status' $ui.Value.Item.Value
 $ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 60
-Assert-Equal 'main menu: 29 (the last number) is Exit' 'Quit' $ui.Value.Item.Value
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 80
+Assert-Equal 'main menu: 29 opens Check & Maintain' 'Maintenance' $ui.Value.Item.Value
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '30' -Height 60
+Assert-Equal 'main menu: 30 (the last number) is Exit' 'Quit' $ui.Value.Item.Value
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '30' -Height 80
 $f = Get-LastFrame $ui.Output
 $missing = ''
-foreach ($n in 1..29) { $num = ('{0:00}' -f $n); if ($f -notmatch "(?m)^\s*(?:\S\s)?\s*$num\s+\S+\s+\S") { $missing = $num; break } }
-Assert-True 'all 29 options are numbered 01..29 in order, each as Number, Icon, Name' ($missing -eq '') "missing $missing"
+foreach ($n in 1..30) { $num = ('{0:00}' -f $n); if ($f -notmatch "(?m)^\s*(?:\S\s)?\s*$num\s+\S+\s+\S") { $missing = $num; break } }
+Assert-True 'all 30 options are numbered 01..30 in order, each as Number, Icon, Name' ($missing -eq '') "missing $missing"
 Assert-True 'no option is labeled with a letter (A., B., [S], [Q] ...)' ($f -notmatch '(?m)^\s*(?:\S\s)?\s*\[?[A-Za-z]\]?[\.\)]\s')
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 80
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '30' -Height 80
 Assert-Contains 'tall terminal shows a description under every option' $ui.Output 'Convert a video to another container or video format.'
 Assert-Contains 'the last option shows its description too' $ui.Output 'Close FFmpeg User Manager.'
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 25
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '30' -Height 25
 Assert-True 'short terminal keeps every item reachable (scrolling, selected item description shown)' ($ui.Value.Item.Value -eq 'Quit')
 
 Set-TestGroup 'Layout: narrow / normal / wide terminals'
@@ -180,8 +180,9 @@ $ui = Invoke-Ui { Read-TuiLine -Prompt '> ' } 'abc{Esc}'
 Assert-Equal 'Escape returns Back' 'Back' $ui.Value.Status
 $ui = Invoke-Ui { Read-TuiLine -Prompt '> ' -Initial 'seed' } '{Enter}'
 Assert-Equal 'initial text is preserved' 'seed' $ui.Value.Text
-$ui = Invoke-Ui { Read-TuiLine -Prompt '> ' } 'Тест-اختبار-日本{Enter}'
-Assert-Equal 'Unicode input round-trips' 'Тест-اختبار-日本' $ui.Value.Text
+$unicodeInput = -join [char[]]@(0x0422, 0x0435, 0x0441, 0x0442, 0x002D, 0x0627, 0x062E, 0x062A, 0x0628, 0x0627, 0x0631, 0x002D, 0x65E5, 0x672C)
+$ui = Invoke-Ui { Read-TuiLine -Prompt '> ' } ($unicodeInput + '{Enter}')
+Assert-Equal 'Unicode input round-trips' $unicodeInput $ui.Value.Text
 
 Set-TestGroup 'Wizard framework'
 function New-WizTestSteps {

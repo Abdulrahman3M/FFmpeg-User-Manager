@@ -7,8 +7,7 @@ How they were captured (honest note): the app was driven through a pseudo-termin
 interpreted by a terminal emulator library and drawn with a monospace font in a headless browser. Nothing was mocked up or edited by hand.
 Windows Terminal will look very similar but fonts, emoji and window chrome differ slightly. `main-menu-console-safe.png` is the same application started with `FFTUI_ICONS=symbol`,
 which is the icon set the classic Windows console selects automatically; it is drawn here with a Linux monospace font, **not** captured from a real Windows console.
-The images were recaptured after the numbered-option redesign (version in the header is the content of `VERSION`). Native Windows captures can replace these files at any time
-(keep the same file names).
+The current `main-menu.png` and `main-menu-console-safe.png` predate the `07 Upscale Image` option and therefore do not show the current 30-option menu. Other screenshots show screens that are not affected by the new menu entry. This checkout cannot safely capture a real terminal window, so the images are intentionally left untouched; recapturing the main menu from the real application remains **UNVERIFIED**. Native captures can replace the two menu images (keep the same file names).
 
 | File | Screen |
 |---|---|

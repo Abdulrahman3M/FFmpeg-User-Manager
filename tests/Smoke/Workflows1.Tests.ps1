@@ -38,9 +38,9 @@ $ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid
 Assert-JobOk 'MP4 -> WebM (VP9/Opus, custom 160x120)' $ui $outw
 $j = Get-ProbeJson $outw
 Assert-True 'webm uses vp9 + opus at 160x120' ((Get-StreamOf $j 'video')[0].codec_name -eq 'vp9' -and (Get-StreamOf $j 'audio')[0].codec_name -eq 'opus' -and (Get-StreamOf $j 'video')[0].width -eq 160)
-$ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Video codec' '02'), (New-Rule 'Resolution' '05'), (New-Rule 'Output file name' '{Clear}unsupported_case.mp4{Enter}'), (New-ScreenRule 'requires re-encoding' '{Enter}' 1), (New-ScreenRule '── Summary' '{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}')) -MaxCalls 80
+$ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Video codec' '02'), (New-Rule 'Resolution' '05'), (New-Rule 'Output file name' '{Clear}unsupported_case.mp4{Enter}'), (New-ScreenRule 'requires re-encoding' '{Enter}' 1), (New-ScreenRule 'Summary' '{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}')) -MaxCalls 80
 Assert-Contains 'unsupported combination (copy codec + resize) is explained instead of crashing' (Get-FlatText $ui.Output) 'requires re-encoding'
-$ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Output format' '05'), (New-Rule 'Output file name' '{Clear}avi_case.avi{Enter}'), (New-ScreenRule '── Summary' '{#View FFmpeg command}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}' 1)) -MaxCalls 80
+$ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Output format' '05'), (New-Rule 'Output file name' '{Clear}avi_case.avi{Enter}'), (New-ScreenRule 'Summary' '{#View FFmpeg command}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}' 1)) -MaxCalls 80
 Assert-Contains 'AVI: codec choices offered are limited to compatible ones (no VP9)' $ui.Output 'MPEG-4'
 Assert-NotContains 'AVI: VP9 is not offered for AVI' (($ui.Output -split '=====(?:FRAME|CLEAR)=====' | Where-Object { $_ -match 'Video codec' } | Select-Object -First 1)) 'VP9'
 
@@ -111,16 +111,20 @@ Assert-Contains 'mixed audio + video inputs are refused with a message' $ui.Outp
 
 Set-TestGroup 'Workflow 6: Compress Media'
 $outc = Join-Path $W 'w video_compressed.mp4'
-$ui = Invoke-Flow { Start-CompressWorkflow } @((New-Rule 'Input file (video or audio)' "$vid{Enter}"), $DONE, $FAIL)
+$ui = Invoke-Flow { Start-CompressWorkflow } @((New-Rule 'Input media (video, audio, or image)' "$vid{Enter}"), $DONE, $FAIL)
 Assert-JobOk 'video: smaller file / recommended' $ui $outc
 Assert-Contains 'result shows original/new size comparison' $ui.Output 'Original size'
 Remove-Item -LiteralPath $outc -Force
-$ui = Invoke-Flow { Start-CompressWorkflow } @((New-Rule 'Input file (video or audio)' "$vid{Enter}"), (New-Rule 'Compression goal' '04'), (New-Rule 'Target file size (MB)' '{Clear}0.03{Enter}' 1), (New-Rule 'Target file size (MB)' '{Esc}{Esc}{Esc}{Esc}{Esc}' 10)) -MaxCalls 40
-Assert-True 'target size too small for the duration is rejected with an explanation' ($ui.Output.Contains('too small') -or $ui.Output.Contains('at least 0.5'))
-$ui = Invoke-Flow { Start-CompressWorkflow } @((New-Rule 'Input file (video or audio)' "$vid{Enter}"), (New-Rule 'Compression goal' '04'), (New-Rule 'Target file size (MB)' '{Clear}1{Enter}'), $DONE, $FAIL)
-Assert-JobOk 'video: approximate target size (1 MB)' $ui $outc
+$ui = Invoke-Flow { Start-CompressWorkflow } @((New-Rule 'Input media (video, audio, or image)' "$vid{Enter}"), (New-Rule 'Compression strategy' '05'), (New-Rule 'Target size' '{Clear}0.03 MB{Enter}' 1), (New-ScreenRule 'This selection cannot be processed' '{Enter}{Esc}{Esc}{Esc}{Esc}{Esc}{Esc}' 1)) -MaxCalls 40
+Assert-True 'target size too small for the duration is rejected with an explanation' ($ui.Output.Contains('too little bitrate') -or $ui.Output.Contains('Target size must be smaller'))
+$targetVid = New-Fixture 'w video target.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=3:size=320x240:rate=25', '-c:v', 'libx264', '-b:v', '400k', '-pix_fmt', 'yuv420p')
+$targetBytes = [long][math]::Floor((Get-Item -LiteralPath $targetVid).Length * 0.9)
+$targetText = $targetBytes.ToString([System.Globalization.CultureInfo]::InvariantCulture) + ' B'
+$targetOut = Join-Path $W 'w video target_compressed.mp4'
+$ui = Invoke-Flow { Start-CompressWorkflow } @((New-Rule 'Input media (video, audio, or image)' "$targetVid{Enter}"), (New-Rule 'Compression strategy' '05'), (New-Rule 'Target size' ($targetText + '{Enter}') 1), $DONE, $FAIL)
+Assert-JobOk 'video: approximate target size' $ui $targetOut
 Assert-Contains 'target size mode explains that the size is approximate' $ui.Output 'approximate'
-$ui = Invoke-Flow { Start-CompressWorkflow } @((New-Rule 'Input file (video or audio)' "$aud{Enter}"), $DONE, $FAIL)
+$ui = Invoke-Flow { Start-CompressWorkflow } @((New-Rule 'Input media (video, audio, or image)' "$aud{Enter}"), $DONE, $FAIL)
 Assert-JobOk 'audio compression (MP3)' $ui (Join-Path $W 'w audio_compressed.mp3') 'audio'
 
 Set-TestGroup 'Workflow 7: Resize / Scale Video'
@@ -142,7 +146,7 @@ Assert-True "fit+pad gives exactly 400x400 (got $($v.width)x$($v.height))" ($v.w
 
 Set-TestGroup 'Workflow 1-7: advanced options and remaining choices'
 $outAdv = Join-Path $W 'w video_advanced.mp4'
-$ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Configure advanced options?' '01'), (New-Rule 'Pixel format' '02'), (New-Rule 'Keyframe interval (frames)' '30{Enter}'), (New-Rule 'Optimize MP4/MOV for web streaming (faststart)?' '01'), (New-Rule 'Hardware-accelerated decoding' '02'), (New-Rule 'Output file name' '{Clear}w video_advanced.mp4{Enter}'), (New-ScreenRule '── Summary' '{#View FFmpeg command}{Esc}{Enter}' 1), $DONE, $FAIL)
+$ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), (New-Rule 'Configure advanced options?' '01'), (New-Rule 'Pixel format' '02'), (New-Rule 'Keyframe interval (frames)' '30{Enter}'), (New-Rule 'Optimize MP4/MOV for web streaming (faststart)?' '01'), (New-Rule 'Hardware-accelerated decoding' '02'), (New-Rule 'Output file name' '{Clear}w video_advanced.mp4{Enter}'), (New-ScreenRule 'Summary' '{#View FFmpeg command}{Esc}{Enter}' 1), $DONE, $FAIL)
 Assert-JobOk 'advanced: pixel format, keyframe interval, faststart, automatic hardware decoding' $ui $outAdv
 Assert-Contains 'advanced options reach the command (-g 30, -movflags +faststart, -hwaccel auto)' (Get-FlatText $ui.Output) '-hwaccel auto'
 Assert-Contains 'keyframe interval reaches the command' (Get-FlatText $ui.Output) '-g 30'

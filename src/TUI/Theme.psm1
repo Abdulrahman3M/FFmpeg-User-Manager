@@ -30,6 +30,7 @@ $script:Icons = @{
     Cut        = @((U 0x1F52A), (U 0x00F7), '[CUT]')
     Merge      = @((U 0x1F517), (U 0x256C), '[MERGE]')
     Compress   = @((U 0x1F4E6), (U 0x25BC), '[PACK]')
+    Upscale    = @((U 0x1F50E), (U 0x2191), '[UPSC]')
     Resize     = @((U 0x1F4D0), (U 0x2195), '[SIZE]')
     Gif        = @((U 0x1F300), (U 0x263B), '[GIF]')
     Frames     = @((U 0x1F4F8), (U 0x25A0), '[FRAME]')

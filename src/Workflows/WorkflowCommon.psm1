@@ -754,7 +754,20 @@ function Invoke-FFJob {
             if (Test-Path -LiteralPath $outPath) {
                 $newSize = (New-Object System.IO.FileInfo($outPath)).Length
                 $lines += ''; $lines += 'Size:'; $lines += (Format-FileSize $newSize)
-                if ($Job.ContainsKey('SourceSize') -and $Job.SourceSize -and $Job.SourceSize -gt 0 -and $Job.ContainsKey('CompareSize') -and $Job.CompareSize) {
+                if ($Job.ContainsKey('DetailedSizeMetrics') -and $Job.DetailedSizeMetrics -and $Job.ContainsKey('SourceSize') -and $Job.SourceSize -gt 0) {
+                    $targetSize = $null
+                    if ($Job.ContainsKey('TargetSizeBytes')) { $targetSize = $Job.TargetSizeBytes }
+                    $metrics = Get-CompressionResultMetrics -SourceBytes ([long]$Job.SourceSize) -OutputBytes ([long]$newSize) -TargetBytes $targetSize
+                    $lines += ''; $lines += ('Original size: {0}   Output size: {1}' -f (Format-FileSize $metrics.SourceBytes), (Format-FileSize $metrics.OutputBytes))
+                    if ($metrics.BytesSaved -ge 0) { $lines += ('Bytes saved: {0}   Actual reduction: {1:0.##}%' -f (Format-FileSize $metrics.BytesSaved), $metrics.ReductionPercent) }
+                    else { $lines += ('Output growth: {0}   Actual size change: {1:0.##}%' -f (Format-FileSize (-$metrics.BytesSaved)), $metrics.ReductionPercent) }
+                    if ($null -ne $metrics.TargetBytes) {
+                        $targetChange = [math]::Abs([double]$metrics.TargetDifferenceBytes)
+                        $targetDirection = if ($metrics.TargetDifferenceBytes -gt 0) { 'over target' } elseif ($metrics.TargetDifferenceBytes -lt 0) { 'under target' } else { 'exact target' }
+                        $targetLine = 'Requested target: {0}; actual output is {1} by {2}.' -f (Format-FileSize $metrics.TargetBytes), (Format-FileSize $targetChange), $targetDirection
+                        $lines += $targetLine
+                    }
+                } elseif ($Job.ContainsKey('SourceSize') -and $Job.SourceSize -and $Job.SourceSize -gt 0 -and $Job.ContainsKey('CompareSize') -and $Job.CompareSize) {
                     $diff = 100.0 * ($newSize - $Job.SourceSize) / $Job.SourceSize
                     $lines += ''; $lines += ('Original size: {0}   New size: {1}   Change: {2:+0.#;-0.#}%' -f (Format-FileSize $Job.SourceSize), (Format-FileSize $newSize), $diff)
                 }
@@ -808,9 +821,10 @@ function Get-InputPathList {
 }
 
 function New-JobObject {
-    param([string]$Title, $Summary, $Stages, [string]$OutputPath, [string]$OutputKind = 'File', [string[]]$EnsureDirs = @(), [string[]]$TempFiles = @(), $SourceSize = $null, [bool]$CompareSize = $false, [string[]]$Notes = @(), [string[]]$ResultNotes = @(), [scriptblock]$CountOutputs)
+    param([string]$Title, $Summary, $Stages, [string]$OutputPath, [string]$OutputKind = 'File', [string[]]$EnsureDirs = @(), [string[]]$TempFiles = @(), $SourceSize = $null, [bool]$CompareSize = $false, [string[]]$Notes = @(), [string[]]$ResultNotes = @(), [scriptblock]$CountOutputs, [bool]$DetailedSizeMetrics = $false, $TargetSizeBytes = $null)
     $j = @{ Title = $Title; Summary = @($Summary); Stages = @($Stages); OutputPath = $OutputPath; OutputKind = $OutputKind; EnsureDirs = @($EnsureDirs); TempFiles = @($TempFiles); SourceSize = $SourceSize; CompareSize = $CompareSize; Notes = @($Notes); ResultNotes = @($ResultNotes) }
     if ($CountOutputs) { $j.CountOutputs = $CountOutputs }
+    if ($DetailedSizeMetrics) { $j.DetailedSizeMetrics = $true; $j.TargetSizeBytes = $TargetSizeBytes }
     return $j
 }
 

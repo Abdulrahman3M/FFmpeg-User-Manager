@@ -9,6 +9,8 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 ## [Unreleased]
 
 ### Added
+- Compression now has one Simple / Advanced workflow for video, audio, JPEG, PNG and WebP, with six Simple strategies, byte-based target-size/reduction planning, codec-aware controls, pre-encode target/risk summaries, bounded image quality search with honest missed-target reporting, and measured results.
+- A main-menu Upscale Image workflow enlarges JPEG, PNG and WebP with Lanczos, supports custom resolution bounds, preserves aspect ratio and format-supported alpha, reports measured output dimensions, and explains that interpolation cannot restore missing detail.
 - Batch Convert accepts an ordered multiple-file list as well as a folder scan, supports an explicit sub-folder choice, and uses a shared queue model with completed, failed and skipped totals.
 - Batch output collision handling now offers safe auto-rename in addition to Skip and explicit Overwrite.
 

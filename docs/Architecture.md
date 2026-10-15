@@ -9,7 +9,7 @@ Start-FFmpegTUI.ps1 --> src/Import-Modules.ps1 --> Core/App.psm1 (Start-FFmpegTu
         | TUI (screens)      | FFmpeg (engine)       | Workflows          |
         | Theme  Renderer    | FFmpegManager         | WorkflowCommon     |
         | Input  Menu Dialog | FFmpegCapabilities    | ConvertVideo ...   |
-        | Wizard ProgressView| MediaProbe            | (27 workflow files)|
+        | Wizard ProgressView| MediaProbe            | (31 workflow files)|
         |                    | FFmpegCommandBuilder  |                    |
         |                    | FFmpegProgress        |                    |
         +--------------------+ Core: Environment Paths Validation ProcessRunner
@@ -105,12 +105,12 @@ On Windows the console output encoding is switched to UTF-8 at startup (`Set-Con
   not of what exists), container catalog, target-size bitrate calculation.
 * **FFmpegProgress** - runs one stage as a child process with `-progress pipe:1`, parses time/speed/size, supports cooperative cancel
   (`q` on stdin, then kill), collects stderr for the details view.
-* **Workflow modules** (`src/Workflows/`) - one module per tool group: the original conversion/editing tools plus `RemuxStreams`, `MetadataChapters`, `ImagesAndVisuals`, `AudioEffects`,
+* **Workflow modules** (`src/Workflows/`) - one module per tool group. `CompressionPlanning` and `CompressionWorkflow` power the existing Compress Media route; `UpscaleImage` reuses the shared image-format and image-encoding helpers. Other groups include `RemuxStreams`, `MetadataChapters`, `ImagesAndVisuals`, `AudioEffects`,
   `VideoEnhance`, `CaptureMedia`, `AnalyzeMedia`, `BatchConvert` and `AdvancedTools` (see [Workflows.md](Workflows.md) for the category map). Read-only analysis runs FFmpeg to a null
   output and parses its log (pure parsers, unit tested); batch conversion reuses the single-file job builders; the custom command splits typed options into tokens (`ConvertFrom-ArgumentText`) and validates
   encoders/formats against the installed build.
 * **WorkflowCommon** - shared steps (input+probe, output folder/name/collision, container, video/audio encode, time range, resolution, frame rate),
-  shared job builders (`New-VideoProcessJob`, `New-AudioProcessJob`) and the job runner/result screens.
+  shared job builders (`New-VideoProcessJob`, `New-AudioProcessJob`), opt-in actual byte/reduction/target metrics and the job runner/result screens.
 
 ## Data flow of one job
 

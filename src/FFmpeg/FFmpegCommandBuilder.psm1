@@ -289,13 +289,10 @@ function Get-DefaultAudioBitrate {
 }
 
 function Get-TargetBitrateForSize {
-    # Approximate video bitrate (bps) for a target file size. Final size is approximate only.
+    # Compatibility wrapper over the shared compression planner.
     param([double]$TargetBytes, [double]$DurationSec, [double]$AudioBps = 128000)
-    if ($DurationSec -le 0) { throw 'The media duration is unknown, so a target size cannot be calculated.' }
-    $total = ($TargetBytes * 8 * 0.97) / $DurationSec    # ~3% container overhead allowance
-    $video = $total - $AudioBps
-    if ($video -lt 50000) { throw 'The target size is too small for this duration. Choose a larger size.' }
-    return [int64][math]::Floor($video)
+    $plan = Get-CompressionBitratePlan -TargetBytes ([long][math]::Floor($TargetBytes)) -DurationSec $DurationSec -AudioBps $AudioBps -MediaType Video
+    return [int64]$plan.VideoBitrateBps
 }
 
 function New-OutputName {

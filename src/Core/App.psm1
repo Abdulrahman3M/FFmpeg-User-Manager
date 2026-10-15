@@ -210,7 +210,8 @@ function Get-MainMenuItems {
         @{ Icon = 'Extract'; Label = 'Extract Audio from Video'; Desc = 'Save one audio stream from a video as a separate audio file.'; Value = 'ExtractAudio' },
         @{ Icon = 'Cut'; Label = 'Trim / Cut Media'; Desc = 'Keep only a selected time range from a video or audio file.'; Value = 'Trim' },
         @{ Icon = 'Merge'; Label = 'Merge Media'; Desc = 'Join multiple compatible video or audio files into one output.'; Value = 'Merge' },
-        @{ Icon = 'Compress'; Label = 'Compress Media'; Desc = 'Reduce video or audio file size with guided quality controls.'; Value = 'Compress' },
+        @{ Icon = 'Compress'; Label = 'Compress Media'; Desc = 'Compress video, audio, JPEG, PNG, or WebP media with guided quality and file-size controls.'; Value = 'Compress' },
+        @{ Icon = 'Upscale'; Label = 'Upscale Image'; Desc = 'Enlarge an image with Lanczos scaling; upscaling adds pixels but does not restore missing detail.'; Value = 'Upscale' },
         @{ Icon = 'Resize'; Label = 'Resize / Scale Video'; Desc = 'Change video dimensions while controlling aspect ratio and fit behavior.'; Value = 'Resize' },
         @{ Icon = 'Gif'; Label = 'Video to GIF'; Desc = 'Convert a video or selected clip into an animated GIF.'; Value = 'Gif' },
         @{ Icon = 'Frames'; Label = 'Extract Frames / Images'; Desc = 'Save frames from a video as JPG, PNG, WebP, or another supported image format.'; Value = 'Frames' },
@@ -247,6 +248,7 @@ function Invoke-MainMenuAction {
         'Trim' { Start-TrimWorkflow }
         'Merge' { Start-MergeWorkflow }
         'Compress' { Start-CompressWorkflow }
+        'Upscale' { Start-UpscaleImageWorkflow }
         'Resize' { Start-ResizeWorkflow }
         'Gif' { Start-GifWorkflow }
         'Frames' { Start-ExtractFramesWorkflow }

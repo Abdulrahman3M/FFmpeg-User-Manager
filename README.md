@@ -5,7 +5,7 @@
 # FFmpeg User Manager `v0.1.1`
 
 **A modern interactive PowerShell TUI for FFmpeg on Windows.**
-Convert, compress, trim, merge, extract, resize, make GIFs, slideshows and recordings, manage subtitles, metadata and streams, analyze and batch-process media - without writing FFmpeg commands.
+Convert, compress, upscale images, trim, merge, extract, resize, make GIFs, slideshows and recordings, manage subtitles, metadata and streams, analyze and batch-process media - without writing FFmpeg commands.
 
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?logo=powershell&logoColor=white)
@@ -39,7 +39,8 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 ### Typical use cases
 
 * Turn a screen recording or clip into a small, good-looking **GIF**.
-* **Compress** a large video for sharing, or aim for an approximate file size.
+* **Compress** video, audio or images with six simple strategies, codec-aware Advanced controls and measured output-size results.
+* **Upscale** JPEG, PNG or WebP images by 1.5x, 2x, 4x or a custom resolution with Lanczos, while preserving aspect ratio and supported transparency.
 * **Convert** between MP4, MKV, WebM, MOV and audio formats; **extract** audio or frames.
 * **Trim**, **merge**, **resize**, **crop/rotate/flip**, change **speed** or **frame rate**.
 * Add **subtitles**, **text** or a **logo**, normalize **loudness**, create **HLS** output.
@@ -61,7 +62,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 |---|
 | <img src="docs/images/main-menu-console-safe.png" alt="Main menu with the console-safe symbol icons used in the classic Windows console" width="560"> |
 
-> The screenshots are real frames of the running application, captured in a Linux terminal (see [docs/images/README.md](docs/images/README.md)). Windows Terminal looks very similar.
+> The screenshots are real frames of the running application, captured in a Linux terminal (see [docs/images/README.md](docs/images/README.md)). The main-menu image predates the new `07 Upscale Image` entry; it is retained until a fresh real-application capture is available. Windows Terminal looks very similar.
 > The last one shows the symbol icon set that the classic Windows console uses, so icons are visible even where emoji cannot be drawn.
 
 ## Key features
@@ -86,7 +87,8 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Extract audio** | Copy or convert a chosen audio track, optionally only a time range |
 | **Trim / cut** | Fast (stream copy) or accurate (re-encode) cuts for video and audio |
 | **Merge** | Lossless concatenation when compatible, otherwise re-encode to common settings; reorderable list |
-| **Compress** | Smaller file, quality target, bitrate, or approximate target size; video and audio |
+| **Compress** | Six Simple strategies or Advanced controls for video/audio and JPEG/PNG/WebP; approximate size/reduction targets and measured results |
+| **Upscale image** | JPEG, PNG or WebP at 1.5x, 2x, 4x or custom, aspect-preserving Lanczos; PNG/WebP preserve alpha where present |
 | **Resize / scale** | Presets or custom size; preserve aspect, fit, fill/crop or stretch |
 | **Video to GIF** | Clip range, FPS, speed, size (from 320 px up to 1080 / 2K / 4K / 8K wide, or custom), high-quality palette, dithering, loop control |
 | **Extract frames** | Single frame, interval, FPS or range as PNG / JPEG / WebP / BMP / TIFF |
@@ -310,8 +312,7 @@ FFmpeg itself is **not** part of this project and is not distributed with it: th
 
 ## Project status
 
-**Pre-release series (version 0.x), current source version v0.1.1 (first published release v0.1.0).** All workflows listed above are implemented. The automated suite (more than 1,300 checks) passes on **Windows PowerShell 5.1** and on
-**PowerShell 7** on a GitHub-hosted Windows runner (FFmpeg 9.0.2) and on PowerShell 7.4 on Linux (FFmpeg 6.1); the launcher is tested with the real `cmd` interpreter.
+**Pre-release series (version 0.x), current source version v0.1.1 (first published release v0.1.0).** All workflows listed above are implemented. The current local Windows run (FFmpeg 9.0.2) reports **1,483 PASS, 0 FAIL, 3 UNVERIFIED** on both Windows PowerShell 5.1 and PowerShell 7.6.5. Historical GitHub Windows and PowerShell 7.4/Linux results, plus the reasons for local `UNVERIFIED` checks, are listed in [docs/Testing.md](docs/Testing.md); the launcher is tested with the real `cmd` interpreter.
 **Not yet verified by any automated run and therefore not claimed:** rendering in a real Windows Terminal / classic console, real `winget` installs and updates, the native file picker and Explorer integration,
 and screen / webcam / microphone recording on real devices. `tools/Test-WindowsLocal.ps1` lists these checks. Version 1.0.0 is reserved until they are done (see
 [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md)). Details: [docs/Testing.md](docs/Testing.md).
