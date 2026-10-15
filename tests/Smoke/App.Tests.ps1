@@ -15,7 +15,7 @@ function Invoke-Launcher {
 }
 
 Set-TestGroup 'Launcher: startup and exit'
-$r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '29')
+$r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '30')
 Assert-Equal 'starts, shows the main menu and exits with code 0' 0 $r.ExitCode
 Assert-Contains 'main menu was rendered' $r.StdOut 'Convert Video Format'
 Assert-Contains 'header shows the product name and canonical version' $r.StdOut ('FFmpeg User Manager v' + (Get-Content -LiteralPath (Join-Path $root 'VERSION') -TotalCount 1).Trim())
@@ -25,7 +25,7 @@ Assert-Contains 'non-interactive refusal explains why' $r.StdOut 'interactive co
 Assert-True 'non-interactive refusal is not a crash (no stack trace)' (-not $r.StdOut.Contains('at <ScriptBlock>') -and -not $r.StdErr.Contains('at <ScriptBlock>'))
 
 Set-TestGroup 'Terminal: ANSI mode and restoration'
-$r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '29') @{ FFTUI_FORCE_ANSI = '1'; FFTUI_UNICODE = '1'; FFTUI_ICONS = 'emoji' }
+$r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '30') @{ FFTUI_FORCE_ANSI = '1'; FFTUI_UNICODE = '1'; FFTUI_ICONS = 'emoji' }
 Assert-Contains 'ANSI: color escape sequences are emitted' $r.StdOut ($ESC + '[')
 Assert-Contains 'ANSI: alternate screen entered (scrollback preserved)' $r.StdOut ($ESC + '[?1049h')
 Assert-Contains 'ANSI: alternate screen left on exit' $r.StdOut ($ESC + '[?1049l')
@@ -34,7 +34,7 @@ Assert-Contains 'ANSI: colors reset on exit' $r.StdOut ($ESC + '[0m')
 Assert-True 'ANSI: cursor is restored AFTER the last screen was drawn' ($r.StdOut.LastIndexOf($ESC + '[?25h') -gt $r.StdOut.IndexOf('Convert Video Format'))
 Assert-Contains 'ANSI: dim (bright black) is used for secondary descriptions' $r.StdOut ($ESC + '[90m')
 Assert-Contains 'Unicode icons render in UTF-8 terminals' $r.StdOut ([string][char]::ConvertFromUtf32(0x1F3AC))
-$r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '29') @{ FFTUI_NO_ANSI = '1'; FFTUI_ASCII = '1'; NO_COLOR = '1' }
+$r = Invoke-Launcher @('-SkipUpdateCheck', '-ScriptedInput', '30') @{ FFTUI_NO_ANSI = '1'; FFTUI_ASCII = '1'; NO_COLOR = '1' }
 Assert-Equal 'non-ANSI: exits normally' 0 $r.ExitCode
 Assert-True 'non-ANSI: no ANSI escape sequences at all' (-not $r.StdOut.Contains($ESC + '[?1049') -and -not $r.StdOut.Contains($ESC + '[90m') -and -not $r.StdOut.Contains($ESC + '[96m'))
 Assert-Contains 'non-ANSI: ASCII icon markers keep the menu readable' $r.StdOut '[VIDEO]'
@@ -86,26 +86,28 @@ try {
 } catch { Skip-Test 'stale PATH entry (real PATH)' "could not prepare the PATH sandbox: $($_.Exception.Message)" }
 
 Set-TestGroup 'Main menu integration (scripted, in-process)'
-$MM = '01-29 Type a number'
+$MM = '01-30 Type a number'
 $vid = New-Fixture 'app video.mp4' @('-f', 'lavfi', '-i', 'testsrc=duration=2:size=320x240:rate=25', '-f', 'lavfi', '-i', 'sine=duration=2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest')
-$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '08' 1), (New-Rule 'Input video' '{Esc}'), (New-ScreenRule $MM '29')) -Height 60
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '08' 1), (New-Rule 'Input video' '{Esc}'), (New-ScreenRule $MM '30')) -Height 60
 Assert-Contains 'shortcut 8 opens the Video to GIF wizard' $ui.Output 'Video to GIF'
 Assert-True 'Escape returns from a wizard to the main menu, Q then exits' ($ui.Error -eq '')
-$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '27' 1), (New-ScreenRule 'FFmpeg Status / Settings' '{#Back}' 1), (New-ScreenRule $MM '29')) -Height 60
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '27' 1), (New-ScreenRule 'FFmpeg Status / Settings' '{#Back}' 1), (New-ScreenRule $MM '30')) -Height 60
 Assert-True '27 opens the status screen, Back returns to the menu' ($ui.Output.Contains('Re-scan capabilities') -and $ui.Error -eq '')
-$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '17' 1), (New-ScreenRule 'Work with supported streams' '{Esc}' 1), (New-ScreenRule $MM '29')) -Height 60
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '17' 1), (New-ScreenRule 'Work with supported streams' '{Esc}' 1), (New-ScreenRule $MM '30')) -Height 60
 Assert-True '17 opens the Streaming / HLS submenu, Esc returns' ($ui.Output.Contains('Create HLS Output from Media File') -and $ui.Error -eq '')
-$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '11' 1), (New-ScreenRule 'Extract, add, remove, copy or burn' '{Esc}' 1), (New-ScreenRule $MM '29')) -Height 60
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '11' 1), (New-ScreenRule 'Extract, add, remove, copy or burn' '{Esc}' 1), (New-ScreenRule $MM '30')) -Height 60
 Assert-True '11 opens Subtitle Tools' ($ui.Output.Contains('Add / Mux Subtitle') -and $ui.Error -eq '')
-$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '18' 1), (New-Rule 'File to inspect' "$vid{Enter}" 1), (New-ScreenRule 'More actions' '{Esc}' 1), (New-ScreenRule $MM '29')) -Height 60
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '18' 1), (New-Rule 'File to inspect' "$vid{Enter}" 1), (New-ScreenRule 'More actions' '{Esc}' 1), (New-ScreenRule $MM '30')) -Height 60
 Assert-True '18 inspects a file and returns to the menu' ($ui.Output.Contains('H.264') -and $ui.Error -eq '')
-$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '{Down}{Down}{Enter}' 1), (New-Rule 'Input video' '{Esc}' 1), (New-ScreenRule $MM '29')) -Height 60
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '{Down}{Down}{Enter}' 1), (New-Rule 'Input video' '{Esc}' 1), (New-ScreenRule $MM '30')) -Height 60
 Assert-Contains 'arrow keys + Enter open the highlighted item (third: Extract Audio from Video)' $ui.Output 'Save one audio stream from a video as a separate audio file.'
-$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '01' 1), (New-Rule 'Input video' "$vid{Enter}" 1), (New-ScreenRule 'Completed successfully' '{#Run again}' 1), (New-Rule 'Input video' '{Esc}' 1), (New-ScreenRule $MM '29')) -Height 60
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '01' 1), (New-Rule 'Input video' "$vid{Enter}" 1), (New-ScreenRule 'Completed successfully' '{#Run again}' 1), (New-Rule 'Input video' '{Esc}' 1), (New-ScreenRule $MM '30')) -Height 60
 Assert-True 'a workflow can be repeated with "Run again" and the menu is reachable afterwards' ($ui.Error -eq '')
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '29' 1), (New-ScreenRule 'Web Media Optimization' '{Esc}' 1), (New-ScreenRule $MM '30')) -Height 60
+Assert-True '29 opens the web media submenu and Escape returns to the main menu' ($ui.Error -eq '' -and $ui.Output.Contains('Convert Video to WebM') -and $ui.Output.Contains('Convert Images to WebP') -and $ui.Output.Contains('Manage 3D Converter'))
 # unexpected exceptions inside a workflow never take the app down
 function global:Start-GifWorkflow { throw 'simulated failure inside a workflow' }
-$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '08' 1), (New-ScreenRule 'Something went wrong' '{#Show technical}' 1), (New-ScreenRule 'Technical details' '{Esc}' 1), (New-ScreenRule 'Something went wrong' '{#Back to the main}' 1), (New-ScreenRule $MM '29')) -Height 60
+$ui = Invoke-Flow { Start-MainMenu } @((New-ScreenRule $MM '08' 1), (New-ScreenRule 'Something went wrong' '{#Show technical}' 1), (New-ScreenRule 'Technical details' '{Esc}' 1), (New-ScreenRule 'Something went wrong' '{#Back to the main}' 1), (New-ScreenRule $MM '30')) -Height 60
 Import-Module -Name (Join-Path (Join-Path (Join-Path (Get-TestRoot) 'src') 'Workflows') 'VideoToGif.psm1') -Force -DisableNameChecking -Global
 Assert-Contains 'an unexpected error inside a workflow is contained and explained' $ui.Output 'Something went wrong'
 Assert-Contains 'the error text is available under technical details' $ui.Output 'simulated failure inside a workflow'

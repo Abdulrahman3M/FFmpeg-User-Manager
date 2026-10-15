@@ -45,7 +45,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 * Add **subtitles**, **text** or a **logo**, normalize **loudness**, create **HLS** output.
 * Change a container **without re-encoding**, pick audio languages, edit **metadata and chapters**, embed cover art.
 * Build a **slideshow** or time-lapse from pictures, turn audio into video, **record** the screen, a webcam or a microphone (Windows).
-* **Analyze** a file (volume, loudness, silence, black frames, scene cuts, quality), **batch-convert** a whole folder, or reach any other FFmpeg feature through **Advanced FFmpeg**.
+* **Analyze** a file (volume, loudness, silence, black frames, scene cuts, quality), **batch-convert** a whole folder, or use **Web Media Optimization** for WebM/WebP and optional OBJ-to-GLB conversion.
 
 ## Preview
 
@@ -63,6 +63,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 
 > The screenshots are real frames of the running application, captured in a Linux terminal (see [docs/images/README.md](docs/images/README.md)). Windows Terminal looks very similar.
 > The last one shows the symbol icon set that the classic Windows console uses, so icons are visible even where emoji cannot be drawn.
+> The main-menu captures predate the Web Media Optimization entry and do not show the current menu inventory; see the screenshot note in [docs/images/README.md](docs/images/README.md).
 
 ## Key features
 
@@ -106,10 +107,13 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Record / capture** | Screen, webcam and microphone recording for a set time (Windows) |
 | **Analyze & detect** | Volume, loudness, silence, black frames, scene changes, black bars, PSNR/SSIM quality comparison |
 | **Batch convert** | One video or audio conversion applied to selected files or a folder; compatible/unsupported scan counts, optional sub-folders, sequential queue, per-file failure reporting and safe collision policy |
+| **Web media optimization** | Encode WebM with available VP9/AV1 encoders and an optional three-sample size estimate; estimate output from planned bitrates; convert PNG/JPG/JPEG files to lossy or lossless WebP; optionally convert OBJ to validated GLB with an existing Assimp CLI |
 | **Check & maintain** | Guided health check of the FFmpeg setup: install/repair FFmpeg, check for updates, emoji font, icon style, capability re-scan - each step explained and asked first |
 | **Advanced FFmpeg** | Capability browser (all encoders, filters, formats...), custom command, GPU check, build details |
 | **FFmpeg status** | Paths, version, capabilities, hardware accelerators, update check |
 | **Streaming / HLS** | (also) send a file out to an RTMP / SRT / UDP address |
+
+WebM size estimates are approximate and do not create a full output encode. The three-sample estimate encodes only short representative segments. WebP conversion reports measured output sizes. OBJ-to-GLB requires an Assimp CLI already installed or selected by the user; the application does not download or install it.
 
 Every option of every workflow is described in [docs/Workflows.md](docs/Workflows.md).
 
@@ -120,6 +124,7 @@ Every option of every workflow is described in [docs/Workflows.md](docs/Workflow
 | Operating system | Windows 10 or 11 |
 | PowerShell | Windows PowerShell 5.1 (built into Windows) **or** PowerShell 7.x - PowerShell 7 is preferred automatically when installed |
 | FFmpeg | `ffmpeg` and `ffprobe` on `PATH`. Not installed yet? The app offers to install them with winget (package `Gyan.FFmpeg`) |
+| Optional 3D conversion | An existing Assimp command-line executable for OBJ-to-GLB; it is not bundled, downloaded, or installed by the app |
 | Terminal | Windows Terminal recommended (colors and emoji icons). The classic console works too and shows symbol icons. The PowerShell ISE is not supported |
 | Internet | Only for installing/updating FFmpeg and for network streams |
 

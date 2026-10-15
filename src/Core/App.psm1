@@ -233,6 +233,7 @@ function Get-MainMenuItems {
         @{ Icon = 'Code'; Label = 'Advanced FFmpeg'; Desc = 'Browse every codec and filter, test the GPU, or run your own FFmpeg options.'; Value = 'Advanced' },
         @{ Icon = 'Settings'; Label = 'FFmpeg Status / Settings'; Desc = 'View FFmpeg version, detected capabilities, paths, and update status.'; Value = 'Status' },
         @{ Icon = 'Hardware'; Label = 'Check & Maintain FFmpeg Setup'; Desc = 'Find problems, then update or repair step by step. Each step is explained and asks first.'; Value = 'Maintenance' },
+        @{ Icon = 'Web'; Label = 'Web Media Optimization'; Desc = 'Estimate video sizes, convert video to WebM, images to WebP, and 3D models to GLB.'; Value = 'WebMedia' },
         @{ Icon = 'Quit'; Label = 'Exit'; Desc = 'Close FFmpeg User Manager. Nothing is left running.'; Value = 'Quit' }
     )
     return $items
@@ -269,6 +270,7 @@ function Invoke-MainMenuAction {
         'Advanced' { Start-AdvancedWorkflow }
         'Status' { Show-FFmpegStatus }
         'Maintenance' { Start-MaintenanceTool }
+        'WebMedia' { Start-WebMediaOptimizationWorkflow }
     }
 }
 

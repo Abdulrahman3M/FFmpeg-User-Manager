@@ -7,6 +7,7 @@ function Import-FFTuiModules {
         'TUI\Theme', 'TUI\Renderer', 'TUI\Input', 'TUI\Menu', 'TUI\Dialog', 'TUI\ProgressView', 'TUI\Wizard',
         'FFmpeg\FFmpegManager', 'FFmpeg\FFmpegCapabilities', 'FFmpeg\MediaProbe', 'FFmpeg\FFmpegCommandBuilder', 'FFmpeg\FFmpegProgress',
         'Workflows\WorkflowCommon',
+        'Workflows\WebMediaOptimization',
         'Workflows\ConvertVideo', 'Workflows\ConvertAudio', 'Workflows\ExtractAudio', 'Workflows\TrimMedia', 'Workflows\MergeMedia',
         'Workflows\CompressMedia', 'Workflows\ResizeVideo', 'Workflows\VideoToGif', 'Workflows\ExtractFrames',
         'Workflows\AudioTools', 'Workflows\SubtitleTools', 'Workflows\FrameRate', 'Workflows\Filters', 'Workflows\TransformVideo',

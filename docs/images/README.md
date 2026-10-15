@@ -7,8 +7,7 @@ How they were captured (honest note): the app was driven through a pseudo-termin
 interpreted by a terminal emulator library and drawn with a monospace font in a headless browser. Nothing was mocked up or edited by hand.
 Windows Terminal will look very similar but fonts, emoji and window chrome differ slightly. `main-menu-console-safe.png` is the same application started with `FFTUI_ICONS=symbol`,
 which is the icon set the classic Windows console selects automatically; it is drawn here with a Linux monospace font, **not** captured from a real Windows console.
-The images were recaptured after the numbered-option redesign (version in the header is the content of `VERSION`). Native Windows captures can replace these files at any time
-(keep the same file names).
+The images were captured after the numbered-option redesign (version in the header is the content of `VERSION`). They have not yet been recaptured to show the newer Web Media Optimization main-menu entry, so the two main-menu images are illustrative of the prior menu layout, not a current menu inventory. Native Windows captures can replace these files at any time (keep the same file names); screenshots must come from the real application.
 
 | File | Screen |
 |---|---|

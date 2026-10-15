@@ -73,7 +73,7 @@ Assert-True 'no code path still defines letter hotkeys' (-not (Get-Command Get-M
 
 Set-TestGroup 'Main menu definition'
 $mm = Get-MainMenuItems
-$labels = @('Convert Video Format', 'Convert Audio Format', 'Extract Audio from Video', 'Trim / Cut Media', 'Merge Media', 'Compress Media', 'Resize / Scale Video', 'Video to GIF', 'Extract Frames / Images', 'Audio Tools', 'Subtitle Tools', 'Change Frame Rate', 'Filters & Color', 'Crop / Rotate / Flip', 'Text & Watermark', 'Change Playback Speed', 'Streaming / HLS', 'Media Information', 'Remux & Streams', 'Metadata & Chapters', 'Images & Slideshows', 'Video Enhancement', 'Record / Capture', 'Analyze & Detect', 'Batch Convert', 'Advanced FFmpeg', 'FFmpeg Status / Settings', 'Check & Maintain FFmpeg Setup', 'Exit')
+$labels = @('Convert Video Format', 'Convert Audio Format', 'Extract Audio from Video', 'Trim / Cut Media', 'Merge Media', 'Compress Media', 'Resize / Scale Video', 'Video to GIF', 'Extract Frames / Images', 'Audio Tools', 'Subtitle Tools', 'Change Frame Rate', 'Filters & Color', 'Crop / Rotate / Flip', 'Text & Watermark', 'Change Playback Speed', 'Streaming / HLS', 'Media Information', 'Remux & Streams', 'Metadata & Chapters', 'Images & Slideshows', 'Video Enhancement', 'Record / Capture', 'Analyze & Detect', 'Batch Convert', 'Advanced FFmpeg', 'FFmpeg Status / Settings', 'Check & Maintain FFmpeg Setup', 'Web Media Optimization', 'Exit')
 Assert-Equal 'main menu labels match the required text' ($labels -join '|') (($mm | ForEach-Object { $_.Label }) -join '|')
 Assert-True 'Exit is the last numbered option (no exceptions, no letter key)' ($mm[$mm.Count - 1].Value -eq 'Quit')
 Assert-True 'every menu item (including Exit) has a description' (@($mm | Where-Object { -not $_.Desc }).Count -eq 0)
@@ -92,17 +92,19 @@ Assert-Equal 'main menu: 27 opens Status' 'Status' $ui.Value.Item.Value
 $ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '28' -Height 60
 Assert-Equal 'main menu: 28 opens Check & Maintain' 'Maintenance' $ui.Value.Item.Value
 $ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 60
-Assert-Equal 'main menu: 29 (the last number) is Exit' 'Quit' $ui.Value.Item.Value
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 80
+Assert-Equal 'main menu: 29 opens Web Media Optimization' 'WebMedia' $ui.Value.Item.Value
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '30' -Height 60
+Assert-Equal 'main menu: 30 (the last number) is Exit' 'Quit' $ui.Value.Item.Value
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '30' -Height 80
 $f = Get-LastFrame $ui.Output
 $missing = ''
-foreach ($n in 1..29) { $num = ('{0:00}' -f $n); if ($f -notmatch "(?m)^\s*(?:\S\s)?\s*$num\s+\S+\s+\S") { $missing = $num; break } }
-Assert-True 'all 29 options are numbered 01..29 in order, each as Number, Icon, Name' ($missing -eq '') "missing $missing"
+foreach ($n in 1..30) { $num = ('{0:00}' -f $n); if ($f -notmatch "(?m)^\s*(?:\S\s)?\s*$num\s+\S+\s+\S") { $missing = $num; break } }
+Assert-True 'all 30 options are numbered 01..30 in order, each as Number, Icon, Name' ($missing -eq '') "missing $missing"
 Assert-True 'no option is labeled with a letter (A., B., [S], [Q] ...)' ($f -notmatch '(?m)^\s*(?:\S\s)?\s*\[?[A-Za-z]\]?[\.\)]\s')
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 80
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '30' -Height 80
 Assert-Contains 'tall terminal shows a description under every option' $ui.Output 'Convert a video to another container or video format.'
 Assert-Contains 'the last option shows its description too' $ui.Output 'Close FFmpeg User Manager.'
-$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '29' -Height 25
+$ui = Invoke-Ui { Show-Menu -Items $mm -ShowHeader } '30' -Height 25
 Assert-True 'short terminal keeps every item reachable (scrolling, selected item description shown)' ($ui.Value.Item.Value -eq 'Quit')
 
 Set-TestGroup 'Layout: narrow / normal / wide terminals'
@@ -141,7 +143,7 @@ foreach ($n in (Get-IconNames)) {
 }
 # Symbol-tier glyphs must belong to the Windows Glyph List 4 (WGL4): Consolas, Lucida Console, Courier New and
 # Cascadia Mono all contain it, so the legacy console always has a glyph to draw.
-$wgl4 = @(0x2022, 0x203C, 0x2229, 0x2642, 0x25CF, 0x25D8, 0x2660, 0x2663, 0x2665, 0x2190, 0x2191, 0x2192, 0x2193, 0x2194, 0x2195, 0x221A, 0x221E, 0x2248, 0x2261, 0x2302, 0x2500, 0x2502, 0x250C, 0x2510, 0x2514, 0x2518, 0x2550, 0x256C, 0x25A0, 0x25B2, 0x25BA, 0x25BC, 0x25C4, 0x25CB, 0x263A, 0x263B, 0x263C, 0x2666, 0x266A, 0x266B)
+$wgl4 = @(0x2022, 0x203C, 0x2229, 0x2605, 0x2642, 0x25CF, 0x25D8, 0x2660, 0x2663, 0x2665, 0x2190, 0x2191, 0x2192, 0x2193, 0x2194, 0x2195, 0x221A, 0x221E, 0x2248, 0x2261, 0x2302, 0x2500, 0x2502, 0x250C, 0x2510, 0x2514, 0x2518, 0x2550, 0x256C, 0x25A0, 0x25B2, 0x25BA, 0x25BC, 0x25C4, 0x25CB, 0x263A, 0x263B, 0x263C, 0x2666, 0x266A, 0x266B)
 function Test-Wgl4 { param([string]$Text) foreach ($ch in $Text.ToCharArray()) { $c = [int]$ch; if (-not (($c -ge 0x20 -and $c -le 0x7E) -or ($c -ge 0xA0 -and $c -le 0xFF) -or ($wgl4 -contains $c))) { return $false } }; return $true }
 Initialize-Renderer -Ansi $false -Unicode 'Symbol' -Sink Buffer -Width 100 -Height 30
 $notWgl = @(); foreach ($n in (Get-IconNames)) { $g = Get-Icon $n; if (-not (Test-Wgl4 $g)) { $notWgl += "$n=U+{0:X4}" -f [int][char]$g } }
@@ -210,6 +212,9 @@ $ui = Invoke-Ui { Invoke-Wizard -Title 'T' -Steps (New-WizTestSteps) } '{Esc}'
 Assert-Equal 'Back on the first question cancels the wizard' 'Cancelled' $ui.Value.Status
 $ui = Invoke-Ui { Invoke-Wizard -Title 'T' -Steps (New-WizTestSteps) } '{CtrlC}'
 Assert-Equal 'Ctrl+C cancels the wizard' 'Cancelled' $ui.Value.Status
+$resumeSteps = @(@{ Id = 'pick'; Type = 'Choice'; Prompt = 'Pick'; Help = 'Choose one.'; Choices = { param($W) @((New-Choice 'x' 'Ex' 'First option.'), (New-Choice 'y' 'Why' 'Second option.')) } }, @{ Id = 'name'; Type = 'Text'; Prompt = 'Name'; Help = 'Type a name.'; Example = 'example' })
+$ui = Invoke-Ui { Invoke-Wizard -Title 'T' -Steps $resumeSteps -InitialAnswers @{ pick = 'y'; name = 'Saved name' } } '{Enter}{Enter}'
+Assert-True 'wizard can reopen with prior answers prefilled for a settings-change loop' ($ui.Value.Status -eq 'Completed' -and $ui.Value.Answers['pick'] -eq 'y' -and $ui.Value.Answers['name'] -eq 'Saved name')
 $ui = Invoke-Ui { Invoke-Wizard -Title 'T' -Steps (New-WizTestSteps) } '5{Enter}'
 Assert-True 'multiple-choice options are rendered as Number, Icon, Name' ((Get-LastFrame $ui.Output) -match '(?m)^\s*(?:\S\s)?\s*01\s+\S+\s+Ex\s*$')
 # Summary + build

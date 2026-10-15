@@ -58,7 +58,8 @@ Common questions (used by most workflows):
 | 26 | Advanced FFmpeg | [26](#26-advanced-ffmpeg) |
 | 27 | FFmpeg Status / Settings | [27](#27-ffmpeg-status--settings) |
 | 28 | Check & Maintain FFmpeg Setup | [28](#28-check--maintain-ffmpeg-setup) |
-| 29 | Exit | closes the application |
+| 29 | Web Media Optimization | [29](#29-web-media-optimization) |
+| 30 | Exit | closes the application |
 
 ## FFmpeg capability coverage
 
@@ -67,7 +68,7 @@ Options whose encoder, filter, muxer or protocol is missing from the installed b
 
 | FFmpeg category | Where |
 |---|---|
-| Video / audio conversion and transcoding, codecs and containers | 01, 02, 06, 25 (batch), 26 (any encoder/format via the custom command) |
+| Video / audio conversion and transcoding, codecs and containers | 01, 02, 06, 25 (batch), 26 (any encoder/format via the custom command), 29 (WebM) |
 | Remuxing (container change without re-encoding) | 19 |
 | Trimming, cutting, joining | 04, 05 |
 | Decoding / encoding, hardware acceleration | 01 and 06 (hardware decoding and GPU encoders, tested before they are offered), 26 (hardware check) |
@@ -76,7 +77,7 @@ Options whose encoder, filter, muxer or protocol is missing from the installed b
 | Bitrate, quality, compression, target size | 01, 06 |
 | Audio extraction, volume, channels, sample rate, loudness, effects | 03, 10 |
 | Filters and color, denoise, deinterlace, stabilize, fades | 13, 22, 26 (filter browser) |
-| Images, image sequences, GIF, thumbnails | 08, 09, 21 |
+| Images, image sequences, GIF, thumbnails and WebP | 08, 09, 21, 29 |
 | Subtitles | 11 |
 | Metadata, chapters, cover art | 20 |
 | Streams and stream mapping (keep selected, language, default track) | 19, 26 |
@@ -217,3 +218,13 @@ A guided health check in five steps. Before each step you are told what it does,
 1. **FFmpeg and ffprobe** - found and really started; if missing or broken you may install them with winget. 2. **FFmpeg updates** - asks winget; updating asks again.
 3. **Emoji font** - checks that Segoe UI Emoji (part of Windows 10/11) exists; if it does not, the tool explains and suggests the symbol icons (no download, no system repair); it also reports whether Windows Terminal was detected. 4. **Icon style** - emoji or symbols, with a preview.
 5. **Capability re-scan**. A summary lists what was checked, repaired or skipped.
+
+## 29 Web Media Optimization
+
+1. **Convert Video to WebM** - choose a VP9 or AV1 encoder only when the installed FFmpeg build exposes it and can mux WebM. Choose an encoder-specific quality level, compatible audio (Opus/Vorbis/copy when the source codec is compatible), and an optional output resolution. Before the final encode, the wizard estimates the resulting size either from bitrate and duration or by encoding exactly three short representative samples (near the start, middle and end). Sampling is approximate, is explicitly identified as temporary work, and never performs a hidden full conversion. Review the estimate to continue, change settings, or cancel. The result reports measured input/output sizes and reduction; the estimate does not promise the result will be smaller.
+2. **Estimate Video Size** - enter planned video and optional audio bitrates; the app estimates a likely range from duration and bitrate. This performs no encode and creates no media file.
+3. **Convert Images to WebP** - select PNG/JPG/JPEG files or a folder; choose lossy quality or lossless mode. Batch conversion is capped at 500 images and collisions are handled by skip, rename, or an explicit overwrite choice. Results use actual filesystem sizes. Lossless output may not be smaller.
+4. **Convert OBJ to GLB** - requires the optional Assimp command-line tool to already be installed or explicitly selected by its path. The app does not download or install it. The workflow inspects referenced MTL/material/texture files before export and warns if dependencies are missing; after conversion it validates the GLB 2 header and JSON metadata and reports missing UVs/normals or unresolved/external assets when detectable. Material and texture retention depends on the source and installed Assimp exporter; inspect the result in a 3D viewer before relying on it.
+5. **Manage 3D Converter** - inspect why Assimp is unavailable or select an existing executable. No network access or installer is used.
+
+Codec, muxer and optional-tool availability is detected from the installed tools rather than assumed. All output writes preserve the source and use the normal collision protections.
