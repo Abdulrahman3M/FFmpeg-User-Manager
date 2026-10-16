@@ -22,6 +22,8 @@ functions can call each other. Module-private state uses `$script:` variables.
 
 `Core/ExternalLibraries.psm1` validates `External-Libraries/manifest.json`, compares Semantic Versions and package rebuild revisions, and performs bounded HTTPS GETs only to allowlisted official upstream and package-manager metadata endpoints. Startup reports stable updates but never downloads or replaces package files. Bundled executable and DLL paths are resolved from the project tree.
 
+The manifest is the canonical version, architecture, edition-policy, source, integrity and platform-evidence inventory for bundled runtimes. `FFmpegManager.psm1` resolves FFmpeg and ffprobe as one validated pair in this order: application-bundled runtime, the explicit `FFTUI_FFMPEG_PATH` directory, then the existing system discovery path. It never combines executables from different tiers. The resolved source and directory are exposed through `Find-FFmpegInstallation` and `Get-FFmpegInfo`; the existing capability scanner continues to inspect the selected executable.
+
 ## Core
 
 | Module | Responsibility |

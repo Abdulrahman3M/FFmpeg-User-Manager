@@ -7,14 +7,33 @@ function Get-ExternalLibraryManifest {
     $path = Join-Path (Join-Path $root 'External-Libraries') 'manifest.json'
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'The external library manifest is missing.' }
     $manifest = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
-    if ($manifest.SchemaVersion -ne 1 -or @($manifest.Libraries).Count -eq 0) { throw 'The external library manifest has an unsupported or empty schema.' }
+    if ($manifest.SchemaVersion -ne 2 -or @($manifest.Libraries).Count -eq 0) { throw 'The external library manifest has an unsupported or empty schema.' }
+    $seenIds = @{}
     foreach ($library in @($manifest.Libraries)) {
-        if (-not $library.Id -or -not (Test-SemVer ([string]$library.CurrentVersion))) { throw 'The external library manifest contains an invalid library id or version.' }
+        $libraryId = [string]$library.Id
+        if (-not $libraryId -or $seenIds.ContainsKey($libraryId) -or -not (Test-SemVer ([string]$library.CurrentVersion))) { throw 'The external library manifest contains a duplicate/invalid library id or version.' }
+        $seenIds[$libraryId] = $true
+        if (@('x86', 'x64', 'arm64') -notcontains [string]$library.Architecture) { throw 'The external library manifest contains an unsupported architecture.' }
+        if ($library.BundledInFull -isnot [bool] -or $library.BundledInLite -isnot [bool] -or (-not $library.BundledInFull -and -not $library.BundledInLite)) { throw 'The external library manifest omits a valid edition policy.' }
+        if (-not $library.Source -or -not $library.License -or -not $library.AcquisitionDate -or -not $library.LastVerified -or -not $library.WindowsSupport.Status -or -not $library.WindowsSupport.Verified -or -not $library.LinuxSupport.Status -or -not $library.LinuxSupport.Verified) { throw 'The external library manifest omits required provenance, license, acquisition date, verification date or platform status.' }
+        $sourceEndpoint = $null
+        if (-not [System.Uri]::TryCreate([string]$library.SourceUri, [System.UriKind]::Absolute, [ref]$sourceEndpoint) -or $sourceEndpoint.Scheme -ne 'https' -or $sourceEndpoint.Host -notin @('github.com', 'gitlab.com', 'www.ffmpeg.org', 'ffmpeg.org')) { throw 'The external library manifest contains an untrusted source endpoint.' }
+        $verifiedDate = [datetime]::MinValue
+        if (-not [datetime]::TryParseExact([string]$library.LastVerified, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$verifiedDate)) { throw 'The external library manifest contains an invalid verification date.' }
+        if (@($library.Files).Count -eq 0) { throw 'The external library manifest omits the runtime file inventory.' }
+        foreach ($file in @($library.Files)) {
+            if (-not $file.Path -or [string]$file.Path -match '(^|[\\/])\.\.([\\/]|$)' -or [string]$file.Path -match '^([\\/]|[A-Za-z]:)' -or [string]$file.Sha256 -notmatch '^[A-Fa-f0-9]{64}$') { throw 'The external library manifest contains an unsafe path or invalid runtime file hash.' }
+        }
         $endpoint = $null; $packageEndpoint = $null
         if (-not [System.Uri]::TryCreate([string]$library.MetadataUri, [System.UriKind]::Absolute, [ref]$endpoint) -or $endpoint.Scheme -ne 'https' -or $endpoint.Host -ne 'api.github.com') { throw 'The external library manifest contains an untrusted upstream metadata endpoint.' }
-        if (-not [System.Uri]::TryCreate([string]$library.PackageMetadataUri, [System.UriKind]::Absolute, [ref]$packageEndpoint) -or $packageEndpoint.Scheme -ne 'https' -or $packageEndpoint.Host -ne 'packages.msys2.org' -or $packageEndpoint.AbsolutePath -ne '/api/search' -or $packageEndpoint.Query -notmatch ('(^|[?&])query=' + [regex]::Escape([string]$library.PackageName) + '(&|$)') -or $packageEndpoint.Query -notmatch '(^|[?&])qtype=binpkg(&|$)') { throw 'The external library manifest contains an untrusted package metadata endpoint.' }
-        if (-not $library.PackageBaseName -or -not $library.PackageRealName -or -not $library.PackageRepository) { throw 'The external library manifest omits the exact package-manager identity.' }
-        if (@($library.RuntimePackages).Count -eq 0) { throw 'The external library manifest omits the runtime package inventory.' }
+        if (-not [System.Uri]::TryCreate([string]$library.PackageMetadataUri, [System.UriKind]::Absolute, [ref]$packageEndpoint) -or $packageEndpoint.Scheme -ne 'https' -or $packageEndpoint.Host -notin @('api.github.com', 'packages.msys2.org')) { throw 'The external library manifest contains an untrusted package metadata endpoint.' }
+        if ($libraryId -eq 'assimp') {
+            if ($packageEndpoint.AbsolutePath -ne '/api/search' -or $packageEndpoint.Host -ne 'packages.msys2.org' -or $packageEndpoint.Query -notmatch ('(^|[?&])query=' + [regex]::Escape([string]$library.PackageName) + '(&|$)') -or $packageEndpoint.Query -notmatch '(^|[?&])qtype=binpkg(&|$)') { throw 'The Assimp manifest contains an untrusted package metadata endpoint.' }
+            if (-not $library.PackageBaseName -or -not $library.PackageRealName -or -not $library.PackageRepository -or @($library.RuntimePackages).Count -eq 0) { throw 'The Assimp manifest omits its exact package-manager identity or runtime package inventory.' }
+        } elseif ($libraryId -eq 'ffmpeg') {
+            if ($packageEndpoint.AbsolutePath -ne '/repos/microsoft/winget-pkgs/contents/manifests/g/Gyan/FFmpeg/Shared' -or $library.PackageManagerId -ne 'Gyan.FFmpeg.Shared' -or $library.PackageVersion -ne $library.CurrentVersion -or [string]$library.License -ne 'GPL-3.0' -or [string]$library.PackageArchiveSha256 -notmatch '^[A-Fa-f0-9]{64}$' -or -not $library.SourceFile -or @($library.LicenseFiles).Count -eq 0) { throw 'The FFmpeg manifest omits the pinned package identity, license/source paths or integrity metadata.' }
+            if (@($library.Files | Where-Object { $_.Path -eq 'FFmpeg/bin/ffmpeg.exe' }).Count -ne 1 -or @($library.Files | Where-Object { $_.Path -eq 'FFmpeg/bin/ffprobe.exe' }).Count -ne 1) { throw 'The FFmpeg manifest must inventory both required executables.' }
+        }
     }
     return $manifest
 }
@@ -74,6 +93,17 @@ function Compare-ExternalPackageVersion {
 function Get-ExternalPackageMetadataVersion {
     param([Parameter(Mandatory)]$Metadata, [Parameter(Mandatory)][string]$Id)
     $library = Get-ExternalLibraryDefinition -Id $Id
+    if ([string]::Equals([string]$library.Id, 'ffmpeg', [StringComparison]::OrdinalIgnoreCase)) {
+        $versions = @()
+        foreach ($entry in @($Metadata)) {
+            $entryName = [string]$entry.name
+            if ($entryName -match '^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$') { $versions += $entryName }
+        }
+        if ($versions.Count -eq 0) { throw 'The official winget manifest metadata did not return any valid FFmpeg package versions.' }
+        $newest = $versions[0]
+        foreach ($candidate in $versions | Select-Object -Skip 1) { if ((Compare-SemVerPrecedence -Left $candidate -Right $newest) -gt 0) { $newest = $candidate } }
+        return $newest
+    }
     $packageResult = $Metadata.results.exact
     if (-not $packageResult -or -not [string]::Equals([string]$packageResult.name, [string]$library.PackageBaseName, [StringComparison]::OrdinalIgnoreCase) -or -not [string]::Equals([string]$packageResult.realname, [string]$library.PackageRealName, [StringComparison]::OrdinalIgnoreCase)) { throw 'The official package metadata did not return the expected package.' }
     $hasRepository = $false
@@ -117,10 +147,11 @@ function Get-ExternalLibraryUpdateStatus {
         else { $upstreamState = 'UpToDate'; $upstreamMessage = 'The bundled upstream version matches the latest stable release.' }
     }
     if ($packageError) { $packageMessage = $packageError }
-    elseif (-not [regex]::IsMatch($LatestPackageVersion, '^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-(?:0|[1-9]\d*)$')) { $packageMessage = 'The official package metadata did not contain a valid package version.' }
+    elseif (($library.Id -eq 'ffmpeg' -and -not (Test-SemVer $LatestPackageVersion)) -or ($library.Id -ne 'ffmpeg' -and -not [regex]::IsMatch($LatestPackageVersion, '^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-(?:0|[1-9]\d*)$'))) { $packageMessage = 'The official package metadata did not contain a valid package version.' }
     else {
         try {
-            if ((Compare-ExternalPackageVersion -Left $LatestPackageVersion -Right ([string]$library.PackageVersion)) -gt 0) { $packageState = 'UpdateAvailable'; $packageMessage = 'A newer stable package-manager build is available.' }
+            $packageOrder = if ($library.Id -eq 'ffmpeg') { Compare-SemVerPrecedence -Left $LatestPackageVersion -Right ([string]$library.PackageVersion) } else { Compare-ExternalPackageVersion -Left $LatestPackageVersion -Right ([string]$library.PackageVersion) }
+            if ($packageOrder -gt 0) { $packageState = 'UpdateAvailable'; $packageMessage = 'A newer stable package-manager build is available.' }
             else { $packageState = 'UpToDate'; $packageMessage = 'The bundled package-manager build matches the latest stable package.' }
         } catch { $packageMessage = 'The official package metadata did not contain a comparable package version.' }
     }

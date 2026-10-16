@@ -8,6 +8,9 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ## [Unreleased]
 
+### Added
+- The canonical external-runtime manifest now records FFmpeg alongside Assimp, and FFmpeg/ffprobe resolve as a single validated bundled, explicitly configured custom, or system pair without mixing sources.
+
 ## [0.2.0] - 2026-10-16
 
 ### Added

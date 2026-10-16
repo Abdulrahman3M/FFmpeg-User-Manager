@@ -2,7 +2,7 @@
 # UI-free: callers (App.psm1) drive the screens. External calls are injectable for tests.
 Set-StrictMode -Version 2.0
 
-$script:Tool = [pscustomobject]@{ Ffmpeg = ''; Ffprobe = ''; Ffplay = ''; Version = ''; Build = ''; ProbeVersion = '' }
+$script:Tool = [pscustomobject]@{ Ffmpeg = ''; Ffprobe = ''; Ffplay = ''; Version = ''; Build = ''; ProbeVersion = ''; Source = ''; Directory = '' }
 $script:Hooks = @{ FindCommand = $null; Winget = $null; RefreshPath = $null }
 $script:LastUpdate = [pscustomobject]@{ State = 'NotChecked'; Installed = ''; Available = ''; Message = '' }
 
@@ -75,27 +75,75 @@ function Test-FFToolCallable {
     return $r
 }
 
+function Get-BundledFFmpegPath {
+    $root = Get-AppRoot
+    if (-not $root) { return '' }
+    $path = Join-Path (Join-Path (Join-Path (Join-Path $root 'External-Libraries') 'FFmpeg') 'bin') 'ffmpeg.exe'
+    if (Test-Path -LiteralPath $path -PathType Leaf) { return $path }
+    return ''
+}
+
+function Get-BundledFFprobePath {
+    $root = Get-AppRoot
+    if (-not $root) { return '' }
+    $path = Join-Path (Join-Path (Join-Path (Join-Path $root 'External-Libraries') 'FFmpeg') 'bin') 'ffprobe.exe'
+    if (Test-Path -LiteralPath $path -PathType Leaf) { return $path }
+    return ''
+}
+
 function Find-FFmpegInstallation {
-    <# Returns Status: Ready | Missing | FfprobeMissing | Broken ; fills the tool registry when Ready. #>
-    $ff = Find-FFTool 'ffmpeg'
-    $fp = Find-FFTool 'ffprobe'
-    $res = [pscustomobject]@{ Status = 'Missing'; Ffmpeg = $ff; Ffprobe = $fp; Version = ''; Build = ''; Detail = '' }
+    <# Returns Status: Ready | Missing | FfprobeMissing | Broken ; bundled, custom and system pairs are never mixed. #>
+    $script:Tool = [pscustomobject]@{ Ffmpeg = ''; Ffprobe = ''; Ffplay = ''; Version = ''; Build = ''; ProbeVersion = ''; Source = ''; Directory = '' }
+    $ff = ''; $fp = ''; $source = ''
+    $bundledFF = Get-BundledFFmpegPath; $bundledFP = Get-BundledFFprobePath
+    if ($bundledFF -or $bundledFP) {
+        $ff = $bundledFF; $fp = $bundledFP; $source = 'Bundled'
+    } elseif ($env:FFTUI_FFMPEG_PATH) {
+        $customDirectory = [string]$env:FFTUI_FFMPEG_PATH
+        $ffPath = Join-Path $customDirectory 'ffmpeg.exe'; $fpPath = Join-Path $customDirectory 'ffprobe.exe'
+        if (Test-Path -LiteralPath $ffPath -PathType Leaf) { $ff = $ffPath }
+        if (Test-Path -LiteralPath $fpPath -PathType Leaf) { $fp = $fpPath }
+        if ($ff -or $fp -or (Test-Path -LiteralPath $customDirectory -PathType Container)) { $source = 'Custom' }
+    } else {
+        $ff = Find-FFTool 'ffmpeg'; $fp = Find-FFTool 'ffprobe'; $source = 'System'
+        if ($ff -and $fp) {
+            $ffDirectory = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath($ff))
+            $fpDirectory = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath($fp))
+            if (-not [string]::Equals($ffDirectory, $fpDirectory, [StringComparison]::OrdinalIgnoreCase)) {
+                $res = [pscustomobject]@{ Status = 'Broken'; Ffmpeg = $ff; Ffprobe = $fp; Version = ''; Build = ''; Detail = 'ffmpeg and ffprobe were found in different system runtime directories; the application will not mix them.'; Source = $source; Directory = '' }
+                return $res
+            }
+        }
+    }
+    $directory = ''
+    if ($ff) { try { $directory = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath($ff)) } catch { $directory = '' } }
+    $res = [pscustomobject]@{ Status = 'Missing'; Ffmpeg = $ff; Ffprobe = $fp; Version = ''; Build = ''; Detail = ''; Source = $source; Directory = $directory }
     if (-not $ff -and -not $fp) { return $res }
+    if ($ff -and -not $fp) {
+        $res.Status = if ($source -eq 'System') { 'FfprobeMissing' } else { 'Broken' }
+        $res.Detail = if ($source -eq 'System') { "ffmpeg was found at '$ff' but ffprobe is missing. This may be a stale PATH entry." } else { "The $($source.ToLowerInvariant()) runtime is incomplete: ffprobe is missing. The application will not mix runtimes." }
+        return $res
+    }
+    if (-not $ff) {
+        $res.Status = if ($source -eq 'System') { 'Missing' } else { 'Broken' }
+        $res.Detail = "ffprobe was found in the $($source.ToLowerInvariant()) runtime, but ffmpeg is missing. The application will not mix runtimes."
+        return $res
+    }
     $ffc = Test-FFToolCallable $ff 'ffmpeg'
     if (-not $ffc.Ok) {
-        if ($ff) { $res.Status = 'Broken'; $res.Detail = "ffmpeg was found at '$ff' but cannot be run ($($ffc.Error)). This is usually a stale PATH entry." }
-        else { $res.Status = 'Missing' }
+        $res.Status = 'Broken'
+        $res.Detail = if ($source -eq 'System') { "ffmpeg was found at '$ff' but cannot be run ($($ffc.Error)). This is usually a stale PATH entry." } else { "ffmpeg was found at '$ff' in the $($source.ToLowerInvariant()) runtime but cannot be run ($($ffc.Error))." }
         return $res
     }
     $res.Version = $ffc.Version; $res.Build = $ffc.Build
     $fpc = Test-FFToolCallable $fp 'ffprobe'
     if (-not $fpc.Ok) {
         $res.Status = 'FfprobeMissing'
-        $res.Detail = if ($fp) { "ffprobe was found at '$fp' but cannot be run ($($fpc.Error))." } else { 'ffmpeg was found but ffprobe is missing.' }
+        $res.Detail = "ffprobe was found at '$fp' but cannot be run ($($fpc.Error))."
         return $res
     }
     $res.Status = 'Ready'
-    $script:Tool = [pscustomobject]@{ Ffmpeg = $ff; Ffprobe = $fp; Ffplay = [string](Find-FFTool 'ffplay'); Version = $ffc.Version; Build = $ffc.Build; ProbeVersion = $fpc.Version }
+    $script:Tool = [pscustomobject]@{ Ffmpeg = $ff; Ffprobe = $fp; Ffplay = [string](Find-FFTool 'ffplay'); Version = $ffc.Version; Build = $ffc.Build; ProbeVersion = $fpc.Version; Source = $source; Directory = $directory }
     return $res
 }
 
@@ -237,4 +285,4 @@ function Update-FFmpegViaWinget {
     return $r
 }
 
-Export-ModuleMember -Function Set-FFManagerHooks, Get-FFmpegPath, Get-FFprobePath, Get-FFmpegInfo, Get-LastUpdateStatus, Update-ProcessPath, Find-FFTool, Test-FFToolCallable, Find-FFmpegInstallation, Get-WingetPackageId, Test-WingetAvailable, ConvertFrom-WingetPackageLine, Get-FFmpegUpdateStatus, Install-FFmpegViaWinget, Update-FFmpegViaWinget
+Export-ModuleMember -Function Set-FFManagerHooks, Get-FFmpegPath, Get-FFprobePath, Get-BundledFFmpegPath, Get-BundledFFprobePath, Get-FFmpegInfo, Get-LastUpdateStatus, Update-ProcessPath, Find-FFTool, Test-FFToolCallable, Find-FFmpegInstallation, Get-WingetPackageId, Test-WingetAvailable, ConvertFrom-WingetPackageLine, Get-FFmpegUpdateStatus, Install-FFmpegViaWinget, Update-FFmpegViaWinget

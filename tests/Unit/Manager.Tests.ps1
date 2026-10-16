@@ -150,3 +150,61 @@ $ui = Invoke-Ui { Invoke-UpdateFlow } ''
 Assert-True 'update-check failure at startup needs no key press (non-blocking)' ($ui.Error -eq '')
 Set-FFManagerHooks -Reset
 $null = Find-FFmpegInstallation
+
+Set-TestGroup 'FFmpeg runtime source selection'
+function Get-TestRuntimeSource {
+    param($Detection)
+    $sourceProperty = $Detection.PSObject.Properties['Source']
+    if ($sourceProperty) { return [string]$sourceProperty.Value }
+    return ''
+}
+$sourceRoot = Get-AppRoot
+$sourcePath = $env:PATH
+$customEnv = $env:FFTUI_FFMPEG_PATH
+$bundleRoot = Join-Path (Get-TestWork) 'runtime bundle precedence'
+$bundleBin = Join-Path $bundleRoot 'External-Libraries\FFmpeg\bin'
+$customDir = Join-Path (Get-TestWork) 'custom runtime path'
+$customRoot = Join-Path (Get-TestWork) 'custom-only application'
+$systemRoot = Join-Path (Get-TestWork) 'system-only application'
+$partialRoot = Join-Path (Get-TestWork) 'partial bundle application'
+$corruptRoot = Join-Path (Get-TestWork) 'uncallable bundle application'
+$corruptBin = Join-Path $corruptRoot 'External-Libraries\FFmpeg\bin'
+foreach ($dir in @($bundleBin, $customDir, $customRoot, $systemRoot, (Join-Path $partialRoot 'External-Libraries\FFmpeg\bin'), $corruptBin)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
+Copy-Item -LiteralPath $realFf -Destination (Join-Path $bundleBin 'ffmpeg.exe')
+Copy-Item -LiteralPath $realFp -Destination (Join-Path $bundleBin 'ffprobe.exe')
+Copy-Item -LiteralPath $realFf -Destination (Join-Path $customDir 'ffmpeg.exe')
+Copy-Item -LiteralPath $realFp -Destination (Join-Path $customDir 'ffprobe.exe')
+Copy-Item -LiteralPath $realFf -Destination (Join-Path $partialRoot 'External-Libraries\FFmpeg\bin\ffmpeg.exe')
+[System.IO.File]::WriteAllText((Join-Path $corruptBin 'ffmpeg.exe'), 'not an executable')
+Copy-Item -LiteralPath $realFp -Destination (Join-Path $corruptBin 'ffprobe.exe')
+$env:PATH = (Split-Path -Parent $realFf) + ';' + $sourcePath
+$global:RuntimeSystemFF = $realFf; $global:RuntimeSystemFP = $realFp
+Set-FFManagerHooks -FindCommand { param($n) if ($n -eq 'ffmpeg') { $global:RuntimeSystemFF } elseif ($n -eq 'ffprobe') { $global:RuntimeSystemFP } else { $null } }
+$env:FFTUI_FFMPEG_PATH = $customDir
+Set-AppRoot $bundleRoot
+$runtime = Find-FFmpegInstallation
+Assert-True 'bundled FFmpeg and ffprobe take precedence over configured custom and system paths' ($runtime.Status -eq 'Ready' -and (Get-TestRuntimeSource $runtime) -eq 'Bundled' -and (Get-FFmpegInfo).Source -eq 'Bundled' -and $runtime.Ffmpeg -eq (Join-Path $bundleBin 'ffmpeg.exe') -and $runtime.Ffprobe -eq (Join-Path $bundleBin 'ffprobe.exe'))
+
+Set-AppRoot $customRoot
+$runtime = Find-FFmpegInstallation
+Assert-True 'custom FFmpeg directory is used when the bundled pair is absent' ($runtime.Status -eq 'Ready' -and (Get-TestRuntimeSource $runtime) -eq 'Custom' -and $runtime.Ffmpeg -eq (Join-Path $customDir 'ffmpeg.exe') -and $runtime.Ffprobe -eq (Join-Path $customDir 'ffprobe.exe'))
+
+$env:FFTUI_FFMPEG_PATH = ''
+Set-AppRoot $systemRoot
+$runtime = Find-FFmpegInstallation
+Assert-True 'system pair is used when Full runtime and custom path are absent' ($runtime.Status -eq 'Ready' -and (Get-TestRuntimeSource $runtime) -eq 'System' -and $runtime.Ffmpeg -eq $realFf -and $runtime.Ffprobe -eq $realFp)
+
+$env:FFTUI_FFMPEG_PATH = $customDir
+Set-AppRoot $partialRoot
+$runtime = Find-FFmpegInstallation
+Assert-True 'an incomplete higher-priority pair is rejected without mixing ffprobe from another runtime' ($runtime.Status -eq 'Broken' -and (Get-TestRuntimeSource $runtime) -eq 'Bundled' -and -not $runtime.Ffprobe -and $runtime.Detail -like '*bundled*ffprobe*')
+
+Set-AppRoot $corruptRoot
+$runtime = Find-FFmpegInstallation
+Assert-True 'an uncallable higher-priority pair is rejected instead of falling back to system tools' ($runtime.Status -eq 'Broken' -and (Get-TestRuntimeSource $runtime) -eq 'Bundled' -and $runtime.Detail -like '*cannot be run*')
+
+Set-FFManagerHooks -Reset
+Set-AppRoot $sourceRoot
+$env:PATH = $sourcePath
+$env:FFTUI_FFMPEG_PATH = $customEnv
+$null = Find-FFmpegInstallation
