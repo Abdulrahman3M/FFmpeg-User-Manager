@@ -64,6 +64,12 @@ jobs:
           }
           $fullBuild = Read-ZipEntryText $fullZip 'FFmpeg-User-Manager/BUILD-INFO.txt'
           $liteBuild = Read-ZipEntryText $liteZip 'FFmpeg-User-Manager/BUILD-INFO.txt'
+          $fullFFmpegSource = Read-ZipEntryText $fullZip 'FFmpeg-User-Manager/External-Libraries/FFmpeg/SOURCE.txt'
+          $manifest = Get-Content -LiteralPath 'External-Libraries/manifest.json' -Raw | ConvertFrom-Json
+          $ffmpegDefinition = @($manifest.Libraries | Where-Object { $_.Id -eq 'ffmpeg' }) | Select-Object -First 1
+          if (-not $ffmpegDefinition) { throw 'The canonical FFmpeg runtime definition is missing.' }
+          if ($fullFFmpegSource -notmatch ('(?m)^UpstreamSourceRevision: ' + [regex]::Escape([string]$ffmpegDefinition.UpstreamSourceRevision) + '\r?$')) { throw 'Full package corresponding-source revision is missing or stale.' }
+          foreach ($requiredFlag in @($ffmpegDefinition.RequiredBuildFlags)) { if ($fullFFmpegSource -notmatch [regex]::Escape([string]$requiredFlag)) { throw ('Full package build metadata is missing a manifest-required flag: ' + [string]$requiredFlag) } }
           if ($fullBuild -notmatch "(?m)^Version: $([regex]::Escape($version))\r?$") { throw 'Full package version metadata is stale.' }
           if ($liteBuild -notmatch "(?m)^Version: $([regex]::Escape($version))\r?$") { throw 'Lite package version metadata is stale.' }
           if ($fullBuild -notmatch "(?m)^SourceRevision: $([regex]::Escape($revision))\r?$") { throw 'Full package source revision does not match this checkout.' }
@@ -73,9 +79,10 @@ jobs:
           try {
             $fullNames = @($fullArchive.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
             $liteNames = @($liteArchive.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
-            foreach ($required in @('FFmpeg-User-Manager/External-Libraries/manifest.json', 'FFmpeg-User-Manager/External-Libraries/FFmpeg/bin/ffmpeg.exe', 'FFmpeg-User-Manager/External-Libraries/FFmpeg/bin/ffprobe.exe', 'FFmpeg-User-Manager/External-Libraries/FFmpeg/LICENSES/COPYING.GPLv3', 'FFmpeg-User-Manager/External-Libraries/Assimp/bin/assimp.exe', 'FFmpeg-User-Manager/External-Libraries/Assimp/licenses/assimp/LICENSE')) {
+            foreach ($required in @('FFmpeg-User-Manager/THIRD-PARTY-NOTICES.md', 'FFmpeg-User-Manager/External-Libraries/manifest.json', 'FFmpeg-User-Manager/External-Libraries/FFmpeg/bin/ffmpeg.exe', 'FFmpeg-User-Manager/External-Libraries/FFmpeg/bin/ffprobe.exe', 'FFmpeg-User-Manager/External-Libraries/FFmpeg/LICENSES/COPYING.GPLv3', 'FFmpeg-User-Manager/External-Libraries/FFmpeg/SOURCE.txt', 'FFmpeg-User-Manager/External-Libraries/Assimp/bin/assimp.exe', 'FFmpeg-User-Manager/External-Libraries/Assimp/licenses/assimp/LICENSE')) {
               if ($fullNames -notcontains $required) { throw "Full package is missing required runtime or legal file: $required" }
             }
+            if ($liteNames -notcontains 'FFmpeg-User-Manager/THIRD-PARTY-NOTICES.md') { throw 'Lite package is missing the third-party runtime notice.' }
             if (@($liteNames | Where-Object { $_ -match 'External-Libraries/(FFmpeg|Assimp)/.*\.(exe|dll)$' }).Count -gt 0) { throw 'Lite package contains an external runtime binary.' }
             foreach ($names in @($fullNames, $liteNames)) {
               if (@($names | Where-Object { $_ -match '(^|/)(\.git|tests|tools|dist|\.superpowers|\.cache|\.stage[^/]*)(/|$)' }).Count -gt 0) { throw 'A package contains development, cache or staging content.' }
@@ -96,7 +103,7 @@ jobs:
           Set-AppRoot -Path $fullApp
           $runtime = Find-FFmpegInstallation
           if ($runtime.Status -ne 'Ready' -or $runtime.Source -ne 'Bundled') { throw "Extracted Full package did not resolve bundled FFmpeg: $($runtime.Status) / $($runtime.Source)" }
-          $requirements = Test-FFmpegRuntimeRequirements -FfmpegPath $runtime.Ffmpeg -FfprobePath $runtime.Ffprobe -Source Bundled -ExpectedVersion '9.0.2'
+          $requirements = Test-FFmpegRuntimeRequirements -FfmpegPath $runtime.Ffmpeg -FfprobePath $runtime.Ffprobe -Source Bundled -ExpectedVersion ([string]$ffmpegDefinition.CurrentVersion)
           if (-not $requirements.Ready) { throw "Extracted Full FFmpeg self-check failed: $($requirements.Detail)" }
           $assimp = Get-ThreeDToolStatus
           if (-not $assimp.Available) { throw "Extracted Full Assimp check failed: $($assimp.Reason)" }

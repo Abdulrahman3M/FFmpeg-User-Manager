@@ -2,7 +2,7 @@
 
 <img src="docs/images/repository-cover.jpg" alt="FFmpeg User Manager cover" width="760">
 
-# FFmpeg User Manager `v0.2.0`
+# FFmpeg User Manager `v0.3.0`
 
 **A modern interactive PowerShell TUI for FFmpeg on Windows.**
 Convert, compress, upscale images, trim, merge, extract, resize, make GIFs, slideshows and recordings, manage subtitles, metadata and streams, analyze and batch-process media - without writing FFmpeg commands.
@@ -10,7 +10,7 @@ Convert, compress, upscale images, trim, merge, extract, resize, make GIFs, slid
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?logo=powershell&logoColor=white)
 ![FFmpeg](https://img.shields.io/badge/requires-FFmpeg-007808?logo=ffmpeg&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
 ![Status](https://img.shields.io/badge/status-pre--release-orange)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
@@ -119,27 +119,57 @@ WebM size estimates are approximate and do not create a full output encode. The 
 
 Every option of every workflow is described in [docs/Workflows.md](docs/Workflows.md).
 
+## Editions
+
+**Full Edition — Recommended** is the normal download. It bundles the verified FFmpeg/ffprobe and Assimp runtime files needed by supported workflows, so those bundled tools do not depend on PATH or a separate system install. **Lite Edition** is for advanced users who manage system/custom runtimes themselves.
+
+| Feature | Full Edition — Recommended | Lite Edition |
+|---|---:|---:|
+| FFmpeg / ffprobe binaries bundled | Yes | No |
+| Assimp 3D-conversion runtime bundled | Yes | No |
+| System FFmpeg or PATH needed for bundled tools | No | Yes, or configure a supported custom runtime |
+| System Assimp needed for OBJ-to-GLB | No | Yes, or configure a supported custom runtime |
+| Media work can run offline after extraction | Yes; metadata update checks are read-only and non-fatal | Yes when required system/custom runtimes are already installed |
+| Package size | Larger | Smaller |
+| Best for | Most users | Users maintaining their own dependencies |
+
+Both editions use the same application version and source revision. Full is the default/recommended choice; Lite intentionally contains no external runtime executable or DLL.
+
+## Compatibility and security
+
+The packaged target is **Windows x64**. The Full and Lite application/package integration has been exercised on **Windows 11 x64, build 26100** with Windows PowerShell 5.1 and PowerShell 7.6.5. Other Windows versions remain unverified until tested end-to-end; Linux is not a supported package target.
+
+| Component / edition | Windows 7 | Windows 8 / 8.1 | Windows 10 | Windows 11 x64 | Linux |
+|---|---|---|---|---|---|
+| Application and extracted package integration | UNVERIFIED | UNVERIFIED | UNVERIFIED | PASS | NOT APPLICABLE (Windows package only) |
+| Full bundled FFmpeg / Assimp runtime | UNVERIFIED | UNVERIFIED | UNVERIFIED | PASS | NOT APPLICABLE (Windows binaries) |
+| Lite with locally installed system/custom runtimes | UNVERIFIED | UNVERIFIED | UNVERIFIED | PASS | NOT APPLICABLE (no Linux release package) |
+
+The Gyan FFmpeg provider describes its builds as requiring Windows 10 or later, but that upstream statement is not a project end-to-end test. Windows 10 and earlier are therefore not currently claimed as supported. See [docs/Testing.md](docs/Testing.md) and [`External-Libraries/manifest.json`](External-Libraries/manifest.json) for evidence.
+
+**Known FFmpeg 9.0.2 security limitations:** the pinned stable build is covered by public advisories [CVE-2026-107675](https://nvd.nist.gov/vuln/detail/CVE-2026-107675), [CVE-2026-107676](https://nvd.nist.gov/vuln/detail/CVE-2026-107676), [CVE-2026-107677](https://nvd.nist.gov/vuln/detail/CVE-2026-107677), [CVE-2026-107678](https://nvd.nist.gov/vuln/detail/CVE-2026-107678), and [CVE-2026-107696](https://nvd.nist.gov/vuln/detail/CVE-2026-107696). Until a newer stable package passes project verification, do not use SFTP URLs, untrusted DASH/RTSP endpoints, or untrusted media that may contain crafted MP4, Matroska, HEVC or AV1 metadata. The application does not claim this runtime is free of known vulnerabilities.
+
 ## Requirements
 
 | Item | Requirement |
 |---|---|
-| Operating system | Windows 10 or 11 |
+| Operating system | Windows x64; end-to-end package verification currently PASS on Windows 11 x64 only. Other versions are not claimed as supported yet. |
 | PowerShell | Windows PowerShell 5.1 (built into Windows) **or** PowerShell 7.x - PowerShell 7 is preferred automatically when installed |
-| FFmpeg | `ffmpeg` and `ffprobe` on `PATH`. Not installed yet? The app offers to install them with winget (package `Gyan.FFmpeg`) |
-| 3D conversion | Bundled Assimp 6.0.5 command-line executable for OBJ-to-GLB, with its runtime DLLs and license texts in `External-Libraries/` |
+| FFmpeg | Bundled in Full Edition. Lite uses a system/custom `ffmpeg` + `ffprobe` pair and can offer consent-based WinGet setup |
+| 3D conversion | Assimp 6.0.5 is bundled in Full Edition; Lite requires a supported system/custom Assimp runtime |
 | Terminal | Windows Terminal recommended (colors and emoji icons). The classic console works too and shows symbol icons. The PowerShell ISE is not supported |
-| Internet | Optional: FFmpeg install/update, read-only Assimp upstream/package metadata checks at startup, and network streams |
+| Internet | Optional: read-only runtime update checks, consent-based runtime setup/update, and network streams |
 
 ## Installation
 
 1. **Get the project** - either
-   * download `FFmpeg-User-Manager-vX.Y.Z.zip` from the *Releases* page (recommended) or the repository ZIP (*Code -> Download ZIP*) and extract it completely, or
+   * download `FFmpeg-User-Manager-vX.Y.Z-Full-Windows-x64.zip` (recommended) or `FFmpeg-User-Manager-vX.Y.Z-Lite-Windows-x64.zip` from the *Releases* page and extract it completely, or
    * clone it:
      ```powershell
      git clone https://github.com/Abdulrahman3M/FFmpeg-User-Manager.git
      ```
 2. If you downloaded a ZIP, right-click the ZIP -> *Properties* -> *Unblock* before extracting (or run `Get-ChildItem -Recurse . | Unblock-File` in the folder).
-3. That is all - no installer is needed. FFmpeg is detected (and can be installed) on first start.
+3. That is all - no installer is needed. Full checks its bundled FFmpeg on first start; Lite detects a system/custom FFmpeg and can offer setup if none is found.
 
 ## Quick Start
 
@@ -252,7 +282,8 @@ FFmpeg-User-Manager/
 |-- VERSION                     single source of the application version
 |-- README.md  CHANGELOG.md  AGENTS.md
 |-- LICENSE  NOTICE             Apache-2.0 license text and attribution notice
-|-- External-Libraries/         bundled Assimp, runtime DLLs, versions and third-party licenses
+|-- THIRD-PARTY-NOTICES.md      separate runtime ownership and license inventory
+|-- External-Libraries/         canonical runtime manifest and Full-edition runtime/licensing inputs
 |-- config/defaults.json        application defaults (presets, winget package id)
 |-- src/
 |   |-- Core/                   app bootstrap, environment, paths, validation, process runner, external libraries
@@ -277,8 +308,8 @@ Details, pre-release labels and the release checklist: [docs/Versioning-and-Rele
 
 ## Releases
 
-Official releases are published on the repository's *Releases* page as `FFmpeg-User-Manager-vX.Y.Z.zip`; the notes of each release summarize its features, fixes and known limitations.
-The current **source-code version is v0.2.0** (see [`VERSION`](VERSION) and [CHANGELOG.md](CHANGELOG.md)); this release is prepared locally and is not published. The last previously documented published GitHub Release is **v0.1.0**. Local commits and release artifacts do not publish a new GitHub Release. To use a published release, download its ZIP, extract it completely and follow [Installation](#installation).
+Official releases provide both `FFmpeg-User-Manager-vX.Y.Z-Full-Windows-x64.zip` and `FFmpeg-User-Manager-vX.Y.Z-Lite-Windows-x64.zip`, plus SHA-256 checksums. Full is recommended. The release workflow is manual and publication still requires owner approval.
+The current **source-code version is v0.3.0** (see [`VERSION`](VERSION) and [CHANGELOG.md](CHANGELOG.md)); this release is prepared locally and is not published. The last previously documented published GitHub Release is **v0.1.0**. Local commits and release artifacts do not publish a GitHub Release. To use a published release, download its edition ZIP, extract it completely and follow [Installation](#installation).
 
 ## Documentation
 
@@ -289,7 +320,9 @@ The current **source-code version is v0.2.0** (see [`VERSION`](VERSION) and [CHA
 | [docs/Testing.md](docs/Testing.md) | Test suite, compatibility matrix, manual checks |
 | [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md) | SemVer rules, tags, changelog and release process |
 | [docs/Release-Notes-v0.2.0.md](docs/Release-Notes-v0.2.0.md) | Locally prepared v0.2.0 changes and verification |
+| [docs/Release-Notes-v0.3.0.md](docs/Release-Notes-v0.3.0.md) | Locally prepared Full/Lite runtime and release changes, compatibility and known limitations |
 | [docs/Licensing.md](docs/Licensing.md) | Why Apache-2.0, what it means, third-party components review |
+| [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Third-party runtime licenses, attribution and sources |
 | [docs/images/README.md](docs/images/README.md) | How the screenshots were captured |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [AGENTS.md](AGENTS.md) | Working rules for AI agents and contributors |
@@ -314,12 +347,11 @@ The current **source-code version is v0.2.0** (see [`VERSION`](VERSION) and [CHA
 FFmpeg User Manager is free and open source under the **[Apache License 2.0](LICENSE)**. You may use, change and redistribute it, including commercially, as long as you keep the
 copyright notice, the license and the [`NOTICE`](NOTICE) file and mark files you changed. The software is provided "as is", without warranty. Copyright 2026 Abdulrahman3M.
 
-FFmpeg itself is **not** part of this project and is not distributed with it: the application starts the copy installed on your computer, which has its own license (see
-[docs/Licensing.md](docs/Licensing.md) for the license decision and the third-party review).
+The Full Edition redistributes the exact Gyan FFmpeg 9.0.2 build under GPL-3.0, with its upstream license and build/source metadata; Lite excludes the binaries. Assimp and its runtime dependencies also keep their original licenses. See [docs/Licensing.md](docs/Licensing.md) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Project status
 
-**Pre-release series (source version v0.2.0; latest published release v0.1.0).** All workflows listed above are implemented. The latest full Windows verification reports **1,581 PASS, 0 FAIL, 0 UNVERIFIED** on both Windows PowerShell 5.1 and PowerShell 7.6.5. See [docs/Testing.md](docs/Testing.md) for scope and environment details. The launcher is tested with the real `cmd` interpreter.
+**Pre-release series (source version v0.3.0; latest published release v0.1.0).** All workflows listed above are implemented. The latest full Windows verification results for Windows PowerShell 5.1 and PowerShell 7.6.5 are in [docs/Testing.md](docs/Testing.md). The launcher is tested with the real `cmd` interpreter.
 **Not yet verified by any automated run and therefore not claimed:** rendering in a real Windows Terminal / classic console, real `winget` installs and updates, the native file picker and Explorer integration,
 and screen / webcam / microphone recording on real devices. `tools/Test-WindowsLocal.ps1` lists these checks. Version 1.0.0 is reserved until they are done (see
 [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md)). Details: [docs/Testing.md](docs/Testing.md).

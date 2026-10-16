@@ -178,7 +178,7 @@ $tags = Invoke-ExternalCapture -FilePath 'git' -Arguments @('-C', $root, 'tag', 
 if ($tags.Started -and $tags.ExitCode -eq 0) { $bad = @($tags.StdOut -split "`r?`n" | Where-Object { $_ -and $_ -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(alpha|beta|rc)\.\d+)?$' }); Assert-True 'all existing Git tags use the vMAJOR.MINOR.PATCH[-alpha|beta|rc.N] format' ($bad.Count -eq 0) ($bad -join ', ') }
 # README/docs: every relative link and image must exist
 $linkIssues = @()
-foreach ($md in @('README.md', 'CHANGELOG.md', 'AGENTS.md', 'docs/Architecture.md', 'docs/Workflows.md', 'docs/Testing.md', 'docs/Versioning-and-Releases.md', 'docs/Licensing.md', 'docs/images/README.md', 'tests/Fixtures/README.md')) {
+foreach ($md in @('README.md', 'CHANGELOG.md', 'AGENTS.md', 'THIRD-PARTY-NOTICES.md', 'docs/Architecture.md', 'docs/Workflows.md', 'docs/Testing.md', 'docs/Versioning-and-Releases.md', 'docs/Licensing.md', 'docs/Release-Notes-v0.3.0.md', 'docs/images/README.md', 'tests/Fixtures/README.md')) {
     $mdPath = Join-Path $root $md
     $text = Get-Content -LiteralPath $mdPath -Raw
     $dir = Split-Path -Parent $mdPath
@@ -205,11 +205,12 @@ Assert-True ("README documents only real launcher switches ($($documented -join 
 Assert-True 'README mentions the BAT launcher as the primary Quick Start' ($readme -match '(?s)## Quick Start.*?FFmpeg-User-Manager\.bat')
 $vo = Invoke-ExternalCapture -FilePath (Get-Process -Id $PID).Path -Arguments @('-NoProfile', '-File', (Join-Path $root 'Start-FFmpegTUI.ps1'), '-Version') -TimeoutSec 60
 Assert-Equal '.\Start-FFmpegTUI.ps1 -Version prints the product name and version' "FFmpeg User Manager v$versionText" $vo.StdOut.Trim()
-Assert-True 'README project-structure tree lists files that exist' (@('FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'CHANGELOG.md', 'AGENTS.md', 'LICENSE', 'NOTICE', 'config/defaults.json', 'tools/New-ReleasePackage.ps1') | ForEach-Object { Test-Path -LiteralPath (Join-Path $root $_) } | Where-Object { -not $_ } | Measure-Object | ForEach-Object { $_.Count -eq 0 })
+Assert-True 'README project-structure tree lists files that exist' (@('FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'CHANGELOG.md', 'AGENTS.md', 'LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.md', 'config/defaults.json', 'tools/New-ReleasePackage.ps1') | ForEach-Object { Test-Path -LiteralPath (Join-Path $root $_) } | Where-Object { -not $_ } | Measure-Object | ForEach-Object { $_.Count -eq 0 })
 Assert-True 'AGENTS.md exists with the core rules' ((Test-Path -LiteralPath (Join-Path $root 'AGENTS.md')) -and ((Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw) -match 'Private' -and (Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw) -match 'COMPLETE'))
 $releaseWorkflow = Get-Content -LiteralPath (Join-Path $root '.github/workflows/release.yml') -Raw
 Assert-True 'manual release workflow passes operator inputs as environment values, never as executable PowerShell text' (($releaseWorkflow -match 'RELEASE_VERSION:\s*\$\{\{ inputs\.version \}\}') -and ($releaseWorkflow -match 'CONFIRM_FFMPEG_ACQUISITION:\s*\$\{\{ inputs\.confirm_ffmpeg_acquisition \}\}') -and ($releaseWorkflow -notmatch '\$\{\{\s*inputs\.(version|confirm_ffmpeg_acquisition)\s*\}\}\s*'''))
 Assert-True 'manual release workflow builds and validates both editions on Windows Server 2025' (($releaseWorkflow -match '(?m)^    runs-on: windows-2025$') -and ($releaseWorkflow -match 'Edition Both -AcquireFFmpeg') -and ($releaseWorkflow -match 'Full and Lite extracted versions') -and ($releaseWorkflow -match '(?m)^on:\s*\r?\n\s+workflow_dispatch:'))
+Assert-True 'manual release workflow validates corresponding-source/build metadata, required notices and manifest-selected FFmpeg version' (($releaseWorkflow -match 'External-Libraries/FFmpeg/SOURCE\.txt') -and ($releaseWorkflow -match 'UpstreamSourceRevision') -and ($releaseWorkflow -match 'RequiredBuildFlags') -and ($releaseWorkflow -match 'THIRD-PARTY-NOTICES\.md') -and ($releaseWorkflow -match 'ExpectedVersion \(\[string\]\$ffmpegDefinition\.CurrentVersion\)'))
 # licensing
 $licPath = Join-Path $root 'LICENSE'; $noticePath = Join-Path $root 'NOTICE'
 Assert-True 'LICENSE and NOTICE exist at the repository root' ((Test-Path -LiteralPath $licPath) -and (Test-Path -LiteralPath $noticePath))
@@ -217,7 +218,11 @@ $sha = [System.Security.Cryptography.SHA256]::Create()
 $licHash = ([System.BitConverter]::ToString($sha.ComputeHash([System.IO.File]::ReadAllBytes($licPath))) -replace '-', '').ToLowerInvariant()
 Assert-Equal 'LICENSE is the unmodified standard Apache-2.0 text (SHA-256 of the text published at apache.org/licenses/LICENSE-2.0.txt)' 'cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30' $licHash
 $noticeText = Get-Content -LiteralPath $noticePath -Raw
-Assert-True 'NOTICE carries the product name, a copyright line with a year and owner, and the third-party statement' (($noticeText -match 'FFmpeg User Manager') -and ($noticeText -match 'Copyright 20\d\d \S+') -and ($noticeText -match 'NOT part of this product'))
+Assert-True 'NOTICE carries product copyright and accurately states the Full/Lite third-party distribution policy' (($noticeText -match 'FFmpeg User Manager') -and ($noticeText -match 'Copyright 20\d\d \S+') -and ($noticeText -match 'Full Edition includes') -and ($noticeText -match 'Lite Edition excludes'))
+Assert-True 'third-party notice identifies GPL-3.0 FFmpeg, permissive Assimp dependencies and exact source details' ((Test-Path -LiteralPath (Join-Path $root 'THIRD-PARTY-NOTICES.md')) -and ((Get-Content -LiteralPath (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Raw) -match 'GPL-3\.0') -and ((Get-Content -LiteralPath (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Raw) -match 'BSD-3-Clause') -and ((Get-Content -LiteralPath (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Raw) -match '946fcce07b'))
+$libraryManifest = Get-Content -LiteralPath (Join-Path $root 'External-Libraries/manifest.json') -Raw | ConvertFrom-Json
+$ffmpegManifest = @($libraryManifest.Libraries | Where-Object { $_.Id -eq 'ffmpeg' }) | Select-Object -First 1
+Assert-True 'FFmpeg manifest pins upstream source, required runtime build flags and reviewed known advisories' ($ffmpegManifest.UpstreamSourceRevision -eq '946fcce07b' -and @($ffmpegManifest.RequiredBuildFlags).Count -ge 4 -and @($ffmpegManifest.KnownAdvisories).Count -ge 5)
 Assert-True 'README has a License section naming Apache-2.0 and linking LICENSE and NOTICE' (($readme -match '(?m)^## License') -and ($readme -match 'Apache License 2\.0') -and ($readme -match '\]\(LICENSE\)') -and ($readme -match '\]\(NOTICE\)'))
 Assert-True 'README no longer claims the repository has no license' ($readme -notmatch 'no license file')
 $trackedNow = Invoke-ExternalCapture -FilePath 'git' -Arguments @('-C', $root, 'ls-files') -TimeoutSec 30
@@ -227,9 +232,16 @@ $agents = Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw
 Assert-True 'AGENTS.md has the permanent dependency-aware change-sync rule with its flow' (($agents -match 'Dependency-aware change sync') -and ($agents -match 'Identify Affected Dependencies & Artifacts') -and ($agents -match 'Final Verification') -and ($agents -match 'Screenshots and project images') -and ($agents -match 'Changelog') -and ($agents -match 'Release information'))
 Assert-True 'AGENTS.md states that the rule does not mean bumping versions or regenerating images blindly' ($agents -match 'Not\*\* what this rule means')
 Assert-True 'AGENTS.md has the licensing / third-party notice rule (compatibility, third-party notices, copyright/attribution)' (($agents -match 'License compatibility') -and ($agents -match 'Third-party notices') -and ($agents -match 'Copyright/attribution') -and ($agents -match 'never delete or weaken a required legal notice'))
+Assert-True 'AGENTS.md permanently requires staged verified replacement, OS compatibility rechecks, Full/Lite, release notes, license sync and superseded-runtime cleanup' (($agents -match 'Never delete or overwrite the active known-good runtime') -and ($agents -match 'Windows 7, Windows 8/8\.1, Windows 10 and Windows 11') -and ($agents -match 'both \*\*Full Edition\*\*.*\*\*Lite Edition\*\*') -and ($agents -match 'remove superseded copies') -and ($agents -match 'do not add or imply a Linux Full package'))
+Assert-True 'README documents the recommended Full/Lite comparison and evidence-based OS matrix' (($readme -match 'Full Edition — Recommended') -and ($readme -match 'Lite Edition') -and ($readme -match 'Windows 11 x64') -and ($readme -match 'UNVERIFIED') -and ($readme -match 'CVE-2026-107675'))
+$releaseNotesPath = Join-Path $root 'docs/Release-Notes-v0.3.0.md'
+$releaseNotes = if (Test-Path -LiteralPath $releaseNotesPath) { Get-Content -LiteralPath $releaseNotesPath -Raw } else { '' }
+Assert-True 'release notes identify both package assets, compatibility evidence and known runtime advisories' (($releaseNotes -match 'Full-Windows-x64\.zip') -and ($releaseNotes -match 'Lite-Windows-x64\.zip') -and ($releaseNotes -match 'CVE-2026-107696') -and ($releaseNotes -match 'UNVERIFIED'))
 # Lite release package
 $pkgDir = Join-Path (Join-Path $root 'tests/output') ('static-release-package-' + [guid]::NewGuid().ToString('N'))
 $packageOutput = @(& (Join-Path $root 'tools/New-ReleasePackage.ps1') -Edition Lite -OutputDirectory $pkgDir)
+$restoredRuntime = Find-FFmpegInstallation
+Assert-True 'static release-package smoke build restores the detected FFmpeg runtime for following suites' ($restoredRuntime.Status -eq 'Ready' -and (Get-FFmpegPath) -eq $restoredRuntime.Ffmpeg)
 $zipPath = @($packageOutput | Where-Object { [System.IO.Path]::GetExtension([string]$_) -eq '.zip' }) | Select-Object -First 1
 $checksumPath = @($packageOutput | Where-Object { [System.IO.Path]::GetFileName([string]$_) -like 'SHA256SUMS-*' }) | Select-Object -First 1
 Assert-Equal 'Lite release package name follows FFmpeg-User-Manager-v<VERSION>-Lite-Windows-x64.zip' "FFmpeg-User-Manager-v$versionText-Lite-Windows-x64.zip" ([System.IO.Path]::GetFileName($zipPath))

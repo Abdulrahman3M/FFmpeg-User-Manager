@@ -206,9 +206,11 @@ if ($ffmpeg) {
     Assert-True 'manifest records verified FFmpeg runtime files and license/source paths' (@($ffmpeg.Files).Count -ge 9 -and $ffmpeg.LicenseFiles -contains 'FFmpeg/LICENSES/COPYING.GPLv3' -and $ffmpeg.SourceFile -eq 'FFmpeg/SOURCE.txt')
     Assert-True 'manifest records the accepted runtime encoders, filters and executables for live verification' (@($ffmpeg.RequiredExecutables).Count -eq 2 -and @($ffmpeg.RequiredEncoders).Count -ge 8 -and @($ffmpeg.RequiredFilters).Count -ge 13)
     Assert-True 'manifest records Windows architecture and does not claim unverified Linux support' ($ffmpeg.WindowsSupport.Status -in @('PASS', 'UNVERIFIED') -and $ffmpeg.LinuxSupport.Status -in @('UNVERIFIED', 'N/A'))
+    Assert-True 'FFmpeg compatibility matrix records Windows 7, 8, 8.1, 10, 11 and Linux with evidence-safe statuses' ($ffmpeg.Windows7Support.Status -eq 'UNVERIFIED' -and $ffmpeg.Windows8Support.Status -eq 'UNVERIFIED' -and $ffmpeg.Windows81Support.Status -eq 'UNVERIFIED' -and $ffmpeg.Windows10Support.Status -eq 'UNVERIFIED' -and $ffmpeg.Windows11Support.Status -eq 'PASS' -and $ffmpeg.LinuxSupport.Status -eq 'N/A')
 }
 if ($assimp) {
     Assert-True 'Assimp remains in the same manifest and stays Full-only' ($assimp.CurrentVersion -eq '6.0.5' -and $assimp.Architecture -eq 'x64' -and [bool]$assimp.BundledInFull -and -not [bool]$assimp.BundledInLite)
+    Assert-True 'Assimp compatibility matrix records verified Windows 11 and unverified older Windows versions' ($assimp.Windows11Support.Status -eq 'PASS' -and $assimp.Windows10Support.Status -eq 'UNVERIFIED' -and $assimp.Windows8Support.Status -eq 'UNVERIFIED' -and $assimp.Windows81Support.Status -eq 'UNVERIFIED' -and $assimp.Windows7Support.Status -eq 'UNVERIFIED' -and $assimp.LinuxSupport.Status -eq 'N/A')
 }
 $packageVersions = @([pscustomobject]@{ name = '8.0.1' }, [pscustomobject]@{ name = '9.0.2' }, [pscustomobject]@{ name = '10.0.0' }, [pscustomobject]@{ name = '11.0.0-rc.1' })
 Assert-Equal 'FFmpeg package metadata uses SemVer ordering across major versions' '10.0.0' (Get-ExternalPackageMetadataVersion -Metadata $packageVersions -Id 'ffmpeg')

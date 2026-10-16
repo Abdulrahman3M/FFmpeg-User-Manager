@@ -5,15 +5,15 @@ This product includes software developed by Abdulrahman3M.
 
 Third-party software
 --------------------
-FFmpeg and ffprobe are NOT part of this product and are NOT distributed with it. FFmpeg User Manager only starts the
-copy that is installed on the user's computer (for example through Windows Package Manager) as a separate program.
-FFmpeg is licensed by its own authors under its own terms (LGPL/GPL depending on the build); see https://ffmpeg.org/legal.html.
-This product includes the following third-party runtime software. Their original license texts are shipped under `External-Libraries/Assimp/licenses/`; each component remains under its own license and is not relicensed by this product:
+The generated Full Edition includes the manifest-pinned Gyan FFmpeg shared build (ffmpeg and ffprobe) under GPL-3.0 and Assimp plus its required runtime dependencies. Their original license texts are shipped inside the Full package under `External-Libraries/`; each component remains under its own license and is not relicensed by this product. Lite Edition excludes these external runtime binaries. See `THIRD-PARTY-NOTICES.md`, `External-Libraries/manifest.json`, and `docs/Licensing.md` for ownership, source, configuration, package hashes and license details. FFmpeg licensing guidance: https://ffmpeg.org/legal.html.
 
+This product includes the following third-party runtime software:
+
+* FFmpeg 9.0.2 shared full build - FFmpeg developers and Gyan Doshi; GPL-3.0; corresponding source commit and build configuration are identified in each Full package at `External-Libraries/FFmpeg/SOURCE.txt`.
 * Assimp 6.0.5 - Copyright (c) 2006-2026, assimp team; BSD-3-Clause.
 * LLVM libc++ and libunwind 22.1.7 - The LLVM Project; Apache-2.0 with LLVM Exceptions.
 * minizip 1.3.2 - Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler; zlib license.
 * bzip2 1.0.8 - Copyright (C) 1996-2019 Julian R Seward; bzip2 permissive license.
 * zlib-ng-compat 2.3.3 - Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler; zlib license.
 
-The complete package versions, runtime files and upstream package checksums are listed in `External-Libraries/manifest.json`.
+The exact package versions, runtime files and upstream package checksums are listed in `External-Libraries/manifest.json`. The project source repository remains licensed under Apache-2.0; this does not change the separate terms for third-party runtime components.

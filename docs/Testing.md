@@ -4,17 +4,30 @@
 
 | Environment | Result (actual, from the logs) | Run / commit |
 |---|---|---|
-| Windows PowerShell 5.1.26100.9444 on the local Windows host | **1581 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-16; loopback checks run with the required local-network permission |
-| PowerShell 7.6.5 on the local Windows host | **1581 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-16; loopback checks run with the required local-network permission |
+| Windows PowerShell 5.1.26100.9444 on the local Windows host | **1662 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-16; loopback checks run with local-network permission |
+| PowerShell 7.6.5 on the local Windows host | **1662 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-16; loopback checks run with local-network permission |
 | Windows PowerShell 5.1 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7.4 on Linux (FFmpeg 6.1, Wine for the `.bat` tests) | **1261 PASS, 0 FAIL, 5 UNVERIFIED** | local run, commit `3f96e26` |
 
-Full local verification after the library bundle and integration (2026-10-16): Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 each completed `tests/Run-Tests.ps1` with **1581 PASS, 0 FAIL, 0 UNVERIFIED**. This includes the three checks previously reported as UNVERIFIED: the missing-ffprobe PATH sandbox uses isolated file copies; loopback HTTP inspect/save tests pass through the bounded raw TCP server when local-network access is permitted; and a live FFmpeg child exits when its parent PowerShell process is terminated. Both runtimes also completed actual OBJ-to-GLB conversion through the workflow, validated the GLB 2.0 geometry/material/texture references, and confirmed that source OBJ/MTL/texture files were unchanged. The app reports when a texture remains external instead of claiming that it is embedded.
+## Bundled runtime and package compatibility
+
+The following matrix is for the current Windows x64 Full/Lite package and its runtime combination. `PASS` is based on actual extracted-package checks on Windows 11 x64; upstream OS statements alone do not upgrade an entry to PASS.
+
+| Component | Windows 7 | Windows 8 | Windows 8.1 | Windows 10 | Windows 11 x64 | Linux |
+|---|---|---|---|---|---|---|
+| Application + Full/Lite extracted package | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | PASS | NOT APPLICABLE (no Linux package) |
+| FFmpeg/ffprobe 9.0.2 bundled runtime | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | PASS | NOT APPLICABLE (Windows binaries) |
+| Assimp 6.0.5-2 bundled runtime | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | PASS | NOT APPLICABLE (Windows Clang64 binaries) |
+| Lite with system/custom dependencies | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | PASS | NOT APPLICABLE (no Linux package) |
+
+Windows 11 checks used build 26100. Full package evidence includes bundled FFmpeg/ffprobe launch/version/capability checks and actual OBJ-to-GLB conversion from an extracted Unicode/spaced path. Lite evidence includes its extracted launcher and correct system/custom/missing runtime resolution tests; it contains no FFmpeg or Assimp runtime binaries. Detailed package and per-file integrity evidence is in the release-package tests and `External-Libraries/manifest.json`.
+
+Latest full local verification (2026-10-16): Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 each completed `tests/Run-Tests.ps1` with **1662 PASS, 0 FAIL, 0 UNVERIFIED**. This includes the three checks previously reported as UNVERIFIED: the missing-ffprobe PATH sandbox uses isolated file copies; loopback HTTP inspect/save tests pass through the bounded raw TCP server with local-network permission; and a live FFmpeg child exits when its parent PowerShell process is terminated. Both runtimes also completed actual OBJ-to-GLB conversion through the workflow, validated the GLB 2.0 geometry/material/texture references, and confirmed that source OBJ/MTL/texture files were unchanged. The app reports when a texture remains external instead of claiming that it is embedded. The preceding 1581-check run is superseded by this run, which additionally covers the Task 5 governance/release assertions and isolated runtime-state cleanup between packaging tests.
 
 History of the Windows work (same suite): run #12 established 1263 PASS / 0 FAIL / 1 UNVERIFIED under both Windows runtimes at commit `3f96e26`; run #3 (first diagnosable run) PowerShell 7 1034 PASS / 35 FAIL / 3 UNVERIFIED, PowerShell 5.1 893 PASS / 40 FAIL / 5 UNVERIFIED -> run #12 above. The causes are listed in the investigation table below.
 
-The three-check result above supersedes the earlier 2026-10-15 full run (1386 PASS / 0 FAIL / 3 UNVERIFIED), which preceded the PATH-copy, loopback, process-job and Assimp end-to-end verification fixes. The 0.2.0 version consistency, release-package contents and post-bump static checks were also rerun successfully after preparing the release. Physical rapid-arrow/no-flicker behavior still requires Windows Terminal and classic conhost observation.
+The latest result above supersedes the earlier 2026-10-15 full run (1386 PASS / 0 FAIL / 3 UNVERIFIED), which preceded the PATH-copy, loopback, process-job and Assimp end-to-end verification fixes. Physical rapid-arrow/no-flicker behavior still requires Windows Terminal and classic conhost observation.
 
 Remaining UNVERIFIED items (never reported as PASS):
 

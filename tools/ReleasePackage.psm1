@@ -107,13 +107,22 @@ function Get-ManifestRuntimePath {
 }
 
 function Test-ReleaseFFmpegRuntime {
-    param([string]$FfmpegPath, [string]$FfprobePath, [string]$ExpectedVersion)
+    param([string]$FfmpegPath, [string]$FfprobePath, [string]$ExpectedVersion, $Definition)
     if ($script:ReleasePackageHooks.FFmpegRuntimeCheck) { return (& $script:ReleasePackageHooks.FFmpegRuntimeCheck $FfmpegPath $FfprobePath $ExpectedVersion) }
     $check = Test-FFmpegRuntimeRequirements -FfmpegPath $FfmpegPath -FfprobePath $FfprobePath -Source Candidate -ExpectedVersion $ExpectedVersion
     if (-not $check.Ready) { return $check }
     $probe = Invoke-ExternalCapture -FilePath $FfprobePath -Arguments @('-version') -TimeoutSec 20
     if (-not $probe.Started -or $probe.ExitCode -ne 0 -or $probe.TimedOut -or [string]$probe.StdOut -notmatch ('(?m)^ffprobe version ' + [regex]::Escape($ExpectedVersion) + '(?:\D|$)')) { return [pscustomobject]@{ Ready = $false; Detail = 'ffprobe did not report the exact manifest version.' } }
-    return [pscustomobject]@{ Ready = $true; Version = $ExpectedVersion; Architecture = 'x64'; Detail = $check.Detail }
+    $build = Invoke-ExternalCapture -FilePath $FfmpegPath -Arguments @('-buildconf') -TimeoutSec 20
+    $buildText = ([string]$build.StdOut) + "`n" + ([string]$build.StdErr)
+    if (-not $build.Started -or $build.ExitCode -ne 0 -or $build.TimedOut) { return [pscustomobject]@{ Ready = $false; Detail = 'ffmpeg -buildconf could not verify the selected build configuration.' } }
+    $buildFlags = @($buildText -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^--[A-Za-z0-9-]+$' })
+    if ($buildFlags.Count -eq 0) { return [pscustomobject]@{ Ready = $false; Detail = 'ffmpeg -buildconf did not return parseable configure flags.' } }
+    $buildConfiguration = [string]::Join(' ', [string[]]$buildFlags)
+    foreach ($requiredFlag in @($Definition.RequiredBuildFlags)) {
+        if ($buildFlags -notcontains [string]$requiredFlag) { return [pscustomobject]@{ Ready = $false; Detail = ('ffmpeg build is missing required configure flag ' + [string]$requiredFlag + '.') } }
+    }
+    return [pscustomobject]@{ Ready = $true; Version = $ExpectedVersion; Architecture = 'x64'; Detail = $check.Detail; BuildConfiguration = $buildConfiguration }
 }
 
 function Copy-VerifiedFFmpegRuntime {
@@ -155,8 +164,9 @@ function Copy-VerifiedFFmpegRuntime {
     foreach ($requiredName in @('ffmpeg.exe', 'ffprobe.exe')) {
         if (-not [System.IO.File]::Exists((Join-Path $outputBin $requiredName))) { throw ('Full Edition is missing ' + $requiredName + '.') }
     }
-    $ffmpegCheck = Test-ReleaseFFmpegRuntime -FfmpegPath (Join-Path $outputBin 'ffmpeg.exe') -FfprobePath (Join-Path $outputBin 'ffprobe.exe') -ExpectedVersion ([string]$Definition.CurrentVersion)
+    $ffmpegCheck = Test-ReleaseFFmpegRuntime -FfmpegPath (Join-Path $outputBin 'ffmpeg.exe') -FfprobePath (Join-Path $outputBin 'ffprobe.exe') -ExpectedVersion ([string]$Definition.CurrentVersion) -Definition $Definition
     if (-not $ffmpegCheck.Ready) { throw ('FFmpeg did not pass the manifest self-check. ' + [string]$ffmpegCheck.Detail) }
+    if (-not $ffmpegCheck.PSObject.Properties['BuildConfiguration'] -or [string]::IsNullOrWhiteSpace([string]$ffmpegCheck.BuildConfiguration)) { throw 'FFmpeg package metadata requires the runtime-verified -buildconf configuration.' }
     foreach ($licensePath in @($Definition.LicenseFiles)) {
         $licenseName = [System.IO.Path]::GetFileName([string]$licensePath)
         if ($licenseName -eq 'COPYING.GPLv3') { $source = $sourceLicense }
@@ -173,6 +183,10 @@ function Copy-VerifiedFFmpegRuntime {
         ('Package: ' + [string]$Definition.PackageManagerId),
         ('PackageVersion: ' + [string]$Definition.PackageVersion),
         ('Source: ' + [string]$Definition.SourceUri),
+        ('UpstreamSourceRevision: ' + [string]$Definition.UpstreamSourceRevision),
+        ('UpstreamSource: ' + [string]$Definition.UpstreamSourceUri),
+        ('CorrespondingSourceArchive: https://github.com/FFmpeg/FFmpeg/archive/' + [string]$Definition.UpstreamSourceRevision + '.zip'),
+        ('BuildConfiguration: ' + [string]$ffmpegCheck.BuildConfiguration),
         ('PackageMetadata: ' + [string]$Definition.PackageMetadataUri),
         ('PackageArchiveSha256 (manifest pin): ' + [string]$Definition.PackageArchiveSha256),
         'RuntimeIntegrity: every shipped executable/library was checked against External-Libraries/manifest.json',

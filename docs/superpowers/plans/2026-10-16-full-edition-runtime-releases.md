@@ -86,9 +86,11 @@ Task 4 verification (2026-10-16): real local Gyan FFmpeg 9.0.2 shared x64 files 
 
 **Files:** `AGENTS.md`, `External-Libraries/README.md`, `NOTICE`, new `THIRD-PARTY-NOTICES.md` and FFmpeg `SOURCE.txt`/license texts as required, `docs/Licensing.md`, `docs/Testing.md`, `docs/Versioning-and-Releases.md`, `docs/Release-Notes-v*.md`, `README.md`, `CHANGELOG.md`, `VERSION`, `.github/workflows/tests.yml`.
 
-- [ ] Add static failing checks for required governance, Full/Lite policy, release-note structure, compatibility evidence, and synchronized version references.
-- [ ] Record observed OS/runtime support as `PASS`, `FAIL`, `UNVERIFIED`, or `N/A`; make no unsupported Windows/Linux claims.
-- [ ] Document exact runtime licenses, obligations, ownership, sources, hashes, and delivered package contents; leave Apache `LICENSE` unchanged.
-- [ ] Update README, help, docs, release notes, changelog, CI, checksums, and file trees only where affected.
-- [ ] Prepare the backward-compatible feature release under the repository's SemVer rules; synchronize canonical `VERSION`, badge, notes, and references in the same change.
-- [ ] Run both full Windows PowerShell suites, focused package/runtime checks, review the acceptance criteria, and commit the verified task changes without publishing or merging.
+- [x] Add static failing checks for required governance, Full/Lite policy, release-note structure, compatibility evidence, and synchronized version references.
+- [x] Record observed OS/runtime support as `PASS`, `FAIL`, `UNVERIFIED`, or `N/A`; make no unsupported Windows/Linux claims.
+- [x] Document exact runtime licenses, obligations, ownership, sources, hashes, and delivered package contents; leave Apache `LICENSE` unchanged.
+- [x] Update README, help, docs, release notes, changelog, CI, checksums, and file trees only where affected.
+- [x] Prepare the backward-compatible feature release under the repository's SemVer rules; synchronize canonical `VERSION`, badge, notes, and references in the same change.
+- [x] Run both full Windows PowerShell suites, focused package/runtime checks, review the acceptance criteria, and commit the verified task changes without publishing or merging.
+
+Task 5 verification (2026-10-16): the local-only SemVer MINOR preparation is `0.3.0` (the previous prepared version was `0.2.0`; the last published release remains `v0.1.0`). No version generator exists in `tools/`, so the canonical `VERSION` was updated and every reference was statically checked. Full suites passed on Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 with 1662 PASS / 0 FAIL / 0 UNVERIFIED each, including PATH isolation, loopback HTTP inspect/save, parent-process child termination, and actual Assimp OBJ-to-GLB verification. The tests and docs state that the legacy/manual UI checks and older OS compatibility remain UNVERIFIED; the Windows 11 x64 package matrix is evidence-based. `tests.yml` already runs both PowerShell engines and needs no CI change. Final v0.3.0 packages and post-extraction launch/runtime checks are produced from the task commit; the manual GitHub workflow, tag, push, and publication are intentionally not run.

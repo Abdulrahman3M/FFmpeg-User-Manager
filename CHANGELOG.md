@@ -8,11 +8,18 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-16
+
 ### Added
 - The canonical external-runtime manifest now records FFmpeg alongside Assimp, and FFmpeg/ffprobe resolve as a single validated bundled, explicitly configured custom, or system pair without mixing sources.
 - Full-runtime self-checking now reports the selected runtime's executables, manifest-required encoders/filters, version and PE architecture before a package is accepted.
 - Bundled FFmpeg updates are explicit opt-in and cancellable: WinGet downloads an exact x64 package into isolated staging, the official installer SHA-256 and runtime/license/capability requirements are checked, and the runtime plus manifest are activated transactionally with rollback.
 - The release builder now creates reproducible Full and Lite Windows x64 ZIPs from the same source revision, records build identity, verifies bundled-runtime integrity, and writes versioned SHA-256 checksums; the manual release workflow validates both extracted editions before preparing a release.
+- Full now carries the exact FFmpeg source revision and runtime-verified build configuration, original GPLv3 text, Gyan build README and third-party notices; Lite carries notices but excludes all external runtime binaries.
+- The README and release notes now distinguish Full/Lite, document evidence-based OS compatibility, and disclose known FFmpeg 9.0.2 security advisories.
+
+### Changed
+- Prepared the backward-compatible runtime/release feature set as MINOR version 0.3.0; no tag or public release was created.
 
 ## [0.2.0] - 2026-10-16
 

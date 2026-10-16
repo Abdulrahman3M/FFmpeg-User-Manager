@@ -42,6 +42,7 @@ function New-ReleasePackageFixture {
         [void](New-Item -ItemType Directory -Path $root -Force)
         [System.IO.File]::Copy($source, $destination, $true)
     }
+    [System.IO.File]::Copy((Join-Path $templateRoot 'THIRD-PARTY-NOTICES.md'), (Join-Path $root 'THIRD-PARTY-NOTICES.md'))
     foreach ($directory in @('config', 'src', 'src/Core', 'docs')) { [void](New-Item -ItemType Directory -Path (Join-Path $root $directory) -Force) }
     [System.IO.File]::WriteAllText((Join-Path (Join-Path $root 'config') 'defaults.json'), '{}')
     [System.IO.File]::WriteAllText((Join-Path (Join-Path (Join-Path $root 'src') 'Core') 'App.psm1'), '# test entry')
@@ -79,7 +80,7 @@ function New-ReleasePackageFixture {
 $fixture = New-ReleasePackageFixture
 Set-AppRoot $fixture.Root
 Set-ReleasePackageHooks -Reset
-Set-ReleasePackageHooks -FFmpegRuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = $true; Detail = 'fixture runtime validated'; Version = $version; Architecture = 'x64' } } -AssimpRuntimeCheck { param($assimpPath) return [pscustomobject]@{ Available = $true; Reason = ''; Path = $assimpPath } }
+Set-ReleasePackageHooks -FFmpegRuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = $true; Detail = 'fixture runtime validated'; Version = $version; Architecture = 'x64'; BuildConfiguration = '--enable-gpl --enable-version3 --enable-shared --enable-libssh' } } -AssimpRuntimeCheck { param($assimpPath) return [pscustomobject]@{ Available = $true; Reason = ''; Path = $assimpPath } }
 $testPackageOutputBase = Join-Path (Join-Path (Get-TestRoot) 'tests/output') ('release-package-tests-' + [guid]::NewGuid().ToString('N'))
 $outputOne = Join-Path $testPackageOutputBase 'packages one'
 $build = New-ReleasePackages -ProjectRoot $fixture.Root -OutputDirectory $outputOne -Edition Both -FFmpegRuntimeSource $fixture.FFmpegSource -SourceRevision $fixture.SourceRevision
@@ -94,6 +95,9 @@ try {
     $fullNames = @($fullArchive.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
     $liteNames = @($liteArchive.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
     Assert-True 'Full contains both runtimes and their licenses while Lite excludes runtime binaries' (($fullNames -contains 'FFmpeg-User-Manager/External-Libraries/FFmpeg/bin/ffmpeg.exe') -and ($fullNames -contains 'FFmpeg-User-Manager/External-Libraries/FFmpeg/bin/ffprobe.exe') -and ($fullNames -contains 'FFmpeg-User-Manager/External-Libraries/FFmpeg/LICENSES/COPYING.GPLv3') -and ($fullNames -contains 'FFmpeg-User-Manager/External-Libraries/Assimp/bin/assimp.exe') -and @($liteNames | Where-Object { $_ -match 'External-Libraries/(FFmpeg|Assimp)/.*\.(exe|dll)$' }).Count -eq 0)
+    $ffmpegSourceInfo = Read-ReleasePackageEntryText -Archive $fullArchive -Name 'FFmpeg-User-Manager/External-Libraries/FFmpeg/SOURCE.txt'
+    Assert-True 'Full records the exact upstream FFmpeg source revision and runtime-reported required build flags' (($ffmpegSourceInfo -match '(?m)^UpstreamSourceRevision: 946fcce07b\r?$') -and ($ffmpegSourceInfo -match '(?m)^BuildConfiguration: .*--enable-gpl.*--enable-version3.*--enable-shared.*--enable-libssh')) ('FFmpeg SOURCE.txt: ' + ($ffmpegSourceInfo -replace "`r?`n", '|'))
+    Assert-True 'both editions include the third-party inventory and Lite has no runtime source/license payloads' (($fullNames -contains 'FFmpeg-User-Manager/THIRD-PARTY-NOTICES.md') -and ($liteNames -contains 'FFmpeg-User-Manager/THIRD-PARTY-NOTICES.md') -and @($liteNames | Where-Object { $_ -match 'External-Libraries/(FFmpeg|Assimp)/' }).Count -eq 0)
     Assert-True 'packages omit Git, tests, tools, development plans, caches, and staging paths' ((@($fullNames + $liteNames | Where-Object { $_ -match '(^|/)(\.git|tests|tools|dist|\.superpowers|\.cache|\.stage[^/]*)(/|$)' }).Count -eq 0) -and (@($fullNames | Where-Object { $_ -match 'ffplay\.exe$' }).Count -eq 0))
     $fullBuildInfo = Read-ReleasePackageEntryText -Archive $fullArchive -Name 'FFmpeg-User-Manager/BUILD-INFO.txt'
     $liteBuildInfo = Read-ReleasePackageEntryText -Archive $liteArchive -Name 'FFmpeg-User-Manager/BUILD-INFO.txt'
@@ -162,7 +166,13 @@ $runtimeCheckReady = $false
 Set-ReleasePackageHooks -FFmpegRuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = $false; Detail = 'injected capability failure' } }
 try { $null = New-ReleasePackages -ProjectRoot $fixture.Root -OutputDirectory (Join-Path $testPackageOutputBase 'runtime self-check failure') -Edition Full -FFmpegRuntimeSource $fixture.FFmpegSource -SourceRevision $fixture.SourceRevision } catch { $runtimeCheckReady = $_.Exception.Message -match 'self-check' }
 Assert-True 'Full build stops when the canonical FFmpeg runtime self-check fails' $runtimeCheckReady
-Set-ReleasePackageHooks -FFmpegRuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = $true; Detail = 'fixture runtime validated'; Version = $version; Architecture = 'x64' } }
+Set-ReleasePackageHooks -FFmpegRuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = $true; Detail = 'fixture runtime validated'; Version = $version; Architecture = 'x64'; BuildConfiguration = '--enable-gpl --enable-version3 --enable-shared --enable-libssh' } }
+
+Set-ReleasePackageHooks -FFmpegRuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = $true; Detail = 'fixture runtime validated'; Version = $version; Architecture = 'x64'; BuildConfiguration = '' } }
+$missingBuildConfigurationRejected = $false
+try { $null = New-ReleasePackages -ProjectRoot $fixture.Root -OutputDirectory (Join-Path $testPackageOutputBase 'missing build configuration') -Edition Full -FFmpegRuntimeSource $fixture.FFmpegSource -SourceRevision $fixture.SourceRevision } catch { $missingBuildConfigurationRejected = $_.Exception.Message -match 'buildconf' }
+Assert-True 'Full build rejects missing runtime-reported build configuration metadata' $missingBuildConfigurationRejected
+Set-ReleasePackageHooks -FFmpegRuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = $true; Detail = 'fixture runtime validated'; Version = $version; Architecture = 'x64'; BuildConfiguration = '--enable-gpl --enable-version3 --enable-shared --enable-libssh' } }
 
 $missingLicense = Join-Path $fixture.FFmpegSource 'LICENSE'
 $savedLicense = [System.IO.File]::ReadAllText($missingLicense)
@@ -200,4 +210,6 @@ Set-ExternalLibraryHooks -Reset
 
 Set-ReleasePackageHooks -Reset
 Set-AppRoot (Get-TestRoot)
+$restoredRuntime = Find-FFmpegInstallation
+Assert-True 'release-package tests restore the detected FFmpeg runtime for later suites' ($restoredRuntime.Status -eq 'Ready' -and (Get-FFmpegPath) -eq $restoredRuntime.Ffmpeg)
 if ([System.IO.Directory]::Exists($testPackageOutputBase)) { [System.IO.Directory]::Delete($testPackageOutputBase, $true) }
