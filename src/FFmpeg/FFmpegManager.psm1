@@ -147,6 +147,75 @@ function Find-FFmpegInstallation {
     return $res
 }
 
+function Get-ExecutableArchitecture {
+    param([Parameter(Mandatory)][string]$Path)
+    $stream = $null; $reader = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+        if ($stream.Length -lt 64) { return 'Unknown' }
+        $reader = New-Object System.IO.BinaryReader($stream)
+        $null = $stream.Seek(60, [System.IO.SeekOrigin]::Begin)
+        $peOffset = $reader.ReadInt32()
+        if ($peOffset -lt 64 -or $peOffset -gt ($stream.Length - 6)) { return 'Unknown' }
+        $null = $stream.Seek($peOffset, [System.IO.SeekOrigin]::Begin)
+        if ($reader.ReadUInt32() -ne 0x00004550) { return 'Unknown' }
+        $machine = $reader.ReadUInt16()
+        switch ($machine) {
+            332 { return 'x86' }
+            34404 { return 'x64' }
+            43620 { return 'arm64' }
+            default { return 'Unknown' }
+        }
+    } catch { return 'Unknown' }
+    finally { if ($reader) { $reader.Dispose() } elseif ($stream) { $stream.Dispose() } }
+}
+
+function Test-FFmpegRuntimeRequirements {
+    <# Verifies an active or staged runtime against the canonical manifest and the existing capability parser. #>
+    param([string]$FfmpegPath = '', [string]$FfprobePath = '', [string]$Source = '', [string]$ExpectedVersion = '')
+    $detection = $null
+    if (-not $FfmpegPath -and -not $FfprobePath) {
+        $detection = Find-FFmpegInstallation
+        $FfmpegPath = [string]$detection.Ffmpeg; $FfprobePath = [string]$detection.Ffprobe
+        $Source = [string]$detection.Source
+    } elseif (-not $Source) { $Source = 'Candidate' }
+    $definition = Get-ExternalLibraryDefinition -Id 'ffmpeg'
+    if (-not $ExpectedVersion -and $Source -eq 'Bundled') { $ExpectedVersion = [string]$definition.CurrentVersion }
+    $missingExecutables = @(); $missingEncoders = @(); $missingFilters = @(); $version = ''; $architecture = 'Unknown'; $directory = ''
+    $ffResult = Test-FFToolCallable -Path $FfmpegPath -Name 'ffmpeg'
+    $fpResult = Test-FFToolCallable -Path $FfprobePath -Name 'ffprobe'
+    if (-not $ffResult.Ok) { $missingExecutables += 'ffmpeg.exe' }
+    if (-not $fpResult.Ok) { $missingExecutables += 'ffprobe.exe' }
+    if ($FfmpegPath) { try { $directory = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath($FfmpegPath)) } catch { $directory = '' } }
+    if ($ffResult.Ok) { $version = [string]$ffResult.Version; $architecture = Get-ExecutableArchitecture -Path $FfmpegPath }
+    $capabilityPath = ''
+    if ($FfmpegPath) { try { $capabilityPath = [System.IO.Path]::GetFullPath($FfmpegPath) } catch { $capabilityPath = $FfmpegPath } }
+    if ($missingExecutables.Count -eq 0) {
+        $capabilities = $null
+        $cached = Get-FFCapabilities
+        if ($cached.Loaded -and $cached.Path -and [string]::Equals([string]$cached.Path, $capabilityPath, [StringComparison]::OrdinalIgnoreCase)) { $capabilities = $cached }
+        else { $capabilities = Initialize-FFCapabilities -Force -FfmpegPath $FfmpegPath }
+        foreach ($name in @($definition.RequiredEncoders)) { if (-not $capabilities.Encoders.ContainsKey([string]$name)) { $missingEncoders += [string]$name } }
+        foreach ($name in @($definition.RequiredFilters)) { if (-not $capabilities.Filters.ContainsKey([string]$name)) { $missingFilters += [string]$name } }
+    }
+    $architectureReady = [string]::Equals($architecture, [string]$definition.Architecture, [StringComparison]::OrdinalIgnoreCase)
+    $versionMatches = $true
+    if ($ExpectedVersion) {
+        $versionToken = ''
+        if ($version -match '^(?<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))') { $versionToken = $Matches.version }
+        $versionMatches = [string]::Equals($versionToken, $ExpectedVersion, [StringComparison]::OrdinalIgnoreCase)
+    }
+    $ready = ($missingExecutables.Count -eq 0 -and $missingEncoders.Count -eq 0 -and $missingFilters.Count -eq 0 -and $architectureReady -and $versionMatches)
+    $details = @()
+    if ($missingExecutables.Count -gt 0) { $details += ('Unavailable executables: ' + ($missingExecutables -join ', ')) }
+    if ($missingEncoders.Count -gt 0) { $details += ('Missing encoders: ' + ($missingEncoders -join ', ')) }
+    if ($missingFilters.Count -gt 0) { $details += ('Missing filters: ' + ($missingFilters -join ', ')) }
+    if (-not $architectureReady) { $details += ('Architecture mismatch: expected ' + [string]$definition.Architecture + ', detected ' + $architecture) }
+    if (-not $versionMatches) { $details += ('Version mismatch: expected ' + $ExpectedVersion + ', detected ' + $version) }
+    if ($ready) { $details += 'The runtime meets the manifest acceptance requirements.' }
+    return [pscustomobject]@{ Ready = $ready; MissingExecutables = @($missingExecutables); MissingEncoders = @($missingEncoders); MissingFilters = @($missingFilters); Version = $version; ExpectedVersion = $ExpectedVersion; VersionMatches = $versionMatches; Architecture = $architecture; ArchitectureMatches = $architectureReady; Source = $Source; Directory = $directory; Detail = ($details -join ' ') }
+}
+
 # ---- winget -------------------------------------------------------------------
 
 function Get-WingetPackageId {
@@ -285,4 +354,4 @@ function Update-FFmpegViaWinget {
     return $r
 }
 
-Export-ModuleMember -Function Set-FFManagerHooks, Get-FFmpegPath, Get-FFprobePath, Get-BundledFFmpegPath, Get-BundledFFprobePath, Get-FFmpegInfo, Get-LastUpdateStatus, Update-ProcessPath, Find-FFTool, Test-FFToolCallable, Find-FFmpegInstallation, Get-WingetPackageId, Test-WingetAvailable, ConvertFrom-WingetPackageLine, Get-FFmpegUpdateStatus, Install-FFmpegViaWinget, Update-FFmpegViaWinget
+Export-ModuleMember -Function Set-FFManagerHooks, Get-FFmpegPath, Get-FFprobePath, Get-BundledFFmpegPath, Get-BundledFFprobePath, Get-FFmpegInfo, Get-LastUpdateStatus, Update-ProcessPath, Find-FFTool, Test-FFToolCallable, Find-FFmpegInstallation, Get-ExecutableArchitecture, Test-FFmpegRuntimeRequirements, Get-WingetPackageId, Test-WingetAvailable, ConvertFrom-WingetPackageLine, Get-FFmpegUpdateStatus, Install-FFmpegViaWinget, Update-FFmpegViaWinget

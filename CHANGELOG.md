@@ -10,6 +10,7 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ### Added
 - The canonical external-runtime manifest now records FFmpeg alongside Assimp, and FFmpeg/ffprobe resolve as a single validated bundled, explicitly configured custom, or system pair without mixing sources.
+- Full-runtime self-checking now reports the selected runtime's executables, manifest-required encoders/filters, version and PE architecture before a package is accepted.
 
 ## [0.2.0] - 2026-10-16
 
@@ -28,6 +29,7 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ### Fixed
 - FFmpeg child processes are attached to a Windows kill-on-job-close job, so abruptly closing the parent terminal cannot leave an encode running unattended.
+- OBJ/MTL dependency inspection now resolves quoted Unicode paths and decodes UTF-8 consistently in Windows PowerShell 5.1 and PowerShell 7.
 - Smoke-test infrastructure no longer relies on privileged NTFS hardlinks or HTTP URL reservations: the PATH test makes isolated copies, and the local stream server uses a bounded loopback TCP listener.
 - Scripted TUI test providers can resolve their key macros from the provider scope, avoiding cascaded false failures in smoke tests.
 - Completed local HLS Event exports are finalized as the requested `.m3u8` playlist after FFmpeg exits instead of being left at its temporary `.m3u8.tmp` path.

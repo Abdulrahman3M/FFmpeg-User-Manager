@@ -104,24 +104,28 @@ Assert-True 'Web Media Optimization submenu enables OBJ-to-GLB using bundled Ass
 Set-TestGroup 'OBJ-to-GLB end-to-end with bundled Assimp'
 $oldAssimpPath = $env:PATH
 $env:PATH = Join-Path $env:SystemRoot 'System32'
-$modelDir = Join-Path (Join-Path (Get-TestRoot) 'tests\output') ('assimp-e2e-' + [guid]::NewGuid().ToString('N'))
+$modelDir = Join-Path (Join-Path (Get-TestRoot) 'tests\output') ('assimp-e2e ' + [char]0x03A9 + '-' + [guid]::NewGuid().ToString('N'))
 try {
     $assimpStatus = Get-ThreeDToolStatus
     Assert-True 'bundled Assimp is usable without the package-manager installation directory on PATH' ($assimpStatus.Available -and $assimpStatus.Path -eq (Join-Path (Get-AppRoot) 'External-Libraries\Assimp\bin\assimp.exe')) $assimpStatus.Reason
     [void](New-Item -ItemType Directory -Path $modelDir -Force)
-    $modelObj = Join-Path $modelDir 'textured-triangle.obj'
-    $modelMtl = Join-Path $modelDir 'textured-triangle.mtl'
-    $modelTexture = Join-Path $modelDir 'diffuse.ppm'
-    $modelGlb = Join-Path $modelDir 'textured-triangle.glb'
-    [System.IO.File]::WriteAllText($modelObj, "mtllib textured-triangle.mtl`no textured triangle`nv 0 0 0`nv 1 0 0`nv 0 1 0`nvt 0 0`nvt 1 0`nvt 0 1`nvn 0 0 1`nusemtl matte`nf 1/1/1 2/2/1 3/3/1`n", (New-Object System.Text.UTF8Encoding($false)))
-    [System.IO.File]::WriteAllText($modelMtl, "newmtl matte`nKa 0.2 0.2 0.2`nKd 1.0 1.0 1.0`nmap_Kd diffuse.ppm`n", (New-Object System.Text.UTF8Encoding($false)))
-    [System.IO.File]::WriteAllText($modelTexture, "P3`n2 2`n255`n255 0 0 0 255 0`n0 0 255 255 255 0`n", (New-Object System.Text.UTF8Encoding($false)))
+    $modelStem = 'textured triangle ' + [char]0x03A9
+    $modelObj = Join-Path $modelDir ($modelStem + '.obj')
+    $modelMtl = Join-Path $modelDir ($modelStem + '.mtl')
+    $modelTexture = Join-Path $modelDir 'diffuse.png'
+    $modelGlb = Join-Path $modelDir ($modelStem + '.glb')
+    $objContent = 'mtllib "' + $modelStem + '.mtl"' + "`no textured triangle`nv 0 0 0`nv 1 0 0`nv 0 1 0`nvt 0 0`nvt 1 0`nvt 0 1`nvn 0 0 1`nusemtl matte`nf 1/1/1 2/2/1 3/3/1`n"
+    [System.IO.File]::WriteAllText($modelObj, $objContent, (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText($modelMtl, "newmtl matte`nKa 0.2 0.2 0.2`nKd 1.0 1.0 1.0`nmap_Kd diffuse.png`n", (New-Object System.Text.UTF8Encoding($false)))
+    $null = New-Fixture 'diffuse.png' @('-f', 'lavfi', '-i', 'color=c=red:s=4x4:d=1', '-frames:v', '1') -Dir $modelDir
     $modelSourceHashes = @((Get-FileHash -LiteralPath $modelObj -Algorithm SHA256).Hash, (Get-FileHash -LiteralPath $modelMtl -Algorithm SHA256).Hash, (Get-FileHash -LiteralPath $modelTexture -Algorithm SHA256).Hash)
     $trace = New-Object 'System.Collections.Generic.List[string]'
     $ui = Invoke-Flow { Start-ObjToGlbWorkflow } @(
+        (New-ScreenRule 'That is not a valid path|could not be found|does not exist' '{Esc}' 1),
+        (New-ScreenRule 'Processing failed\.' '{#Back}' 1),
         (New-Rule 'Input Wavefront OBJ file' "$modelObj{Enter}"),
         (New-Rule 'Output folder' '{Enter}'),
-        (New-Rule 'Output GLB file name' 'textured-triangle.glb{Enter}'),
+        (New-Rule 'Output GLB file name' ($modelStem + '.glb{Enter}')),
         (New-ScreenRule 'Summary' '{Enter}' 1),
         (New-ScreenRule 'Completed successfully' '{#Main menu}' 1)
     ) -MaxCalls 100 -Trace $trace
@@ -131,6 +135,7 @@ try {
     if ($convertedMeshes.Count -gt 0 -and @(Get-WebJsonProperty $convertedMeshes[0] 'primitives').Count -gt 0) { $convertedPrimitive = (Get-WebJsonProperty $convertedMeshes[0] 'primitives')[0] }
     $warnings = @(Get-ObjGlbWarnings -ObjPath $modelObj -GlbPath $modelGlb -DependencyReport (Get-ObjDependencyReport -Path $modelObj))
     $convertedAttributes = Get-WebJsonProperty $convertedPrimitive 'attributes'
-    Assert-True 'GLB output contains glTF 2 geometry, normals, UV coordinates, material and texture reference' ($null -ne $convertedModel -and (Get-WebJsonProperty $convertedAsset 'version') -eq '2.0' -and $null -ne (Get-WebJsonProperty $convertedAttributes 'POSITION') -and $null -ne (Get-WebJsonProperty $convertedAttributes 'NORMAL') -and $null -ne (Get-WebJsonProperty $convertedAttributes 'TEXCOORD_0') -and $convertedMaterials.Count -gt 0 -and $convertedImages.Count -gt 0)
-    Assert-True 'application reports the external texture reference and leaves every OBJ/MTL/texture source unchanged' (@($warnings | Where-Object { $_ -match 'external files|embedded GLB texture' }).Count -gt 0 -and $ui.Output -match 'external files|embedded GLB texture' -and (Get-FileHash -LiteralPath $modelObj -Algorithm SHA256).Hash -eq $modelSourceHashes[0] -and (Get-FileHash -LiteralPath $modelMtl -Algorithm SHA256).Hash -eq $modelSourceHashes[1] -and (Get-FileHash -LiteralPath $modelTexture -Algorithm SHA256).Hash -eq $modelSourceHashes[2]) ($warnings -join '; ')
+    $externalImages = @($convertedImages | Where-Object { $imageUri = Get-WebJsonProperty $_ 'uri'; $imageUri -and -not $imageUri.StartsWith('data:', [StringComparison]::OrdinalIgnoreCase) })
+    Assert-True 'GLB output contains glTF 2 geometry, normals, UV coordinates, material and its texture record from a Unicode/spaced path' ($null -ne $convertedModel -and (Get-WebJsonProperty $convertedAsset 'version') -eq '2.0' -and $null -ne (Get-WebJsonProperty $convertedAttributes 'POSITION') -and $null -ne (Get-WebJsonProperty $convertedAttributes 'NORMAL') -and $null -ne (Get-WebJsonProperty $convertedAttributes 'TEXCOORD_0') -and $convertedMaterials.Count -gt 0 -and $convertedImages.Count -gt 0 -and $externalImages.Count -gt 0)
+    Assert-True 'application honestly warns that Assimp leaves this external texture unembedded and leaves every OBJ/MTL/texture source unchanged' (@($warnings | Where-Object { $_ -match 'external files|embedded GLB texture' }).Count -gt 0 -and $ui.Output -match 'external files|embedded GLB texture' -and (Get-FileHash -LiteralPath $modelObj -Algorithm SHA256).Hash -eq $modelSourceHashes[0] -and (Get-FileHash -LiteralPath $modelMtl -Algorithm SHA256).Hash -eq $modelSourceHashes[1] -and (Get-FileHash -LiteralPath $modelTexture -Algorithm SHA256).Hash -eq $modelSourceHashes[2]) ($warnings -join '; ')
 } finally { $env:PATH = $oldAssimpPath; if ($modelDir -and (Test-Path -LiteralPath $modelDir -PathType Container)) { Remove-Item -LiteralPath $modelDir -Recurse -Force } }

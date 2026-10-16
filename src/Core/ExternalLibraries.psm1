@@ -32,6 +32,7 @@ function Get-ExternalLibraryManifest {
             if (-not $library.PackageBaseName -or -not $library.PackageRealName -or -not $library.PackageRepository -or @($library.RuntimePackages).Count -eq 0) { throw 'The Assimp manifest omits its exact package-manager identity or runtime package inventory.' }
         } elseif ($libraryId -eq 'ffmpeg') {
             if ($packageEndpoint.AbsolutePath -ne '/repos/microsoft/winget-pkgs/contents/manifests/g/Gyan/FFmpeg/Shared' -or $library.PackageManagerId -ne 'Gyan.FFmpeg.Shared' -or $library.PackageVersion -ne $library.CurrentVersion -or [string]$library.License -ne 'GPL-3.0' -or [string]$library.PackageArchiveSha256 -notmatch '^[A-Fa-f0-9]{64}$' -or -not $library.SourceFile -or @($library.LicenseFiles).Count -eq 0) { throw 'The FFmpeg manifest omits the pinned package identity, license/source paths or integrity metadata.' }
+            if (@($library.RequiredExecutables).Count -ne 2 -or @($library.RequiredEncoders).Count -eq 0 -or @($library.RequiredFilters).Count -eq 0) { throw 'The FFmpeg manifest omits required executable or capability acceptance criteria.' }
             if (@($library.Files | Where-Object { $_.Path -eq 'FFmpeg/bin/ffmpeg.exe' }).Count -ne 1 -or @($library.Files | Where-Object { $_.Path -eq 'FFmpeg/bin/ffprobe.exe' }).Count -ne 1) { throw 'The FFmpeg manifest must inventory both required executables.' }
         }
     }

@@ -208,3 +208,31 @@ Set-AppRoot $sourceRoot
 $env:PATH = $sourcePath
 $env:FFTUI_FFMPEG_PATH = $customEnv
 $null = Find-FFmpegInstallation
+
+Set-TestGroup 'FFmpeg runtime self-check'
+$activeRuntimeCheck = Test-FFmpegRuntimeRequirements
+Assert-True 'Full runtime self-check discovers required encoders and filters from the executable build' ($activeRuntimeCheck.Ready -and @($activeRuntimeCheck.MissingEncoders).Count -eq 0 -and @($activeRuntimeCheck.MissingFilters).Count -eq 0)
+Assert-True 'Full runtime self-check reports architecture/version/source' ($activeRuntimeCheck.Version -and $activeRuntimeCheck.Architecture -eq 'x64' -and $activeRuntimeCheck.Source -in @('Bundled', 'Custom', 'System'))
+
+$missingRoot = Join-Path (Get-TestWork) 'missing ffmpeg runtime application'
+[void](New-Item -ItemType Directory -Path $missingRoot -Force)
+$null = New-Item -ItemType Directory -Path (Join-Path $missingRoot 'External-Libraries') -Force
+Copy-Item -LiteralPath (Join-Path (Get-AppRoot) 'External-Libraries\manifest.json') -Destination (Join-Path $missingRoot 'External-Libraries\manifest.json')
+$savedRoot = Get-AppRoot; $savedCustom = $env:FFTUI_FFMPEG_PATH
+$env:FFTUI_FFMPEG_PATH = ''
+Set-FFManagerHooks -FindCommand { param($toolName) $null }
+Set-AppRoot $missingRoot
+$missingRuntimeCheck = Test-FFmpegRuntimeRequirements
+Assert-True 'Full runtime self-check reports missing ffmpeg and ffprobe' (-not $missingRuntimeCheck.Ready -and @($missingRuntimeCheck.MissingExecutables).Count -eq 2 -and $missingRuntimeCheck.MissingExecutables -contains 'ffmpeg.exe' -and $missingRuntimeCheck.MissingExecutables -contains 'ffprobe.exe')
+Set-FFManagerHooks -Reset
+Set-AppRoot $savedRoot
+$env:FFTUI_FFMPEG_PATH = $savedCustom
+$null = Find-FFmpegInstallation
+
+$ffmpegDefinition = Get-ExternalLibraryDefinition -Id 'ffmpeg'
+$reducedEncoders = @($ffmpegDefinition.RequiredEncoders | Where-Object { $_ -ne $ffmpegDefinition.RequiredEncoders[0] })
+$reducedFilters = @($ffmpegDefinition.RequiredFilters | Where-Object { $_ -ne $ffmpegDefinition.RequiredFilters[0] })
+Set-FFCapabilityData -Encoders $reducedEncoders -Filters $reducedFilters
+$missingCapabilitiesCheck = Test-FFmpegRuntimeRequirements
+Assert-True 'Full runtime self-check identifies unavailable capabilities without claiming readiness' (-not $missingCapabilitiesCheck.Ready -and $missingCapabilitiesCheck.MissingEncoders -contains $ffmpegDefinition.RequiredEncoders[0] -and $missingCapabilitiesCheck.MissingFilters -contains $ffmpegDefinition.RequiredFilters[0])
+$null = Initialize-FFCapabilities -Force

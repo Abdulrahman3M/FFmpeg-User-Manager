@@ -12,6 +12,7 @@ if ($ffmpeg) {
     Assert-True 'manifest identifies pinned FFmpeg package and x64 architecture' ($ffmpeg.CurrentVersion -eq '9.0.2' -and $ffmpeg.Architecture -eq 'x64' -and $ffmpeg.PackageManagerId -eq 'Gyan.FFmpeg.Shared' -and $ffmpeg.PackageVersion -eq '9.0.2')
     Assert-True 'manifest records Full/Lite policy, official source, GPL license and official package hash' ([bool]$ffmpeg.BundledInFull -and -not [bool]$ffmpeg.BundledInLite -and $ffmpeg.SourceUri -like 'https://github.com/GyanD/*' -and $ffmpeg.License -eq 'GPL-3.0' -and $ffmpeg.PackageArchiveSha256 -match '^[A-Fa-f0-9]{64}$')
     Assert-True 'manifest records verified FFmpeg runtime files and license/source paths' (@($ffmpeg.Files).Count -ge 9 -and $ffmpeg.LicenseFiles -contains 'FFmpeg/LICENSES/COPYING.GPLv3' -and $ffmpeg.SourceFile -eq 'FFmpeg/SOURCE.txt')
+    Assert-True 'manifest records the accepted runtime encoders, filters and executables for live verification' (@($ffmpeg.RequiredExecutables).Count -eq 2 -and @($ffmpeg.RequiredEncoders).Count -ge 8 -and @($ffmpeg.RequiredFilters).Count -ge 13)
     Assert-True 'manifest records Windows architecture and does not claim unverified Linux support' ($ffmpeg.WindowsSupport.Status -in @('PASS', 'UNVERIFIED') -and $ffmpeg.LinuxSupport.Status -in @('UNVERIFIED', 'N/A'))
 }
 if ($assimp) {

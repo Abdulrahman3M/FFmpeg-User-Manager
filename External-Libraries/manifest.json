@@ -28,6 +28,9 @@
       "Windows8Support": { "Status": "UNVERIFIED", "Verified": "Not exercised; no compatibility claim" },
       "Windows7Support": { "Status": "UNVERIFIED", "Verified": "Not exercised; no compatibility claim" },
       "LinuxSupport": { "Status": "N/A", "Verified": "Windows-only x64 package; Linux runtime is not distributed" },
+      "RequiredExecutables": [ "ffmpeg.exe", "ffprobe.exe" ],
+      "RequiredEncoders": [ "libx264", "libx265", "libvpx-vp9", "libaom-av1", "aac", "libopus", "libmp3lame", "png", "mjpeg", "libwebp" ],
+      "RequiredFilters": [ "scale", "fps", "crop", "transpose", "overlay", "drawtext", "palettegen", "paletteuse", "loudnorm", "afftdn", "silenceremove", "subtitles", "showwaves" ],
       "Files": [
         { "Path": "FFmpeg/bin/ffmpeg.exe", "Sha256": "B1A495A71491BF208F95043CA06654AD76D59738533EC8FF237A759E29ABD2A3", "Bytes": 633344 },
         { "Path": "FFmpeg/bin/ffprobe.exe", "Sha256": "26283152241767BB54A09009DE2EEA3408549D1840AB3A0725320253557C0532", "Bytes": 225792 },

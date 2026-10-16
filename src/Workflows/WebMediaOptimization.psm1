@@ -435,23 +435,44 @@ function Get-ThreeDToolStatus {
     return [pscustomobject]@{ Available = $true; Path = $candidate; Reason = ''; ExportList = $exportList }
 }
 
+function Read-ObjTextLines {
+    param([Parameter(Mandatory)][string]$Path)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $encoding = $null; $offset = 0
+    if ($bytes.Length -ge 4 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE -and $bytes[2] -eq 0 -and $bytes[3] -eq 0) { $encoding = New-Object System.Text.UTF32Encoding($false, $false, $true); $offset = 4 }
+    elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0 -and $bytes[1] -eq 0 -and $bytes[2] -eq 0xFE -and $bytes[3] -eq 0xFF) { $encoding = New-Object System.Text.UTF32Encoding($true, $false, $true); $offset = 4 }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { $encoding = New-Object System.Text.UnicodeEncoding($false, $false, $true); $offset = 2 }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { $encoding = New-Object System.Text.UnicodeEncoding($true, $false, $true); $offset = 2 }
+    elseif ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $encoding = New-Object System.Text.UTF8Encoding($false, $true); $offset = 3 }
+    else { $encoding = New-Object System.Text.UTF8Encoding($false, $true) }
+    try { $text = $encoding.GetString($bytes, $offset, $bytes.Length - $offset) }
+    catch {
+        $codePage = [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage
+        try { $encoding = [System.Text.Encoding]::GetEncoding($codePage) } catch { $encoding = [System.Text.Encoding]::Default }
+        $text = $encoding.GetString($bytes)
+    }
+    return ($text -split "`r?`n")
+}
+
 function Get-ObjDependencyReport {
     param([Parameter(Mandatory)][string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw 'The OBJ input file does not exist.' }
     if ([System.IO.Path]::GetExtension($Path).ToLowerInvariant() -ne '.obj') { throw 'The input must be a Wavefront .obj file.' }
     $fullPath = [System.IO.Path]::GetFullPath($Path)
     $baseDir = [System.IO.Path]::GetDirectoryName($fullPath)
-    $objLines = @(Get-Content -LiteralPath $fullPath -ErrorAction Stop)
+    $objLines = @(Read-ObjTextLines -Path $fullPath)
     $hasUv = [bool](@($objLines | Where-Object { $_ -match '^\s*vt\s+' }).Count -gt 0)
     $hasNormals = [bool](@($objLines | Where-Object { $_ -match '^\s*vn\s+' }).Count -gt 0)
     $mtlRefs = @(); $textureRefs = @(); $missing = @()
     foreach ($line in $objLines) {
         if ($line -match '^\s*mtllib\s+(.+?)\s*$') {
             $raw = $Matches[1].Trim()
-            $rawCandidate = if ([System.IO.Path]::IsPathRooted($raw)) { $raw } else { Join-Path $baseDir $raw }
             if ($raw -match '^"([^"]+)"$') { $refs = @($Matches[1]) }
-            elseif (Test-Path -LiteralPath $rawCandidate -PathType Leaf) { $refs = @($raw) }
-            else { $refs = @($raw -split '\s+') }
+            else {
+                $rawCandidate = if ([System.IO.Path]::IsPathRooted($raw)) { $raw } else { Join-Path $baseDir $raw }
+                if (Test-Path -LiteralPath $rawCandidate -PathType Leaf) { $refs = @($raw) }
+                else { $refs = @($raw -split '\s+') }
+            }
             foreach ($ref in $refs) {
                 if (-not $ref) { continue }
                 $mtlCandidate = if ([System.IO.Path]::IsPathRooted($ref)) { $ref } else { Join-Path $baseDir $ref }
@@ -459,7 +480,7 @@ function Get-ObjDependencyReport {
                 $mtlRefs += $mtlFull
                 if (-not (Test-Path -LiteralPath $mtlFull -PathType Leaf)) { $missing += $mtlFull; continue }
                 $mtlDir = [System.IO.Path]::GetDirectoryName($mtlFull)
-                foreach ($mtlLine in @(Get-Content -LiteralPath $mtlFull -ErrorAction SilentlyContinue)) {
+                foreach ($mtlLine in @(Read-ObjTextLines -Path $mtlFull)) {
                     if ($mtlLine -match '^\s*(?:map_[A-Za-z0-9_]+|bump|disp|decal|norm)\s+(.+?)\s*$') {
                         $value = $Matches[1].Trim()
                         if ($value -match '"([^"]+)"') { $texture = $Matches[1] }

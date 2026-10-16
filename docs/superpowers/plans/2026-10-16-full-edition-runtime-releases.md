@@ -48,11 +48,11 @@
 
 **Interfaces:** Add `Test-FFmpegRuntimeRequirements()` returning `{ Ready; MissingExecutables; MissingEncoders; MissingFilters; Version; Architecture; Source }`; consume existing `Test-FFToolCallable`, `Initialize-FFCapabilities`, `Get-ThreeDToolStatus`, and OBJ-to-GLB validation. Required feature names come only from the approved handoff's acceptance list and are checked against the actual build; do not create a hardcoded universe or duplicate Assimp resolution.
 
-- [ ] Add failing tests named `Full runtime self-check reports missing ffmpeg and ffprobe`, `Full runtime self-check discovers required encoders and filters from the executable build`, `Full runtime self-check reports architecture/version/source`, and `Full runtime self-check identifies unavailable capabilities without claiming readiness`.
-- [ ] Add/extend a smoke case named `bundled Assimp OBJ-to-GLB conversion preserves supported UVs, normals, materials and embedded textures from a Unicode/spaced path`.
-- [ ] Run the focused tests to prove they fail for missing requirements.
-- [ ] Implement only the necessary runtime self-check/reporting changes.
-- [ ] Run manager and Web Media unit/smoke tests and record actual OS/runtime evidence.
+- [x] Add failing tests named `Full runtime self-check reports missing ffmpeg and ffprobe`, `Full runtime self-check discovers required encoders and filters from the executable build`, `Full runtime self-check reports architecture/version/source`, and `Full runtime self-check identifies unavailable capabilities without claiming readiness`.
+- [x] Add/extend a smoke case proving `bundled Assimp OBJ-to-GLB conversion preserves supported UVs, normals, materials and reports external texture links honestly from a Unicode/spaced path`; the current CLI build writes a URI-linked texture rather than embedding it, and the app already warns that those images must stay beside the output.
+- [x] Run the focused tests to prove they fail for missing requirements.
+- [x] Implement only the necessary runtime self-check/reporting changes and fix the PowerShell 5.1 quoted UTF-8 MTL-path regression exposed by the end-to-end test.
+- [x] Run Manager (52 PASS), ExternalLibraries (12 PASS), NewTools (148 PASS), and Web Media (17 PASS) under Windows PowerShell 5.1 and PowerShell 7.6.5; all focused runs had 0 FAIL and 0 UNVERIFIED.
 
 ### Task 3: Consent-based transactional dependency updates
 

@@ -9,7 +9,7 @@ function New-EmptyCapabilities {
     return @{
         Loaded = $false; At = $null; Errors = @()
         Encoders = @{}; Decoders = @{}; Muxers = @{}; Demuxers = @{}; Filters = @{}
-        ProtocolsIn = @{}; ProtocolsOut = @{}; HwAccels = @(); CodecEncoders = @{}
+        ProtocolsIn = @{}; ProtocolsOut = @{}; HwAccels = @(); CodecEncoders = @{}; Path = ''
     }
 }
 
@@ -94,24 +94,28 @@ function ConvertFrom-FFCodecsList {
 }
 
 function Invoke-FFQuery {
-    param([string]$What)
-    $ff = Get-FFmpegPath
+    param([string]$What, [string]$FfmpegPath = '')
+    $ff = $FfmpegPath
+    if (-not $ff) { $ff = Get-FFmpegPath }
     $r = Invoke-ExternalCapture -FilePath $ff -Arguments @('-hide_banner', $What) -TimeoutSec 60
     if (-not $r.Started -or $r.ExitCode -ne 0) { return @{ Ok = $false; Text = ''; Error = "ffmpeg $What failed" } }
     return @{ Ok = $true; Text = $r.StdOut; Error = '' }
 }
 
 function Initialize-FFCapabilities {
-    param([switch]$Force, [scriptblock]$OnProgress)
-    if ($script:Cap -and $script:Cap.Loaded -and -not $Force) { return $script:Cap }
+    param([switch]$Force, [scriptblock]$OnProgress, [string]$FfmpegPath = '')
+    if ($script:Cap -and $script:Cap.Loaded -and -not $Force -and -not $FfmpegPath) { return $script:Cap }
     $c = New-EmptyCapabilities
     $script:UsableCache = @{}
+    $queryPath = $FfmpegPath
+    if (-not $queryPath) { $queryPath = Get-FFmpegPath }
+    $c.Path = $queryPath
     $jobs = @('-encoders', '-decoders', '-muxers', '-demuxers', '-filters', '-protocols', '-hwaccels', '-codecs')
     $n = 0
     foreach ($q in $jobs) {
         $n++
         if ($OnProgress) { & $OnProgress $q $n $jobs.Count }
-        $r = Invoke-FFQuery $q
+        $r = Invoke-FFQuery -What $q -FfmpegPath $queryPath
         if (-not $r.Ok) { $c.Errors += $r.Error; continue }
         switch ($q) {
             '-encoders' { $c.Encoders = ConvertFrom-FFCodecList $r.Text }
@@ -126,7 +130,7 @@ function Initialize-FFCapabilities {
     }
     $c.Loaded = ($c.Encoders.Count -gt 0)
     $c.At = Get-Date
-    $script:Cap = $c
+    if (-not $FfmpegPath) { $script:Cap = $c }
     return $c
 }
 
@@ -134,6 +138,8 @@ function Set-FFCapabilityData {
     # Test seam: install a synthetic capability set.
     param([string[]]$Encoders = @(), [string[]]$Muxers = @(), [string[]]$Filters = @(), [string[]]$Protocols = @(), [string[]]$HwAccels = @())
     $c = New-EmptyCapabilities
+    $currentPath = Get-FFmpegPath
+    if ($currentPath) { try { $c.Path = [System.IO.Path]::GetFullPath($currentPath) } catch { $c.Path = $currentPath } }
     foreach ($e in $Encoders) { $c.Encoders[$e] = @{ Type = 'V'; Description = $e } }
     foreach ($m in $Muxers) { $c.Muxers[$m] = @{ Description = $m } }
     foreach ($f in $Filters) { $c.Filters[$f] = @{ Io = 'V->V'; Description = $f } }

@@ -192,7 +192,7 @@ $null = Initialize-FFCapabilities -Force
 Set-TestGroup '3D tool and OBJ dependency inspection'
 $libraryManifest = Get-ExternalLibraryManifest
 $assimpLibrary = Get-ExternalLibraryDefinition -Id 'assimp'
-Assert-True 'external library manifest tracks Assimp and official upstream and MSYS2 package metadata' ($libraryManifest.SchemaVersion -eq 1 -and $assimpLibrary.CurrentVersion -eq '6.0.5' -and $assimpLibrary.MetadataUri -eq 'https://api.github.com/repos/assimp/assimp/releases/latest' -and $assimpLibrary.PackageMetadataUri -eq 'https://packages.msys2.org/api/search?query=mingw-w64-clang-x86_64-assimp&qtype=binpkg' -and $assimpLibrary.PackageBaseName -eq 'mingw-w64-assimp' -and $assimpLibrary.PackageRealName -eq 'assimp' -and $assimpLibrary.PackageRepository -eq 'clang64' -and @($assimpLibrary.RuntimePackages).Count -eq 6)
+Assert-True 'external library manifest tracks Assimp and official upstream and MSYS2 package metadata' ($libraryManifest.SchemaVersion -eq 2 -and $assimpLibrary.CurrentVersion -eq '6.0.5' -and $assimpLibrary.MetadataUri -eq 'https://api.github.com/repos/assimp/assimp/releases/latest' -and $assimpLibrary.PackageMetadataUri -eq 'https://packages.msys2.org/api/search?query=mingw-w64-clang-x86_64-assimp&qtype=binpkg' -and $assimpLibrary.PackageBaseName -eq 'mingw-w64-assimp' -and $assimpLibrary.PackageRealName -eq 'assimp' -and $assimpLibrary.PackageRepository -eq 'clang64' -and @($assimpLibrary.RuntimePackages).Count -eq 6)
 Assert-True 'manifest records the complete Clang64 dependency graph and its LLVM virtual runtime provider' (@($assimpLibrary.RuntimePackages[0].Dependencies).Count -eq 3 -and (@($assimpLibrary.RuntimePackages | Where-Object { $_.Name -eq 'libc++' })[0].Dependencies -contains 'libunwind') -and (@($assimpLibrary.RuntimePackages | Where-Object { $_.Name -eq 'libc++' })[0].Provides -contains 'gcc-libs') -and (@($assimpLibrary.RuntimePackages | Where-Object { $_.Name -eq 'bzip2' })[0].Dependencies -contains 'libc++ (provides the clang64 gcc-libs virtual package)'))
 $libraryCurrent = Get-ExternalLibraryUpdateStatus -Id 'assimp' -LatestVersion '6.0.5' -LatestPackageVersion '6.0.5-2'
 Assert-Equal 'stable upstream and package metadata report up to date' 'UpToDate' $libraryCurrent.State
@@ -235,6 +235,13 @@ $texturePath = Join-Path $objRoot 'diffuse.png'
 [System.IO.File]::WriteAllBytes($texturePath, [byte[]]@(1, 2, 3))
 $objDeps = Get-ObjDependencyReport -Path $objPath
 Assert-True 'OBJ dependency scan detects UVs, normals, MTL and referenced textures' ($objDeps.HasUv -and $objDeps.HasNormals -and $objDeps.MaterialFiles.Count -eq 1 -and $objDeps.TextureReferences.Count -eq 1 -and $objDeps.MissingDependencies.Count -eq 0)
+$quotedName = 'material ' + [char]0x03A9 + ' library.mtl'; $quotedTextureName = 'texture ' + [char]0x03A9 + '.png'
+$quotedObj = Join-Path $objRoot ('quoted ' + [char]0x03A9 + '.obj'); $quotedMtl = Join-Path $objRoot $quotedName; $quotedTexture = Join-Path $objRoot $quotedTextureName
+[System.IO.File]::WriteAllText($quotedObj, ('mtllib "' + $quotedName + '"' + "`nv 0 0 0`nvt 0 0`nvn 0 0 1`nf 1/1/1 1/1/1 1/1/1`n"), (New-Object System.Text.UTF8Encoding($false)))
+[System.IO.File]::WriteAllText($quotedMtl, ('newmtl material' + "`nmap_Kd `"" + $quotedTextureName + "`"`n"), (New-Object System.Text.UTF8Encoding($false)))
+[System.IO.File]::WriteAllBytes($quotedTexture, [byte[]]@(1, 2, 3))
+$quotedDeps = Get-ObjDependencyReport -Path $quotedObj
+Assert-True 'OBJ dependency scan resolves quoted Unicode MTL and texture paths with PowerShell 5.1 semantics' ($quotedDeps.MaterialFiles.Count -eq 1 -and $quotedDeps.MaterialFiles[0] -eq [System.IO.Path]::GetFullPath($quotedMtl) -and $quotedDeps.TextureReferences.Count -eq 1 -and $quotedDeps.TextureReferences[0] -eq [System.IO.Path]::GetFullPath($quotedTexture) -and $quotedDeps.MissingDependencies.Count -eq 0) ($quotedDeps.MissingDependencies -join '; ')
 $assimpArgs = @(New-AssimpExportArguments -InputPath 'C:\Models\sample model.obj' -OutputPath 'C:\Models\sample model.glb')
 Assert-True 'Assimp GLB command uses token arguments and explicitly requests glTF 2 binary' (($assimpArgs -join '|') -eq 'export|C:\Models\sample model.obj|C:\Models\sample model.glb|-fglb2')
 $samplePlan = New-WebMSampleEstimateJob @{ WebMSettings = @{ InputPath = 'video.mp4'; Duration = 12.0; VideoTokens = @('-c:v', 'libvpx-vp9'); AudioTokens = @(); Resolution = 'keep' } }
