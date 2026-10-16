@@ -402,6 +402,51 @@ function New-FFmpegCandidateRuntime {
     return , $records
 }
 
+function Get-VerifiedFFmpegRuntimeForPackaging {
+    <# Downloads the manifest-pinned package only after explicit caller opt-in; it never changes the active runtime. #>
+    param([Parameter(Mandatory)][string]$Destination, [switch]$Confirmed, [scriptblock]$OnTick)
+    if (-not $Confirmed) { return [pscustomobject]@{ Ready = $false; State = 'Declined'; Message = 'No FFmpeg package was downloaded.'; Path = ''; Version = '' } }
+    if (-not (Test-IsWindows)) { return [pscustomobject]@{ Ready = $false; State = 'Unavailable'; Message = 'The verified WinGet release-package acquisition is supported only on Windows.'; Path = ''; Version = '' } }
+    $destinationFull = [System.IO.Path]::GetFullPath($Destination)
+    if ([System.IO.File]::Exists($destinationFull) -or [System.IO.Directory]::Exists($destinationFull)) { return [pscustomobject]@{ Ready = $false; State = 'Rejected'; Message = 'The package staging destination already exists and will not be overwritten.'; Path = ''; Version = '' } }
+    $createdDestination = $false; $state = 'Failed'; $message = ''; $candidatePath = ''; $version = ''
+    try {
+        $library = Get-ExternalLibraryDefinition -Id 'ffmpeg'
+        $version = [string]$library.PackageVersion
+        if (-not (Test-SemVer $version) -or $version -match '-' -or [string]$library.CurrentVersion -ne $version) { throw 'The FFmpeg package version is not a stable exact match for the canonical runtime manifest.' }
+        $metadata = $null
+        if ($script:ExternalLibraryHooks.PackageMetadata) { $metadata = & $script:ExternalLibraryHooks.PackageMetadata $version }
+        else { $metadata = Get-FFmpegWingetInstallerMetadata -PackageVersion $version }
+        if ([string]$metadata.PackageId -ne [string]$library.PackageManagerId -or [string]$metadata.PackageVersion -ne $version -or [string]$metadata.Architecture -ne 'x64' -or [string]$metadata.InstallerType -ne 'zip' -or [string]$metadata.InstallerSha256 -notmatch '^[A-Fa-f0-9]{64}$' -or -not [string]::Equals([string]$metadata.InstallerSha256, [string]$library.PackageArchiveSha256, [StringComparison]::OrdinalIgnoreCase)) { throw 'Official WinGet metadata did not match the pinned package identity, version, architecture, format and manifest archive SHA-256.' }
+        [void](New-Item -ItemType Directory -Path $destinationFull)
+        $createdDestination = $true
+        $downloadRoot = Join-Path $destinationFull 'download'
+        $extractRoot = Join-Path $destinationFull 'extract'
+        $candidatePath = Join-Path $destinationFull 'FFmpeg'
+        [void](New-Item -ItemType Directory -Path $downloadRoot)
+        $download = Invoke-FFmpegPackageDownload -PackageVersion $version -Destination $downloadRoot -InstallerMetadata $metadata -OnTick $OnTick
+        if ($download -and $download.PSObject.Properties['Cancelled'] -and [bool]$download.Cancelled) { $state = 'Cancelled'; $message = 'The WinGet download was cancelled; no runtime files were changed.'; return [pscustomobject]@{ Ready = $false; State = $state; Message = $message; Path = ''; Version = $version } }
+        $downloadedPath = if ($download -is [string]) { [string]$download } else { [string]$download.Path }
+        if (-not $downloadedPath) { throw 'WinGet did not return the verified FFmpeg installer archive path.' }
+        $downloadedPath = Get-ExternalPathUnder -Root $downloadRoot -Path $downloadedPath
+        if (-not [System.IO.File]::Exists($downloadedPath) -or [System.IO.Path]::GetFileName($downloadedPath) -ne [string]$metadata.InstallerFileName) { throw 'WinGet returned an unexpected package file or path.' }
+        $archiveHash = (Get-FileHash -LiteralPath $downloadedPath -Algorithm SHA256).Hash
+        if (-not [string]::Equals($archiveHash, [string]$metadata.InstallerSha256, [StringComparison]::OrdinalIgnoreCase)) { throw 'The downloaded FFmpeg archive did not match the official SHA-256.' }
+        $fileRecords = New-FFmpegCandidateRuntime -ArchivePath $downloadedPath -ExtractPath $extractRoot -CandidatePath $candidatePath -InstallerMetadata $metadata
+        if ($fileRecords -isnot [array]) { $fileRecords = @($fileRecords) }
+        if ($fileRecords.Count -ne @($library.Files).Count) { throw 'The downloaded FFmpeg runtime file inventory does not match the canonical manifest.' }
+        foreach ($record in @($library.Files)) {
+            $stagedRecord = @($fileRecords | Where-Object { [string]$_.Path -eq [string]$record.Path }) | Select-Object -First 1
+            if (-not $stagedRecord -or -not [string]::Equals([string]$stagedRecord.Sha256, [string]$record.Sha256, [StringComparison]::OrdinalIgnoreCase)) { throw ('The downloaded runtime does not match the canonical file hash: ' + [string]$record.Path) }
+        }
+        $runtimeCheck = Invoke-FFmpegCandidateRuntimeCheck -FfmpegPath (Join-Path (Join-Path $candidatePath 'bin') 'ffmpeg.exe') -FfprobePath (Join-Path (Join-Path $candidatePath 'bin') 'ffprobe.exe') -ExpectedVersion $version
+        if (-not $runtimeCheck.Ready) { throw ('The downloaded FFmpeg package failed the manifest capability/version/architecture self-check. ' + [string]$runtimeCheck.Detail) }
+        $state = 'Ready'; $message = 'The manifest-pinned FFmpeg package passed archive, license, file-hash and runtime verification.'
+        return [pscustomobject]@{ Ready = $true; State = $state; Message = $message; Path = $candidatePath; Version = $version; ArchiveSha256 = $archiveHash.ToUpperInvariant() }
+    } catch { $message = 'FFmpeg package acquisition for release failed: ' + $_.Exception.Message; return [pscustomobject]@{ Ready = $false; State = $state; Message = $message; Path = ''; Version = $version } }
+    finally { if ($createdDestination -and $state -ne 'Ready' -and [System.IO.Directory]::Exists($destinationFull)) { [System.IO.Directory]::Delete($destinationFull, $true) } }
+}
+
 function New-FFmpegUpdatedManifest {
     param([string]$CandidateManifestPath, [string]$PackageVersion, [string]$ArchiveHash, [object[]]$Files)
     $manifest = Get-ExternalLibraryManifest
@@ -475,4 +520,4 @@ function Get-BundledAssimpPath {
     return ''
 }
 
-Export-ModuleMember -Function Set-ExternalLibraryHooks, Invoke-ExternalRuntimeSwap, Update-BundledFFmpeg, ConvertFrom-FFmpegWingetInstallerManifest, Get-ExternalLibraryManifest, Get-ExternalLibraryDefinition, Compare-SemVerPrecedence, Compare-ExternalPackageVersion, Get-ExternalPackageMetadataVersion, Get-ExternalLibraryUpdateStatus, Get-ExternalLibraryUpdateStatuses, Get-BundledAssimpPath
+Export-ModuleMember -Function Set-ExternalLibraryHooks, Invoke-ExternalRuntimeSwap, Update-BundledFFmpeg, Get-VerifiedFFmpegRuntimeForPackaging, ConvertFrom-FFmpegWingetInstallerManifest, Get-ExternalLibraryManifest, Get-ExternalLibraryDefinition, Compare-SemVerPrecedence, Compare-ExternalPackageVersion, Get-ExternalPackageMetadataVersion, Get-ExternalLibraryUpdateStatus, Get-ExternalLibraryUpdateStatuses, Get-BundledAssimpPath

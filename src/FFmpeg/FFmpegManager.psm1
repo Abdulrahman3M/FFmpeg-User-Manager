@@ -192,9 +192,13 @@ function Test-FFmpegRuntimeRequirements {
     if ($FfmpegPath) { try { $capabilityPath = [System.IO.Path]::GetFullPath($FfmpegPath) } catch { $capabilityPath = $FfmpegPath } }
     if ($missingExecutables.Count -eq 0) {
         $capabilities = $null
-        $cached = Get-FFCapabilities
-        if ($cached.Loaded -and $cached.Path -and [string]::Equals([string]$cached.Path, $capabilityPath, [StringComparison]::OrdinalIgnoreCase)) { $capabilities = $cached }
+        $cachedStatus = Get-FFCapabilityStatus
+        if ($cachedStatus.Loaded) {
+            $cached = Get-FFCapabilities
+            if ($cached.Path -and [string]::Equals([string]$cached.Path, $capabilityPath, [StringComparison]::OrdinalIgnoreCase)) { $capabilities = $cached }
+        }
         else { $capabilities = Initialize-FFCapabilities -Force -FfmpegPath $FfmpegPath }
+        if (-not $capabilities) { $capabilities = Initialize-FFCapabilities -Force -FfmpegPath $FfmpegPath }
         foreach ($name in @($definition.RequiredEncoders)) { if (-not $capabilities.Encoders.ContainsKey([string]$name)) { $missingEncoders += [string]$name } }
         foreach ($name in @($definition.RequiredFilters)) { if (-not $capabilities.Filters.ContainsKey([string]$name)) { $missingFilters += [string]$name } }
     }

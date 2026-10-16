@@ -39,7 +39,7 @@ The file [`VERSION`](../VERSION) in the repository root is the single source of 
 Version `0.2.0` is a locally prepared MINOR release for the backward-compatible Web Media Optimization, compression/upscaling and bundled Assimp features. Its source and release package are not published; the previous published release remains `v0.1.0` until an owner-approved publication.
 
 * The application reads it (`Get-AppVersion`) and shows it in the header, on the FFmpeg Status screen and with `Start-FFmpegTUI.ps1 -Version`.
-* The release archive name and the Git tag are derived from it (`FFmpeg-User-Manager-v<VERSION>.zip`, `v<VERSION>`).
+* Release archive names and the Git tag are derived from it (`FFmpeg-User-Manager-v<VERSION>-Full-Windows-x64.zip`, `FFmpeg-User-Manager-v<VERSION>-Lite-Windows-x64.zip`, `v<VERSION>`); the checksum file is `SHA256SUMS-v<VERSION>.txt`.
 * The README version badge is a static image and must equal `VERSION`; `tests/Unit/Static.Tests.ps1` fails when they differ, or when `VERSION` is not valid SemVer.
 * Do not write the version number by hand anywhere else.
 
@@ -61,8 +61,8 @@ in `Added / Changed / Fixed / Removed` (omit empty sections). On release, rename
 9. Verify the README badge and any version mentions match `VERSION` (the static test checks this).
 10. Commit the release changes (`Release vX.Y.Z`).
 11. Create the tag: `git tag -a vX.Y.Z -m "FFmpeg User Manager vX.Y.Z"` and push it (`git push origin vX.Y.Z`).
-12. Build the package: `.\tools\New-ReleasePackage.ps1` -> `dist\FFmpeg-User-Manager-vX.Y.Z.zip`; inspect its contents (launcher, `LICENSE` and `NOTICE` included; no `.git`, tests output, logs or secrets).
-13. Prepare the GitHub Release titled `FFmpeg User Manager vX.Y.Z` from the tag, with the changelog section as notes (summary, features, fixes, breaking changes, update notes, known limitations) and attach the zip. **Publish only after the owner approves.**
+12. Build both editions: `.\tools\New-ReleasePackage.ps1 -Edition Both -AcquireFFmpeg` (after explicitly approving the pinned FFmpeg download) or pass a previously verified local runtime with `-FFmpegRuntimeSource`; inspect both ZIPs and `SHA256SUMS-vX.Y.Z.txt` (Full contains approved runtimes and their licenses; Lite has no runtime binaries; neither contains `.git`, tests, logs or secrets).
+13. Prepare the GitHub Release titled `FFmpeg User Manager vX.Y.Z` from the tag, with the changelog section as notes and both edition ZIPs plus the checksum file. **Publish only after the owner approves.**
 14. Verify the downloadable archive starts correctly after extraction (including into a folder with spaces).
 15. Confirm the repository visibility is unchanged (it stays Private unless the owner explicitly decides otherwise).
 
@@ -70,5 +70,6 @@ Official releases are never published automatically for every commit.
 
 ## Release package
 
-`tools/New-ReleasePackage.ps1` creates `dist/FFmpeg-User-Manager-v<VERSION>.zip` containing only what end users need:
-`FFmpeg-User-Manager.bat`, `Start-FFmpegTUI.ps1`, `VERSION`, `README.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, `config/`, `src/`, `docs/`, and `External-Libraries/` (including third-party license texts). Tests, `.git`, package caches, local output and `dist/` are excluded. No installer is provided.
+`tools/New-ReleasePackage.ps1` creates deterministic Full and/or Lite packages named `FFmpeg-User-Manager-v<VERSION>-<Edition>-Windows-x64.zip`, plus `SHA256SUMS-v<VERSION>.txt`. Both contain `FFmpeg-User-Manager.bat`, `Start-FFmpegTUI.ps1`, `VERSION`, `README.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, `config/`, `src/`, `docs/`, and the dependency manifest. Full additionally contains the manifest-verified FFmpeg/ffprobe and Assimp runtime files, license texts, and generated source/version metadata; Lite excludes all external runtime binaries. `BUILD-INFO.txt` records the common version, source commit and source-tree fingerprint. ZIP paths are ordinally sorted with fixed timestamps, and existing artifacts are never overwritten. Tests, `.git`, package caches, local output and `dist/` are excluded. No installer is provided.
+
+The release workflow is manual-only on a Windows Server 2025 runner. It requires the maintainer to confirm acquisition of the exact manifest-pinned GPL-3.0 FFmpeg package through WinGet. Before creating a tag/release it verifies package checksums and metadata, checks bundled runtime/license contents, extracts both editions under a Unicode/spaced path, launches each with its supported PowerShell entry point, and performs an OBJ-to-GLB integration conversion from the Full Edition. Building locally never publishes or pushes anything.

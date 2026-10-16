@@ -1,35 +1,28 @@
 <#
 .SYNOPSIS
-    Builds dist\FFmpeg-User-Manager-v<VERSION>.zip with only the files end users need.
+    Builds deterministic Full, Lite, or Both Windows x64 release packages from the canonical project VERSION.
 .DESCRIPTION
-    Works on Windows PowerShell 5.1 and PowerShell 7.x. The version comes from the VERSION file.
-    Nothing is published; this only creates the local archive.
+    Works on Windows PowerShell 5.1 and PowerShell 7.x. By default it builds both editions into dist.
+    Full requires a verified FFmpeg runtime source, or the explicit -AcquireFFmpeg consent switch.
+    Nothing is published, tagged, pushed, or silently overwritten.
+.PARAMETER FFmpegRuntimeSource
+    Existing Gyan FFmpeg build root or staged runtime directory to verify against External-Libraries/manifest.json.
+.PARAMETER AcquireFFmpeg
+    Explicitly authorizes downloading the manifest-pinned Gyan.FFmpeg.Shared x64 package through WinGet.
 #>
 [CmdletBinding()]
-param([string]$OutputDirectory)
+param(
+    [string]$OutputDirectory,
+    [ValidateSet('Full', 'Lite', 'Both')][string]$Edition = 'Both',
+    [string]$FFmpegRuntimeSource = '',
+    [switch]$AcquireFFmpeg
+)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$version = ((Get-Content -LiteralPath (Join-Path $root 'VERSION') -TotalCount 1)).Trim()
-$semver = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
-if ($version -notmatch $semver) { throw "VERSION does not contain a valid Semantic Version: '$version'" }
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root 'dist' }
-[void](New-Item -ItemType Directory -Path $OutputDirectory -Force)
-$name = "FFmpeg-User-Manager-v$version"
-$stage = Join-Path ([System.IO.Path]::GetTempPath()) ($name + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
-$pkg = Join-Path $stage 'FFmpeg-User-Manager'
-[void](New-Item -ItemType Directory -Path $pkg -Force)
-try {
-    foreach ($f in 'FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'README.md', 'CHANGELOG.md', 'LICENSE', 'NOTICE') { Copy-Item -LiteralPath (Join-Path $root $f) -Destination $pkg }
-    foreach ($d in 'config', 'src', 'docs') { Copy-Item -LiteralPath (Join-Path $root $d) -Destination $pkg -Recurse }
-    $externalRoot = Join-Path $root 'External-Libraries'
-    $externalPackage = Join-Path $pkg 'External-Libraries'
-    [void](New-Item -ItemType Directory -Path $externalPackage -Force)
-    foreach ($f in 'README.md', 'manifest.json') { Copy-Item -LiteralPath (Join-Path $externalRoot $f) -Destination $externalPackage }
-    Copy-Item -LiteralPath (Join-Path $externalRoot 'Assimp') -Destination $externalPackage -Recurse
-    $zip = Join-Path $OutputDirectory ($name + '.zip')
-    if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
-    Compress-Archive -Path $pkg -DestinationPath $zip -CompressionLevel Optimal
-    Write-Output $zip
-} finally {
-    if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
-}
+. (Join-Path (Join-Path $root 'src') 'Import-Modules.ps1')
+Import-FFTuiModules -Root $root
+Import-Module -Name (Join-Path $PSScriptRoot 'ReleasePackage.psm1') -Force -Global -DisableNameChecking -ErrorAction Stop
+$result = New-ReleasePackages -ProjectRoot $root -OutputDirectory $OutputDirectory -Edition $Edition -FFmpegRuntimeSource $FFmpegRuntimeSource -AcquireFFmpeg:$AcquireFFmpeg
+foreach ($packagePath in @($result.Packages)) { Write-Output $packagePath }
+Write-Output $result.ChecksumPath

@@ -1,6 +1,6 @@
 # Static analysis: safety rules, Windows PowerShell 5.1 compatibility (syntax level), structure.
 $root = Get-TestRoot
-$srcFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' }) + @(Get-Item -LiteralPath (Join-Path $root 'Start-FFmpegTUI.ps1'))
+$srcFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' }) + @((Get-Item -LiteralPath (Join-Path $root 'tools/New-ReleasePackage.ps1')), (Get-Item -LiteralPath (Join-Path $root 'tools/ReleasePackage.psm1'))) + @(Get-Item -LiteralPath (Join-Path $root 'Start-FFmpegTUI.ps1'))
 $asts = @{}
 Set-TestGroup 'Static: parse'
 foreach ($sf in $srcFiles) {
@@ -207,6 +207,9 @@ $vo = Invoke-ExternalCapture -FilePath (Get-Process -Id $PID).Path -Arguments @(
 Assert-Equal '.\Start-FFmpegTUI.ps1 -Version prints the product name and version' "FFmpeg User Manager v$versionText" $vo.StdOut.Trim()
 Assert-True 'README project-structure tree lists files that exist' (@('FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'CHANGELOG.md', 'AGENTS.md', 'LICENSE', 'NOTICE', 'config/defaults.json', 'tools/New-ReleasePackage.ps1') | ForEach-Object { Test-Path -LiteralPath (Join-Path $root $_) } | Where-Object { -not $_ } | Measure-Object | ForEach-Object { $_.Count -eq 0 })
 Assert-True 'AGENTS.md exists with the core rules' ((Test-Path -LiteralPath (Join-Path $root 'AGENTS.md')) -and ((Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw) -match 'Private' -and (Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw) -match 'COMPLETE'))
+$releaseWorkflow = Get-Content -LiteralPath (Join-Path $root '.github/workflows/release.yml') -Raw
+Assert-True 'manual release workflow passes operator inputs as environment values, never as executable PowerShell text' (($releaseWorkflow -match 'RELEASE_VERSION:\s*\$\{\{ inputs\.version \}\}') -and ($releaseWorkflow -match 'CONFIRM_FFMPEG_ACQUISITION:\s*\$\{\{ inputs\.confirm_ffmpeg_acquisition \}\}') -and ($releaseWorkflow -notmatch '\$\{\{\s*inputs\.(version|confirm_ffmpeg_acquisition)\s*\}\}\s*'''))
+Assert-True 'manual release workflow builds and validates both editions on Windows Server 2025' (($releaseWorkflow -match '(?m)^    runs-on: windows-2025$') -and ($releaseWorkflow -match 'Edition Both -AcquireFFmpeg') -and ($releaseWorkflow -match 'Full and Lite extracted versions') -and ($releaseWorkflow -match '(?m)^on:\s*\r?\n\s+workflow_dispatch:'))
 # licensing
 $licPath = Join-Path $root 'LICENSE'; $noticePath = Join-Path $root 'NOTICE'
 Assert-True 'LICENSE and NOTICE exist at the repository root' ((Test-Path -LiteralPath $licPath) -and (Test-Path -LiteralPath $noticePath))
@@ -224,20 +227,22 @@ $agents = Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw
 Assert-True 'AGENTS.md has the permanent dependency-aware change-sync rule with its flow' (($agents -match 'Dependency-aware change sync') -and ($agents -match 'Identify Affected Dependencies & Artifacts') -and ($agents -match 'Final Verification') -and ($agents -match 'Screenshots and project images') -and ($agents -match 'Changelog') -and ($agents -match 'Release information'))
 Assert-True 'AGENTS.md states that the rule does not mean bumping versions or regenerating images blindly' ($agents -match 'Not\*\* what this rule means')
 Assert-True 'AGENTS.md has the licensing / third-party notice rule (compatibility, third-party notices, copyright/attribution)' (($agents -match 'License compatibility') -and ($agents -match 'Third-party notices') -and ($agents -match 'Copyright/attribution') -and ($agents -match 'never delete or weaken a required legal notice'))
-# release package
-$pkgDir = Join-Path (Get-TestWork) 'pkg'
-$zipPath = (& (Join-Path $root 'tools/New-ReleasePackage.ps1') -OutputDirectory $pkgDir) | Select-Object -Last 1
-Assert-Equal 'release package name follows FFmpeg-User-Manager-vX.Y.Z.zip' "FFmpeg-User-Manager-v$versionText.zip" ([System.IO.Path]::GetFileName($zipPath))
+# Lite release package
+$pkgDir = Join-Path (Join-Path $root 'tests/output') ('static-release-package-' + [guid]::NewGuid().ToString('N'))
+$packageOutput = @(& (Join-Path $root 'tools/New-ReleasePackage.ps1') -Edition Lite -OutputDirectory $pkgDir)
+$zipPath = @($packageOutput | Where-Object { [System.IO.Path]::GetExtension([string]$_) -eq '.zip' }) | Select-Object -First 1
+$checksumPath = @($packageOutput | Where-Object { [System.IO.Path]::GetFileName([string]$_) -like 'SHA256SUMS-*' }) | Select-Object -First 1
+Assert-Equal 'Lite release package name follows FFmpeg-User-Manager-v<VERSION>-Lite-Windows-x64.zip' "FFmpeg-User-Manager-v$versionText-Lite-Windows-x64.zip" ([System.IO.Path]::GetFileName($zipPath))
+Assert-True 'Lite package emits a matching versioned checksum manifest' ((Test-Path -LiteralPath $checksumPath -PathType Leaf) -and (Get-Content -LiteralPath $checksumPath -Raw).Contains([System.IO.Path]::GetFileName($zipPath)))
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zf = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
 try {
     $names = @($zf.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
-    Assert-True 'package contains the launcher, entry script, version and sources' (($names -contains 'FFmpeg-User-Manager/FFmpeg-User-Manager.bat') -and ($names -contains 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') -and ($names -contains 'FFmpeg-User-Manager/VERSION') -and ($names -contains 'FFmpeg-User-Manager/LICENSE') -and ($names -contains 'FFmpeg-User-Manager/NOTICE') -and ($names -contains 'FFmpeg-User-Manager/src/Core/App.psm1'))
-    $bundleEntries = @('External-Libraries/manifest.json', 'External-Libraries/Assimp/bin/assimp.exe', 'External-Libraries/Assimp/bin/libassimp-6.dll', 'External-Libraries/Assimp/bin/libc++.dll', 'External-Libraries/Assimp/bin/libunwind.dll', 'External-Libraries/Assimp/bin/libminizip-1.dll', 'External-Libraries/Assimp/bin/libbz2-1.dll', 'External-Libraries/Assimp/bin/zlib1.dll', 'External-Libraries/Assimp/licenses/assimp/LICENSE', 'External-Libraries/Assimp/licenses/libc++/LICENSE', 'External-Libraries/Assimp/licenses/libunwind/LICENSE', 'External-Libraries/Assimp/licenses/minizip/LICENSE', 'External-Libraries/Assimp/licenses/bzip2/LICENSE', 'External-Libraries/Assimp/licenses/zlib-ng-compat/LICENSE.md')
-    Assert-True 'release package includes the complete bundled Assimp runtime, manifest and all dependency license texts' (@($bundleEntries | Where-Object { $names -notcontains ('FFmpeg-User-Manager/' + $_) }).Count -eq 0)
-    Assert-True 'release package excludes package caches and extraction staging directories' (@($names | Where-Object { $_ -match 'External-Libraries/\.(cache|stage)(-|/)' }).Count -eq 0)
-    Assert-True 'package excludes tests, Git data, dist output and development files' (@($names | Where-Object { $_ -match '/tests/|/\.git|/dist/|/tools/|AGENTS\.md' }).Count -eq 0)
+    Assert-True 'package contains the launcher, entry script, version, notices, source, and build identity' (($names -contains 'FFmpeg-User-Manager/FFmpeg-User-Manager.bat') -and ($names -contains 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') -and ($names -contains 'FFmpeg-User-Manager/VERSION') -and ($names -contains 'FFmpeg-User-Manager/LICENSE') -and ($names -contains 'FFmpeg-User-Manager/NOTICE') -and ($names -contains 'FFmpeg-User-Manager/BUILD-INFO.txt') -and ($names -contains 'FFmpeg-User-Manager/src/Core/App.psm1'))
+    Assert-True 'Lite includes dependency metadata but excludes Assimp and FFmpeg runtime binaries' (($names -contains 'FFmpeg-User-Manager/External-Libraries/manifest.json') -and @($names | Where-Object { $_ -match 'FFmpeg-User-Manager/External-Libraries/(Assimp|FFmpeg)/.*\.(exe|dll)$' }).Count -eq 0)
+    Assert-True 'release package excludes package caches, staging directories, tests, Git, dist, tools and development plans' (@($names | Where-Object { $_ -match '(^|/)(tests|\.git|dist|tools|\.superpowers)(/|$)|External-Libraries/\.(cache|stage)(-|/)' }).Count -eq 0)
 } finally { $zf.Dispose() }
+if ([System.IO.Directory]::Exists($pkgDir)) { [System.IO.Directory]::Delete($pkgDir, $true) }
 # public-release hygiene
 $tracked = Invoke-ExternalCapture -FilePath 'git' -Arguments @('-C', $root, 'ls-files') -TimeoutSec 30
 $files = @($tracked.StdOut -split "`r?`n" | Where-Object { $_ -and $_ -notmatch '\.png$' })

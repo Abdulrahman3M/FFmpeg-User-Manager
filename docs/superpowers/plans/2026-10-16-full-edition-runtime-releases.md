@@ -70,15 +70,17 @@ Task 3 verification (2026-10-16): ExternalLibraries passed with 31 PASS / 0 FAIL
 
 ### Task 4: Full/Lite reproducible packaging and release validation
 
-**Files:** `tools/New-ReleasePackage.ps1` or a focused packaging helper, `.github/workflows/release.yml`, `tests/Unit/Static.Tests.ps1`, new `tests/Unit/ReleasePackage.Tests.ps1`, `.gitignore`.
+**Files:** `tools/New-ReleasePackage.ps1`, new `tools/ReleasePackage.psm1`, `.github/workflows/release.yml`, `src/Core/ExternalLibraries.psm1`, `src/FFmpeg/FFmpegManager.psm1`, `tests/Unit/Static.Tests.ps1`, new `tests/Unit/ReleasePackage.Tests.ps1`, `docs/Testing.md`, `docs/Versioning-and-Releases.md`, `CHANGELOG.md`.
 
 **Interfaces:** Preserve a compatibility entry point for the existing package command. Add `Full`, `Lite`, and `Both` modes; support an explicit verified runtime source/cache and package-manager acquisition when requested. Generate exact Full/Lite asset names and SHA-256 sums; reject missing runtime/license files, stale versions, architecture mismatch, unapproved extra files, and forbidden development content.
 
-- [ ] Add failing package tests for exact filenames, edition contents, common source/version, hash output, clean paths, stable ordering/timestamps, and runtime validation.
-- [ ] Run the package tests and confirm the expected failures.
-- [ ] Implement the edition builder and validation using the existing packager where practical.
-- [ ] Update the manual release workflow to validate/attach both assets and their checksums; do not run it or publish from this task.
-- [ ] Build and inspect both local packages, then extract and smoke-test them from a Unicode/spaced directory.
+- [x] Add package tests for exact filenames, edition contents, common source/version, hash output, clean paths, stable ordering/timestamps, no-overwrite behavior, and runtime validation/rejection paths.
+- [x] Run package tests on Windows PowerShell 5.1 and PowerShell 7.6.5; both passed with 17 PASS / 0 FAIL / 0 UNVERIFIED.
+- [x] Implement the edition builder and validation using the existing dependency manifest, capability self-check, and transactional FFmpeg package acquisition path.
+- [x] Update the manual release workflow to validate/attach both assets and their checksums; do not run it or publish from this task.
+- [x] Build and inspect both local packages, then extract and smoke-test them from a Unicode/spaced directory. Lite runtime detection passed for system, explicit custom, and missing states.
+
+Task 4 verification (2026-10-16): real local Gyan FFmpeg 9.0.2 shared x64 files matched all manifest hashes and byte counts; bundled FFmpeg capability checks reported 0 missing required encoders and 0 missing required filters. Assimp 6.0.5 passed its `glb2` self-check and converted a real OBJ into a valid GLB (`glTF` magic) under Unicode/spaced paths. Both v0.2.0 packages had matching SHA-256 manifests and common build metadata; a repeat-build test confirmed byte-identical ZIPs. ReleasePackage passed 17, Static 203, and Manager 52 checks on each PowerShell runtime, with no failures or UNVERIFIED results. The manual GitHub workflow was intentionally not run and no tag/release was published. The real package smoke exposed and fixed candidate capability-check behavior when the cache was uninitialized; subsequent package validation passed.
 
 ### Task 5: Governance, licensing, compatibility, docs, and SemVer release prep
 
