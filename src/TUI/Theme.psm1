@@ -77,6 +77,7 @@ $script:Icons = @{
     Remux      = @((U 0x1F500), (U 0x2194), '[REMUX]')
     Enhance    = @((U 0x2728), (U 0x2642), '[ENH]')
     Map        = @((U 0x1F9ED), (U 0x2229), '[MAP]')
+    Web        = @((U 0x1F578), (U 0x2605), '[WEB]')
 }
 
 $script:UseAnsi = $false

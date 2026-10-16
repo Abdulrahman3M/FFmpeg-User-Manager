@@ -48,9 +48,9 @@ Apache-2.0 also keeps the repository's obligations clear: "All Rights Reserved" 
 | PowerShell 5.1 / 7.x | Runtime | No | Microsoft's terms (Windows PowerShell) / MIT (PowerShell 7) |
 | Icons | Unicode characters drawn by the terminal's own font; no image files | No assets exist | Nothing to attribute |
 | Screenshots in `docs/images/` | Captured from the running application | Part of the documentation (Apache-2.0) | The terminal fonts used for the capture (DejaVu Sans Mono, Noto Color Emoji) are not included in the repository |
-| Libraries, fonts, scripts from others | none | none | - |
+| Assimp 6.0.5 and runtime dependencies (LLVM libc++/libunwind, minizip, bzip2, zlib-ng-compat) | Bundled CLI and required runtime DLLs for OBJ-to-GLB | Yes; versions, package checksums and runtime inventory are in [`External-Libraries/manifest.json`](../External-Libraries/manifest.json); full upstream license texts ship in `External-Libraries/Assimp/licenses/` | Assimp BSD-3-Clause; LLVM Apache-2.0 WITH LLVM-exception; minizip/zlib-ng zlib license; bzip2 permissive license. No GPL/LGPL runtime package is included. |
 
-There is therefore **nothing third-party to attribute today**, and `NOTICE` says so. Adding third-party material changes that; follow section 8 of [AGENTS.md](../AGENTS.md).
+The bundled Assimp runtime tree was reviewed package by package for license compatibility and runtime dependencies. Its permissive licenses are compatible with the project's Apache-2.0 license, and the complete original license texts and attribution are shipped; the components retain their own terms. Future changes must follow section 8.1 of [AGENTS.md](../AGENTS.md).
 
 ## Rules for contributors and AI agents
 

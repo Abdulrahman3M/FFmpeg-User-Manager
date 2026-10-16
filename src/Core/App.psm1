@@ -109,6 +109,34 @@ function Invoke-UpdateFlow {
     if ($Interactive -and $st.State -in @('Unknown', 'Unmanaged')) { $null = Show-Notice -Title 'Update status' -Lines @($st.Message) -Kind Info }
 }
 
+function Invoke-ExternalLibraryUpdateFlow {
+    # Read-only check against official upstream and package-manager metadata recorded in External-Libraries/manifest.json.
+    try { $run = Invoke-WithSpinner -Title 'Checking bundled library updates' -Message 'Checking official upstream and package-manager metadata... (Esc to skip)' -Operation { param($tick) Get-ExternalLibraryUpdateStatuses -OnTick $tick } }
+    catch {
+        $warning = 'Bundled library updates could not be checked; continuing with the included versions.'
+        $script:StartupNotice = (($script:StartupNotice + ' ' + $warning).Trim())
+        return
+    }
+    if ($run.Cancelled) { $script:StartupNotice = (($script:StartupNotice + ' The bundled library update check was skipped.').Trim()); return }
+    $statuses = @($run.Result)
+    $available = @($statuses | Where-Object { $_.State -eq 'UpdateAvailable' })
+    foreach ($library in $available) {
+        $null = Show-Notice -Title ($library.Name + ' update available') -Lines @(
+            ('Bundled: ' + $library.CurrentVersion),
+            ('Latest stable: ' + $library.LatestVersion),
+            ('Bundled package: ' + $library.PackageVersion),
+            ('Latest package: ' + $library.LatestPackageVersion),
+            ('Source: ' + $library.Source),
+            'This check changed no files. A library update requires a reviewed package-manager refresh and compatibility test.'
+        ) -Kind Warning -Actions @(, @('C', 'Continue without updating'))
+    }
+    $unknown = @($statuses | Where-Object { $_.State -eq 'Unknown' })
+    if ($unknown.Count -gt 0) {
+        $warning = 'Bundled library update status is unknown (offline or upstream unavailable); continuing with the included versions.'
+        $script:StartupNotice = (($script:StartupNotice + ' ' + $warning).Trim())
+    }
+}
+
 function Invoke-IconStyleFlow {
     # Offered once on Windows consoles that cannot be recognized as emoji-capable. The answer is remembered
     # (per-user settings file), so the question is never asked again; the Status screen can change it later.
@@ -234,6 +262,7 @@ function Get-MainMenuItems {
         @{ Icon = 'Code'; Label = 'Advanced FFmpeg'; Desc = 'Browse every codec and filter, test the GPU, or run your own FFmpeg options.'; Value = 'Advanced' },
         @{ Icon = 'Settings'; Label = 'FFmpeg Status / Settings'; Desc = 'View FFmpeg version, detected capabilities, paths, and update status.'; Value = 'Status' },
         @{ Icon = 'Hardware'; Label = 'Check & Maintain FFmpeg Setup'; Desc = 'Find problems, then update or repair step by step. Each step is explained and asks first.'; Value = 'Maintenance' },
+        @{ Icon = 'Web'; Label = 'Web Media Optimization'; Desc = 'Estimate video sizes, convert video to WebM, images to WebP, and 3D models to GLB.'; Value = 'WebMedia' },
         @{ Icon = 'Quit'; Label = 'Exit'; Desc = 'Close FFmpeg User Manager. Nothing is left running.'; Value = 'Quit' }
     )
     return $items
@@ -271,6 +300,7 @@ function Invoke-MainMenuAction {
         'Advanced' { Start-AdvancedWorkflow }
         'Status' { Show-FFmpegStatus }
         'Maintenance' { Start-MaintenanceTool }
+        'WebMedia' { Start-WebMediaOptimizationWorkflow }
     }
 }
 
@@ -339,7 +369,7 @@ function Start-FFmpegTuiApp {
         if ($det.Status -ne 'Ready') {
             if (-not (Show-FFmpegMissingFlow $det)) { return 0 }
         }
-        if (-not $SkipUpdateCheck -and $env:FFTUI_SKIP_UPDATE -ne '1') { Invoke-UpdateFlow }
+        if (-not $SkipUpdateCheck -and $env:FFTUI_SKIP_UPDATE -ne '1') { Invoke-UpdateFlow; Invoke-ExternalLibraryUpdateFlow }
         Invoke-IconStyleFlow
         $null = Initialize-CapabilityScan
         Set-HeaderInfo -Text ('| FFmpeg ' + (Get-FFmpegInfo).Version)

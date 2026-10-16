@@ -2,7 +2,7 @@
 
 <img src="docs/images/repository-cover.jpg" alt="FFmpeg User Manager cover" width="760">
 
-# FFmpeg User Manager `v0.1.1`
+# FFmpeg User Manager `v0.2.0`
 
 **A modern interactive PowerShell TUI for FFmpeg on Windows.**
 Convert, compress, upscale images, trim, merge, extract, resize, make GIFs, slideshows and recordings, manage subtitles, metadata and streams, analyze and batch-process media - without writing FFmpeg commands.
@@ -10,7 +10,7 @@ Convert, compress, upscale images, trim, merge, extract, resize, make GIFs, slid
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?logo=powershell&logoColor=white)
 ![FFmpeg](https://img.shields.io/badge/requires-FFmpeg-007808?logo=ffmpeg&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.1.1-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![Status](https://img.shields.io/badge/status-pre--release-orange)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
@@ -46,7 +46,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 * Add **subtitles**, **text** or a **logo**, normalize **loudness**, create **HLS** output.
 * Change a container **without re-encoding**, pick audio languages, edit **metadata and chapters**, embed cover art.
 * Build a **slideshow** or time-lapse from pictures, turn audio into video, **record** the screen, a webcam or a microphone (Windows).
-* **Analyze** a file (volume, loudness, silence, black frames, scene cuts, quality), **batch-convert** a whole folder, or reach any other FFmpeg feature through **Advanced FFmpeg**.
+* **Analyze** a file (volume, loudness, silence, black frames, scene cuts, quality), **batch-convert** a whole folder, or use **Web Media Optimization** for WebM/WebP and bundled Assimp OBJ-to-GLB conversion.
 
 ## Preview
 
@@ -64,6 +64,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 
 > The screenshots are real frames of the running application, captured in a Linux terminal (see [docs/images/README.md](docs/images/README.md)). The main-menu image predates the new `07 Upscale Image` entry; it is retained until a fresh real-application capture is available. Windows Terminal looks very similar.
 > The last one shows the symbol icon set that the classic Windows console uses, so icons are visible even where emoji cannot be drawn.
+> The main-menu captures predate the Web Media Optimization entry and do not show the current menu inventory; see the screenshot note in [docs/images/README.md](docs/images/README.md).
 
 ## Key features
 
@@ -108,10 +109,13 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 | **Record / capture** | Screen, webcam and microphone recording for a set time (Windows) |
 | **Analyze & detect** | Volume, loudness, silence, black frames, scene changes, black bars, PSNR/SSIM quality comparison |
 | **Batch convert** | One video or audio conversion applied to selected files or a folder; compatible/unsupported scan counts, optional sub-folders, sequential queue, per-file failure reporting and safe collision policy |
+| **Web media optimization** | Encode WebM with available VP9/AV1 encoders and an optional three-sample size estimate; estimate output from planned bitrates; convert PNG/JPG/JPEG files to lossy or lossless WebP; convert OBJ to GLB with the bundled Assimp CLI |
 | **Check & maintain** | Guided health check of the FFmpeg setup: install/repair FFmpeg, check for updates, emoji font, icon style, capability re-scan - each step explained and asked first |
 | **Advanced FFmpeg** | Capability browser (all encoders, filters, formats...), custom command, GPU check, build details |
 | **FFmpeg status** | Paths, version, capabilities, hardware accelerators, update check |
 | **Streaming / HLS** | (also) send a file out to an RTMP / SRT / UDP address |
+
+WebM size estimates are approximate and do not create a full output encode. The three-sample estimate encodes only short representative segments. WebP conversion reports measured output sizes. OBJ-to-GLB uses the bundled Assimp command-line tool; startup checks official upstream release and MSYS2 package metadata and never downloads or replaces libraries automatically.
 
 Every option of every workflow is described in [docs/Workflows.md](docs/Workflows.md).
 
@@ -122,8 +126,9 @@ Every option of every workflow is described in [docs/Workflows.md](docs/Workflow
 | Operating system | Windows 10 or 11 |
 | PowerShell | Windows PowerShell 5.1 (built into Windows) **or** PowerShell 7.x - PowerShell 7 is preferred automatically when installed |
 | FFmpeg | `ffmpeg` and `ffprobe` on `PATH`. Not installed yet? The app offers to install them with winget (package `Gyan.FFmpeg`) |
+| 3D conversion | Bundled Assimp 6.0.5 command-line executable for OBJ-to-GLB, with its runtime DLLs and license texts in `External-Libraries/` |
 | Terminal | Windows Terminal recommended (colors and emoji icons). The classic console works too and shows symbol icons. The PowerShell ISE is not supported |
-| Internet | Only for installing/updating FFmpeg and for network streams |
+| Internet | Optional: FFmpeg install/update, read-only Assimp upstream/package metadata checks at startup, and network streams |
 
 ## Installation
 
@@ -247,9 +252,10 @@ FFmpeg-User-Manager/
 |-- VERSION                     single source of the application version
 |-- README.md  CHANGELOG.md  AGENTS.md
 |-- LICENSE  NOTICE             Apache-2.0 license text and attribution notice
+|-- External-Libraries/         bundled Assimp, runtime DLLs, versions and third-party licenses
 |-- config/defaults.json        application defaults (presets, winget package id)
 |-- src/
-|   |-- Core/                   app bootstrap, environment, paths, validation, process runner
+|   |-- Core/                   app bootstrap, environment, paths, validation, process runner, external libraries
 |   |-- TUI/                    theme, renderer, input, menu, dialogs, wizard, progress view
 |   |-- FFmpeg/                 manager, capabilities, media probe, command builder, progress
 |   `-- Workflows/              one module per workflow group (+ shared WorkflowCommon)
@@ -272,7 +278,7 @@ Details, pre-release labels and the release checklist: [docs/Versioning-and-Rele
 ## Releases
 
 Official releases are published on the repository's *Releases* page as `FFmpeg-User-Manager-vX.Y.Z.zip`; the notes of each release summarize its features, fixes and known limitations.
-The current **source-code version is v0.1.1** (see [CHANGELOG.md](CHANGELOG.md)), incorporating the flicker-free TUI rendering reliability update. The last previously documented published GitHub Release is **v0.1.0**; do not assume a v0.1.1 tag or downloadable release exists until it is separately published. To use a published release, download its ZIP, extract it completely and follow [Installation](#installation).
+The current **source-code version is v0.2.0** (see [`VERSION`](VERSION) and [CHANGELOG.md](CHANGELOG.md)); this release is prepared locally and is not published. The last previously documented published GitHub Release is **v0.1.0**. Local commits and release artifacts do not publish a new GitHub Release. To use a published release, download its ZIP, extract it completely and follow [Installation](#installation).
 
 ## Documentation
 
@@ -282,6 +288,7 @@ The current **source-code version is v0.1.1** (see [CHANGELOG.md](CHANGELOG.md))
 | [docs/Architecture.md](docs/Architecture.md) | Modules, TUI and wizard design, FFmpeg engine |
 | [docs/Testing.md](docs/Testing.md) | Test suite, compatibility matrix, manual checks |
 | [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md) | SemVer rules, tags, changelog and release process |
+| [docs/Release-Notes-v0.2.0.md](docs/Release-Notes-v0.2.0.md) | Locally prepared v0.2.0 changes and verification |
 | [docs/Licensing.md](docs/Licensing.md) | Why Apache-2.0, what it means, third-party components review |
 | [docs/images/README.md](docs/images/README.md) | How the screenshots were captured |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
@@ -312,7 +319,7 @@ FFmpeg itself is **not** part of this project and is not distributed with it: th
 
 ## Project status
 
-**Pre-release series (version 0.x), current source version v0.1.1 (first published release v0.1.0).** All workflows listed above are implemented. The current local Windows run (FFmpeg 9.0.2) reports **1,483 PASS, 0 FAIL, 3 UNVERIFIED** on both Windows PowerShell 5.1 and PowerShell 7.6.5. Historical GitHub Windows and PowerShell 7.4/Linux results, plus the reasons for local `UNVERIFIED` checks, are listed in [docs/Testing.md](docs/Testing.md); the launcher is tested with the real `cmd` interpreter.
+**Pre-release series (source version v0.2.0; latest published release v0.1.0).** All workflows listed above are implemented. The latest full Windows verification reports **1,581 PASS, 0 FAIL, 0 UNVERIFIED** on both Windows PowerShell 5.1 and PowerShell 7.6.5. See [docs/Testing.md](docs/Testing.md) for scope and environment details. The launcher is tested with the real `cmd` interpreter.
 **Not yet verified by any automated run and therefore not claimed:** rendering in a real Windows Terminal / classic console, real `winget` installs and updates, the native file picker and Explorer integration,
 and screen / webcam / microphone recording on real devices. `tools/Test-WindowsLocal.ps1` lists these checks. Version 1.0.0 is reserved until they are done (see
 [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md)). Details: [docs/Testing.md](docs/Testing.md).

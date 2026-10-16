@@ -36,6 +36,8 @@ Tags such as `release-1`, `final`, `build7` are not used.
 
 The file [`VERSION`](../VERSION) in the repository root is the single source of truth (first line, a SemVer string, no `v` prefix).
 
+Version `0.2.0` is a locally prepared MINOR release for the backward-compatible Web Media Optimization, compression/upscaling and bundled Assimp features. Its source and release package are not published; the previous published release remains `v0.1.0` until an owner-approved publication.
+
 * The application reads it (`Get-AppVersion`) and shows it in the header, on the FFmpeg Status screen and with `Start-FFmpegTUI.ps1 -Version`.
 * The release archive name and the Git tag are derived from it (`FFmpeg-User-Manager-v<VERSION>.zip`, `v<VERSION>`).
 * The README version badge is a static image and must equal `VERSION`; `tests/Unit/Static.Tests.ps1` fails when they differ, or when `VERSION` is not valid SemVer.
@@ -69,4 +71,4 @@ Official releases are never published automatically for every commit.
 ## Release package
 
 `tools/New-ReleasePackage.ps1` creates `dist/FFmpeg-User-Manager-v<VERSION>.zip` containing only what end users need:
-`FFmpeg-User-Manager.bat`, `Start-FFmpegTUI.ps1`, `VERSION`, `README.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, `config/`, `src/`, `docs/`. Tests, `.git`, local output and `dist/` are excluded. No installer is provided.
+`FFmpeg-User-Manager.bat`, `Start-FFmpegTUI.ps1`, `VERSION`, `README.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, `config/`, `src/`, `docs/`, and `External-Libraries/` (including third-party license texts). Tests, `.git`, package caches, local output and `dist/` are excluded. No installer is provided.

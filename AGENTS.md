@@ -87,6 +87,12 @@ Code Change
 * FFmpeg, ffprobe and winget are **external tools** that the user installs; they are never bundled or redistributed by this project. Keep it that way unless the owner decides otherwise (bundling FFmpeg would bring its LGPL/GPL obligations).
 * No per-file copyright headers are required; `LICENSE` and `NOTICE` at the repository root (and in every release package) are the notice.
 
+## 8.1 External-library update checks (permanent rule)
+* Whenever a task adds, modifies, packages or otherwise changes an external library, check its official upstream/package-manager metadata and tell the owner whether a newer stable version is available. Record the checked version, source and result in the Completion Report; do not silently update a library.
+* If the owner chooses to update it, obtain the replacement only through an approved, verifiable package-manager route. Replace the old bundled library files with the selected new package files; do not leave stale versions alongside them unless compatibility explicitly requires side-by-side versions and the owner approves that design.
+* Review the new package's complete runtime dependency tree and licenses before downloading or bundling it. Verify signatures/checksums where provided, preserve each required license and attribution, and update the library manifest, runtime paths/dependencies, release packaging, tests and affected documentation together.
+* If a required runtime dependency introduces a license or distribution obligation not already approved under section 8, stop that dependency change and obtain the owner's decision before downloading or adding it. Report the precise package, license and impact so the decision is informed.
+
 ## 9. Repository and Git
 * Develop on the branch named in the task; do not push elsewhere without permission. Commit with clear messages. Do not open pull requests unless asked.
 * **The repository stays Private.** Never change visibility, and never publish a GitHub Release without the owner's explicit approval.

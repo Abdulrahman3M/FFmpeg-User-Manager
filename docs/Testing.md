@@ -4,15 +4,17 @@
 
 | Environment | Result (actual, from the logs) | Run / commit |
 |---|---|---|
-| Windows PowerShell 5.1.26100.9444 on the local Windows host | **39 PASS, 0 FAIL, 0 UNVERIFIED** (Failure smoke suite) | targeted regression run after process-lifetime fix; full suite pending |
-| PowerShell 7.6.5 on the local Windows host | **200 PASS, 0 FAIL, 0 UNVERIFIED** (App, Workflows4 and Failure smoke suites) | targeted regression runs after test-environment and process-lifetime fixes; full suite pending |
+| Windows PowerShell 5.1.26100.9444 on the local Windows host | **1581 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-16; loopback checks run with the required local-network permission |
+| PowerShell 7.6.5 on the local Windows host | **1581 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-16; loopback checks run with the required local-network permission |
 | Windows PowerShell 5.1 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7.4 on Linux (FFmpeg 6.1, Wine for the `.bat` tests) | **1261 PASS, 0 FAIL, 5 UNVERIFIED** | local run, commit `3f96e26` |
 
+Full local verification after the library bundle and integration (2026-10-16): Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 each completed `tests/Run-Tests.ps1` with **1581 PASS, 0 FAIL, 0 UNVERIFIED**. This includes the three checks previously reported as UNVERIFIED: the missing-ffprobe PATH sandbox uses isolated file copies; loopback HTTP inspect/save tests pass through the bounded raw TCP server when local-network access is permitted; and a live FFmpeg child exits when its parent PowerShell process is terminated. Both runtimes also completed actual OBJ-to-GLB conversion through the workflow, validated the GLB 2.0 geometry/material/texture references, and confirmed that source OBJ/MTL/texture files were unchanged. The app reports when a texture remains external instead of claiming that it is embedded.
+
 History of the Windows work (same suite): run #12 established 1263 PASS / 0 FAIL / 1 UNVERIFIED under both Windows runtimes at commit `3f96e26`; run #3 (first diagnosable run) PowerShell 7 1034 PASS / 35 FAIL / 3 UNVERIFIED, PowerShell 5.1 893 PASS / 40 FAIL / 5 UNVERIFIED -> run #12 above. The causes are listed in the investigation table below.
 
-The current source is still v0.1.1 while this work remains unreleased. The GitHub results above are historical results at their listed commits. The three previously `UNVERIFIED` Windows checks have now been converted into executable tests and passed in the targeted runs above: the missing-ffprobe PATH sandbox uses real file copies instead of privileged hardlinks; HTTP workflows use a raw loopback TCP server and passed with host networking; and a child PowerShell process is killed during a live FFmpeg stage to prove the encoder exits with it. The full suite is pending. Physical rapid-arrow/no-flicker behavior still requires Windows Terminal and classic conhost observation.
+The three-check result above supersedes the earlier 2026-10-15 full run (1386 PASS / 0 FAIL / 3 UNVERIFIED), which preceded the PATH-copy, loopback, process-job and Assimp end-to-end verification fixes. The 0.2.0 version consistency, release-package contents and post-bump static checks were also rerun successfully after preparing the release. Physical rapid-arrow/no-flicker behavior still requires Windows Terminal and classic conhost observation.
 
 Remaining UNVERIFIED items (never reported as PASS):
 
@@ -76,11 +78,12 @@ be provoked in the current environment (with the reason printed). FFmpeg + ffpro
 |---|---|---|
 | Unit | `Core.Tests.ps1` | validation, paths, argument quoting round-trips with awkward file names, injection safety, filter escaping proven against the real filter parser, encoders, atempo chains, progress parsing, capability parsing/discovery, ffprobe model |
 | Unit | `Manager.Tests.ps1` | detection (installed / missing / no ffprobe / stale PATH), update states with mocked winget text, install and update flows through the UI, failure and unmanaged cases |
-| Unit | `Tui.Tests.ps1` | menu (two-digit numbers `01`-`99`, `100`+, prefix waiting, Enter, arrows, Esc, Ctrl+C, scrolling, disabled items, no letter keys), main-menu definition (30 numbered options, Exit last), narrow/normal/wide layout, the three icon tiers (emoji, console-safe symbol, ASCII; symbol glyphs are checked against WGL4), theme centralization, line editor, wizard (steps, Back, conditions, Goto, multi-choice, file list, summary menu), dialogs |
+| Unit | `Tui.Tests.ps1` | menu (two-digit numbers `01`-`99`, `100`+, prefix waiting, Enter, arrows, Esc, Ctrl+C, scrolling, disabled items, no letter keys), main-menu definition (31 numbered options, Exit last), narrow/normal/wide layout, the three icon tiers (emoji, console-safe symbol, ASCII; symbol glyphs are checked against WGL4), theme centralization, line editor, wizard (steps, Back, conditions, Goto, multi-choice, file list, summary menu), dialogs |
 | Unit | `Compression.Tests.ps1` | target-size/reduction math, quality-risk assessment, codec-aware presets, bounded image-quality candidate planning and target tolerance, duration-aware choices, actual result metrics, Simple strategy labels and workflow wiring |
 | Unit | `Upscale.Tests.ps1` | 1.5x/2x/4x/custom-resolution bounds, aspect-preserving scaling, invalid/downscale/overflow rejection |
 | Unit | `Static.Tests.ps1` | version (`VERSION` is SemVer, README badge/CHANGELOG/tags consistent), README/docs link and image check, README commands vs real launcher switches, release-package contents, secret and machine-path scan, `.gitignore`, parse check, no `Invoke-Expression`, no network/telemetry code, no shell launching, no recursive deletion, PS-5.1 syntax/API scan, ASCII-only sources, closure rule, module/wiring/documentation presence |
 | Unit | `NewTools.Tests.ps1` | icon-tier decision table (Windows Terminal, conhost, redirected, Linux, overrides), custom-command argument parsing and refusals, DirectShow device parsing, analysis log parsers, chapter parsing and ffmetadata escaping, stream-output destinations, slideshow/sequence helpers |
+| Smoke | `WebMedia.Tests.ps1` | real FFmpeg WebM conversion, three-sample estimate followed by conversion, lossy batch and lossless WebP output with measured files, bitrate-only estimate, bundled Assimp UI and actual OBJ-to-GLB conversion/GLB validation/source-hash checks |
 | Unit | `UiRules.Tests.ps1` | static UI rules by syntax tree: no letter keys or hand-written keys, every `New-Choice` has a description, every Yes/No question describes both answers, every question has help and typed questions an example, no local variable that collides with a parameter |
 | Smoke | `Workflows1-5.Tests.ps1` | every workflow end-to-end through the real wizard with real FFmpeg; outputs are verified with ffprobe (codec, size, fps, duration, streams) and, where meaningful, by measurement (volume, LUFS, brightness/saturation, PSNR); `Workflows5` covers remux/streams, metadata/chapters, slideshows, audio effects, video enhancement, analysis, batch inventory/queue/collision handling, advanced tools and stream output |
 | Smoke | `Failures.Tests.ps1` | bad input, output-name rules, unsupported combinations, non-zero FFmpeg exit + details + retry, cancellation, source protection, simulated unwritable folder |
@@ -97,7 +100,7 @@ On Windows it uses `cmd.exe`; on Linux it uses Wine if installed (`apt install w
 
 No binary fixtures are committed. Tiny clips are synthesized with FFmpeg `lavfi` sources at run time in a temp folder that is removed afterwards
 (see `tests/Fixtures/README.md`). Names contain spaces, `( ) & '`, Arabic and Cyrillic.
-Package-manager operations are **mocked** (`Set-FFManagerHooks`); nothing on the machine is installed, updated or removed. Network-stream tests use a local `HttpListener` on 127.0.0.1.
+Package-manager operations are **mocked** (`Set-FFManagerHooks`); nothing on the machine is installed, updated or removed. Network-stream tests use a bounded raw TCP server on 127.0.0.1.
 
 ## How the UI is driven
 
@@ -108,12 +111,12 @@ the position of an option. `New-FileListRules` fills a "Files" question (type pa
 
 ## Manual TUI checklist (real terminal)
 
-1. Windows Terminal + PowerShell 7 and Windows PowerShell 5.1: start, arrow keys, typing numbers (`01`, `07`, `30`), Esc/Back, Ctrl+C.
+1. Windows Terminal + PowerShell 7 and Windows PowerShell 5.1: start, arrow keys, typing numbers (`01`, `07`, `30`, `31`), Esc/Back, Ctrl+C.
 2. Legacy console host (conhost, double-click the `.bat`): every option must show a **symbol icon** (never a blank, a box or an ASCII tag); colors fall back; still readable. Also check Windows Terminal (emoji icons), the Consolas, Lucida Console and raster fonts, and `FFTUI_ICONS=ascii`. **Not yet verified on Windows.**
 3. Resize the window narrow (< 60 columns) and short (< 20 rows) while on the menu and in a wizard.
 4. Paste a quoted path with spaces / Unicode; press `Tab` for the native picker.
 5. Run a long job, press `Esc`, answer `02` (No, continues) then `Esc`, `01` (Yes, stops); confirm ffmpeg.exe is gone in Task Manager.
 6. After quitting (and after a forced error) the cursor is visible and the scrollback of the terminal is intact.
-7. Main menu `28` -> `02` (check for updates) with and without internet; on a machine with FFmpeg from winget and one with a manual copy.
+7. Main menu `29` (Maintenance) -> `02` (check for updates) with and without internet; on a machine with FFmpeg from winget and one with a manual copy. Check Web Media Optimization at `30` and Exit at `31`.
 8. `winget uninstall Gyan.FFmpeg`, start the app: install flow (needs internet).
-9. Record / Capture (`23`): screen, webcam and microphone recordings need Windows capture devices; parsing and command building are unit tested but the recordings themselves are **unverified** until run on Windows.
+9. Record / Capture (`24`): screen, webcam and microphone recordings need Windows capture devices; parsing and command building are unit tested but the recordings themselves are **unverified** until run on Windows.

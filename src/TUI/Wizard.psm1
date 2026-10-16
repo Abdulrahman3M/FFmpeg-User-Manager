@@ -410,10 +410,12 @@ function Invoke-Wizard {
         [string]$Icon = '',
         [Parameter(Mandatory)][object[]]$Steps,
         [scriptblock]$Build,
-        [hashtable]$InitialData = @{}
+        [hashtable]$InitialData = @{},
+        [hashtable]$InitialAnswers = @{}
     )
     $W = New-WizardState -Title $Title -Description $Description -Icon $Icon
     foreach ($k in $InitialData.Keys) { $W.Data[$k] = $InitialData[$k] }
+    foreach ($k in $InitialAnswers.Keys) { $W.Answers[$k] = $InitialAnswers[$k] }
     $history = New-Object System.Collections.Generic.List[int]
     $i = 0
     $final = @{ Status = 'Cancelled'; Answers = $W.Answers; Job = $null; State = $W }

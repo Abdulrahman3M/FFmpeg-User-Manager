@@ -59,33 +59,36 @@ Common questions (used by most workflows):
 | 27 | Advanced FFmpeg | [27](#27-advanced-ffmpeg) |
 | 28 | FFmpeg Status / Settings | [28](#28-ffmpeg-status--settings) |
 | 29 | Check & Maintain FFmpeg Setup | [29](#29-check--maintain-ffmpeg-setup) |
-| 30 | Exit | closes the application |
+| 30 | Web Media Optimization | [30](#30-web-media-optimization) |
+| 31 | Exit | closes the application |
 
 ## FFmpeg capability coverage
 
 The guided tools cover the main practical FFmpeg categories; everything else is reachable in an organized way through **27 Advanced FFmpeg** instead of a button per codec or filter.
 Options whose encoder, filter, muxer or protocol is missing from the installed build are shown disabled with the reason (or not offered).
+Web Media Optimization adds WebM/WebP conversion and size estimates, plus the bundled Assimp OBJ-to-GLB converter. When startup update checks are enabled, official upstream stable-release and MSYS2 package-manager metadata are checked; no library downloads or replacements happen automatically.
 
 | FFmpeg category | Where |
 |---|---|
-| Video / audio conversion and transcoding, codecs and containers | 01, 02, 06, 26 (batch), 27 (any encoder/format via the custom command) |
+| Video / audio conversion and transcoding, codecs and containers | 01, 02, 06, 27 (batch), 28 (custom command), 30 (WebM) |
 | Remuxing (container change without re-encoding) | 20 |
 | Trimming, cutting, joining | 04, 05 |
-| Decoding / encoding, hardware acceleration | 01 and 06 (hardware decoding and GPU encoders, tested before they are offered), 27 (hardware check) |
+| Decoding / encoding, hardware acceleration | 01 and 06 (hardware decoding and GPU encoders, tested before they are offered), 28 (hardware check) |
 | Resolution, scaling, cropping, rotation, padding | 07, 08, 15, 23 (add bars) |
 | Frame rate, speed, reverse, loop | 13, 17, 23 |
-| Bitrate, quality, compression, target size | 01, 06, 27 |
+| Bitrate, quality, compression, target size | 01, 06, 28 |
 | Audio extraction, volume, channels, sample rate, loudness, effects | 03, 11 |
-| Filters and color, denoise, deinterlace, stabilize, fades | 14, 23, 27 (filter browser) |
-| Images, image sequences, GIF, thumbnails | 07, 09, 10, 22 |
+| Filters and color, denoise, deinterlace, stabilize, fades | 14, 23, 28 (filter browser) |
+| Images, image sequences, GIF, thumbnails and WebP | 07, 09, 10, 22, 30 |
 | Subtitles | 12 |
 | Metadata, chapters, cover art | 21 |
-| Streams and stream mapping (keep selected, language, default track) | 20, 27 |
+| Streams and stream mapping (keep selected, language, default track) | 20, 28 |
 | Recording / capture (screen, webcam, microphone) | 24 |
 | Streaming and network (HLS, save a stream, send a file out) | 18 |
 | Analysis and probing (media info, volume, loudness, silence, black frames, scenes, crop, quality) | 19, 25 |
-| Batch processing | 26 |
-| Anything else | 27 |
+| Batch processing | 27 |
+| Web size estimates and OBJ-to-GLB | 30 |
+| Anything else | 28 |
 
 ## 01 Convert Video Format
 Input video - output format (MP4, MKV, WebM, MOV, AVI, MPEG-TS, FLV as supported) - video codec / quality mode / quality / preset / bitrate -
@@ -221,3 +224,13 @@ A guided health check in five steps. Before each step you are told what it does,
 1. **FFmpeg and ffprobe** - found and really started; if missing or broken you may install them with winget. 2. **FFmpeg updates** - asks winget; updating asks again.
 3. **Emoji font** - checks that Segoe UI Emoji (part of Windows 10/11) exists; if it does not, the tool explains and suggests the symbol icons (no download, no system repair); it also reports whether Windows Terminal was detected. 4. **Icon style** - emoji or symbols, with a preview.
 5. **Capability re-scan**. A summary lists what was checked, repaired or skipped.
+
+## 30 Web Media Optimization
+
+1. **Convert Video to WebM** - choose a VP9 or AV1 encoder only when the installed FFmpeg build exposes it and can mux WebM. Choose an encoder-specific quality level, compatible audio (Opus/Vorbis/copy when the source codec is compatible), and an optional output resolution. Before the final encode, the wizard estimates the resulting size either from bitrate and duration or by encoding exactly three short representative samples (near the start, middle and end). Sampling is approximate, is explicitly identified as temporary work, and never performs a hidden full conversion. Review the estimate to continue, change settings, or cancel. The result reports measured input/output sizes and reduction; the estimate does not promise the result will be smaller.
+2. **Estimate Video Size** - enter planned video and optional audio bitrates; the app estimates a likely range from duration and bitrate. This performs no encode and creates no media file.
+3. **Convert Images to WebP** - select PNG/JPG/JPEG files or a folder; choose lossy quality or lossless mode. Batch conversion is capped at 500 images and collisions are handled by skip, rename, or an explicit overwrite choice. Results use actual filesystem sizes. Lossless output may not be smaller.
+4. **Convert OBJ to GLB** - uses the bundled Assimp command-line tool with its glb2 exporter. The workflow inspects referenced MTL/material/texture files before export and warns if dependencies are missing; after conversion it validates the GLB 2 header and JSON metadata and reports missing UVs/normals or unresolved/external assets when detectable. Material and texture retention depends on the source; inspect the result in a 3D viewer before relying on it.
+5. **Manage 3D Converter** - inspect the bundled converter or select an alternate existing executable. Release metadata checks are read-only; the app does not download or install updates.
+
+Codec, muxer and optional-tool availability is detected from the installed tools rather than assumed. All output writes preserve the source and use the normal collision protections.

@@ -3,10 +3,10 @@
 function Import-FFTuiModules {
     param([Parameter(Mandatory)][string]$Root)
     $order = @(
-        'Core\Environment', 'Core\Paths', 'Core\Validation', 'Core\ProcessRunner', 'Core\BatchProcessing',
+        'Core\Environment', 'Core\Paths', 'Core\Validation', 'Core\ProcessRunner', 'Core\BatchProcessing', 'Core\ExternalLibraries',
         'TUI\Theme', 'TUI\Renderer', 'TUI\Input', 'TUI\Menu', 'TUI\Dialog', 'TUI\ProgressView', 'TUI\Wizard',
         'FFmpeg\FFmpegManager', 'FFmpeg\FFmpegCapabilities', 'FFmpeg\MediaProbe', 'FFmpeg\FFmpegCommandBuilder', 'FFmpeg\FFmpegProgress',
-        'Workflows\CompressionPlanning', 'Workflows\WorkflowCommon', 'Workflows\CompressionWorkflow',
+        'Workflows\CompressionPlanning', 'Workflows\WorkflowCommon', 'Workflows\CompressionWorkflow', 'Workflows\WebMediaOptimization',
         'Workflows\ConvertVideo', 'Workflows\ConvertAudio', 'Workflows\ExtractAudio', 'Workflows\TrimMedia', 'Workflows\MergeMedia',
         'Workflows\CompressMedia', 'Workflows\UpscaleImage', 'Workflows\ResizeVideo', 'Workflows\VideoToGif', 'Workflows\ExtractFrames',
         'Workflows\AudioTools', 'Workflows\SubtitleTools', 'Workflows\FrameRate', 'Workflows\Filters', 'Workflows\TransformVideo',

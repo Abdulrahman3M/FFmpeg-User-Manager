@@ -134,6 +134,122 @@ $null = Invoke-Ui { Invoke-IconStyleFlow -Force } '02'
 Assert-Equal 'choosing No saves the symbol set' 'symbol' (Get-UserSetting 'icons')
 $env:FFTUI_SETTINGS_DIR = $oldSd
 
+Set-TestGroup 'Web media size estimates'
+$bitrateEstimate = Get-WebBitrateEstimate -DurationSec 60 -VideoBitrateKbps 1000 -AudioBitrateKbps 128
+Assert-Equal 'bitrate estimate identifies its method' 'Target bitrate' $bitrateEstimate.Method
+Assert-Equal 'bitrate estimate uses combined bitrate times duration' 8460000 $bitrateEstimate.ExpectedBytes
+Assert-Equal 'bitrate estimate shows a bounded low value' 8037000 $bitrateEstimate.LowBytes
+Assert-Equal 'bitrate estimate shows a bounded high value' 8883000 $bitrateEstimate.HighBytes
+$sampleEstimate = Get-WebSampleEstimate -SampleBytes @(300000, 600000, 900000) -SampleDurations @(3, 3, 3) -DurationSec 60
+Assert-Equal 'sample estimate identifies the three-sample method' '3-sample analysis' $sampleEstimate.Method
+Assert-Equal 'sample estimate uses all three samples' 3 $sampleEstimate.SampleCount
+Assert-Equal 'sample estimate reports the observed low-rate bound' 5700000 $sampleEstimate.LowBytes
+Assert-Equal 'sample estimate reports the mean-rate midpoint' 12000000 $sampleEstimate.ExpectedBytes
+Assert-Equal 'sample estimate reports the observed high-rate bound' 18900000 $sampleEstimate.HighBytes
+$invalidEstimateRejected = $false
+try { $null = Get-WebBitrateEstimate -DurationSec 0 -VideoBitrateKbps 1000 -AudioBitrateKbps 128 } catch { $invalidEstimateRejected = $true }
+Assert-True 'bitrate estimate rejects a non-positive duration' $invalidEstimateRejected
+$invalidSamplesRejected = $false
+try { $null = Get-WebSampleEstimate -SampleBytes @(300000, 600000) -SampleDurations @(3, 3) -DurationSec 60 } catch { $invalidSamplesRejected = $true }
+Assert-True 'sample estimate rejects fewer than three samples' $invalidSamplesRejected
+
+Set-TestGroup 'Web codec capability and argument selection'
+Set-FFCapabilityData -Encoders @('libvpx-vp9', 'libsvtav1', 'libwebp') -Muxers @('webm', 'webp')
+$webmCodecs = @(Get-WebMCodecChoices)
+Assert-True 'WebM codec choices are derived from installed encoders and muxer' ($webmCodecs.Count -eq 2 -and @($webmCodecs | ForEach-Object { $_.Id }) -contains 'vp9' -and @($webmCodecs | ForEach-Object { $_.Id }) -contains 'av1')
+$vp9Args = @(Get-WebMQualityTokens -Codec 'vp9' -Quality 'balanced')
+Assert-True 'VP9 balanced profile is quality-based with two-pass-free CRF mode' (($vp9Args -join '|') -eq '-c:v|libvpx-vp9|-crf|34|-b:v|0|-deadline|good|-cpu-used|3')
+$av1Args = @(Get-WebMQualityTokens -Codec 'av1' -Quality 'custom' -CustomValue 37)
+Assert-True 'AV1 custom quality uses an installed AV1 encoder and preserves the selected quality' (($av1Args -contains '-c:v') -and ($av1Args -contains 'libsvtav1') -and ($av1Args -contains '-crf') -and ($av1Args -contains '37'))
+$webpArgs = @(Get-WebPTokens -Quality 'balanced' -Lossless:$false)
+Assert-True 'lossy WebP uses the discovered WebP encoder with its quality value' (($webpArgs -contains 'libwebp') -and ($webpArgs -contains '-quality') -and ($webpArgs -contains '80'))
+$webpLosslessArgs = @(Get-WebPTokens -Quality 'maximum' -Lossless)
+Assert-True 'lossless WebP explicitly enables lossless mode' (($webpLosslessArgs -contains '-lossless') -and ($webpLosslessArgs -contains '1'))
+$webpFileArgs = @(New-WebPArguments -InputPath 'C:\Pictures\summer photo.jpg' -OutputPath 'C:\Pictures\WebP\summer photo.webp' -WebPTokens $webpArgs)
+Assert-True 'WebP argument builder preserves paths with spaces and protects existing output by default' (($webpFileArgs -contains 'C:\Pictures\summer photo.jpg') -and $webpFileArgs[-1].EndsWith('summer photo.webp') -and ($webpFileArgs -contains '-n') -and -not ($webpFileArgs -contains '-y'))
+$webpOverwriteArgs = @(New-WebPArguments -InputPath 'photo.png' -OutputPath 'photo.webp' -WebPTokens $webpArgs -Overwrite:$true)
+Assert-True 'WebP only requests overwrite after explicit confirmation' (($webpOverwriteArgs -contains '-y') -and -not ($webpOverwriteArgs -contains '-n'))
+Set-FFCapabilityData -Encoders @('libvpx-vp9', 'libopus', 'libvorbis') -Muxers @('webm')
+$opusArgs = @(Get-WebMAudioTokens -Mode 'auto' -InputCodec 'aac')
+Assert-True 'WebM automatically encodes incompatible source audio with Opus' (($opusArgs -join '|') -eq '-c:a|libopus|-b:a|128k')
+$copyArgs = @(Get-WebMAudioTokens -Mode 'auto' -InputCodec 'opus')
+Assert-True 'WebM automatically copies already compatible Opus audio' (($copyArgs -join '|') -eq '-c:a|copy')
+$noneArgs = @(Get-WebMAudioTokens -Mode 'none' -InputCodec 'aac')
+Assert-True 'WebM can omit source audio' (($noneArgs -join '|') -eq '-an')
+Set-FFCapabilityData -Encoders @('libvpx-vp9', 'libvorbis') -Muxers @('webm')
+$vorbisArgs = @(Get-WebMAudioTokens -Mode 'auto' -InputCodec 'aac')
+Assert-True 'WebM audio falls back to an installed Vorbis encoder' (($vorbisArgs -join '|') -eq '-c:a|libvorbis|-b:a|128k')
+Set-FFCapabilityData -Encoders @('libvpx-vp9') -Muxers @('webm')
+$noAudioArgs = @(Get-WebMAudioTokens -Mode 'auto' -InputCodec 'aac')
+Assert-True 'WebM disables audio with an explicit explanation when no compatible encoder exists' ($noAudioArgs.Count -eq 0 -and (Get-WebMAudioUnavailableReason) -like '*audio encoder*')
+Assert-Equal 'WebM scale helper preserves source at keep' '' (Get-WebMScaleFilter 'keep')
+Assert-Equal 'WebM scale helper constrains output height and keeps the source aspect ratio' 'scale=-2:720' (Get-WebMScaleFilter 'h720')
+Set-FFCapabilityData -Encoders @('libx264') -Muxers @('mp4')
+Assert-Equal 'missing WebM encoders produce no enabled codec choices' 0 @(Get-WebMCodecChoices).Count
+Assert-True 'WebP is unavailable when its encoder or muxer is missing' (-not (Test-WebPAvailable))
+$null = Initialize-FFCapabilities -Force
+
+Set-TestGroup '3D tool and OBJ dependency inspection'
+$libraryManifest = Get-ExternalLibraryManifest
+$assimpLibrary = Get-ExternalLibraryDefinition -Id 'assimp'
+Assert-True 'external library manifest tracks Assimp and official upstream and MSYS2 package metadata' ($libraryManifest.SchemaVersion -eq 1 -and $assimpLibrary.CurrentVersion -eq '6.0.5' -and $assimpLibrary.MetadataUri -eq 'https://api.github.com/repos/assimp/assimp/releases/latest' -and $assimpLibrary.PackageMetadataUri -eq 'https://packages.msys2.org/api/search?query=mingw-w64-clang-x86_64-assimp&qtype=binpkg' -and $assimpLibrary.PackageBaseName -eq 'mingw-w64-assimp' -and $assimpLibrary.PackageRealName -eq 'assimp' -and $assimpLibrary.PackageRepository -eq 'clang64' -and @($assimpLibrary.RuntimePackages).Count -eq 6)
+Assert-True 'manifest records the complete Clang64 dependency graph and its LLVM virtual runtime provider' (@($assimpLibrary.RuntimePackages[0].Dependencies).Count -eq 3 -and (@($assimpLibrary.RuntimePackages | Where-Object { $_.Name -eq 'libc++' })[0].Dependencies -contains 'libunwind') -and (@($assimpLibrary.RuntimePackages | Where-Object { $_.Name -eq 'libc++' })[0].Provides -contains 'gcc-libs') -and (@($assimpLibrary.RuntimePackages | Where-Object { $_.Name -eq 'bzip2' })[0].Dependencies -contains 'libc++ (provides the clang64 gcc-libs virtual package)'))
+$libraryCurrent = Get-ExternalLibraryUpdateStatus -Id 'assimp' -LatestVersion '6.0.5' -LatestPackageVersion '6.0.5-2'
+Assert-Equal 'stable upstream and package metadata report up to date' 'UpToDate' $libraryCurrent.State
+$libraryNewer = Get-ExternalLibraryUpdateStatus -Id 'assimp' -LatestVersion '6.0.6' -LatestPackageVersion '6.0.6-1'
+Assert-True 'newer Assimp stable release is detected without downloading package files' ($libraryNewer.State -eq 'UpdateAvailable' -and $libraryNewer.CurrentVersion -eq '6.0.5' -and $libraryNewer.LatestVersion -eq '6.0.6')
+$libraryRebuilt = Get-ExternalLibraryUpdateStatus -Id 'assimp' -LatestVersion '6.0.5' -LatestPackageVersion '6.0.5-3'
+Assert-True 'a newer package-manager rebuild is detected even when upstream source version is unchanged' ($libraryRebuilt.State -eq 'UpdateAvailable' -and $libraryRebuilt.PackageVersion -eq '6.0.5-2' -and $libraryRebuilt.LatestPackageVersion -eq '6.0.5-3')
+$packageMetadataFixture = [pscustomobject]@{ results = [pscustomobject]@{ exact = [pscustomobject]@{ name = 'mingw-w64-assimp'; realname = 'assimp'; repos = @('clang64', 'mingw64'); version = '6.0.5-2' } } }
+Assert-Equal 'MSYS2 API base-package response is matched to the expected library and Clang64 repository' '6.0.5-2' (Get-ExternalPackageMetadataVersion -Metadata $packageMetadataFixture -Id 'assimp')
+$wrongPackageMetadata = [pscustomobject]@{ results = [pscustomobject]@{ exact = [pscustomobject]@{ name = 'mingw-w64-other'; realname = 'other'; repos = @('clang64'); version = '9.9.9-1' } } }
+$wrongPackageRejected = $false; try { $null = Get-ExternalPackageMetadataVersion -Metadata $wrongPackageMetadata -Id 'assimp' } catch { $wrongPackageRejected = $true }
+Assert-True 'MSYS2 metadata for a different package is rejected' $wrongPackageRejected
+$libraryPrerelease = Get-ExternalLibraryUpdateStatus -Id 'assimp' -LatestVersion '6.0.5-rc.1' -LatestPackageVersion '6.0.5-2'
+Assert-Equal 'a prerelease is never offered over the current stable library' 'UpToDate' $libraryPrerelease.State
+$libraryInvalid = Get-ExternalLibraryUpdateStatus -Id 'assimp' -LatestVersion 'latest' -LatestPackageVersion '6.0.5-2'
+Assert-Equal 'malformed upstream version metadata fails closed' 'Unknown' $libraryInvalid.State
+$libraryInvalidPackage = Get-ExternalLibraryUpdateStatus -Id 'assimp' -LatestVersion '6.0.5' -LatestPackageVersion 'invalid'
+Assert-Equal 'malformed package-manager metadata fails closed' 'Unknown' $libraryInvalidPackage.State
+Assert-True 'SemVer and package release ordering handle prereleases, metadata and numeric identifiers correctly' ((Compare-SemVerPrecedence '6.0.5' '6.0.5-rc.1') -gt 0 -and (Compare-SemVerPrecedence '6.0.5-rc.10' '6.0.5-rc.2') -gt 0 -and (Compare-SemVerPrecedence '6.0.5+build.2' '6.0.5+build.1') -eq 0 -and (Compare-ExternalPackageVersion '6.0.5-10' '6.0.5-2') -gt 0 -and (Compare-ExternalPackageVersion '6.0.6-1' '6.0.5-20') -gt 0)
+foreach ($runtimePackage in @($assimpLibrary.RuntimePackages)) {
+    $licenseRelativePath = [string]$runtimePackage.LicenseFile -replace '/', [string][System.IO.Path]::DirectorySeparatorChar
+    $licensePath = Join-Path (Join-Path (Get-AppRoot) 'External-Libraries') $licenseRelativePath
+    Assert-True "runtime dependency license is present: $($runtimePackage.Name) ($($runtimePackage.License))" (Test-Path -LiteralPath $licensePath -PathType Leaf)
+}
+foreach ($runtimeFile in @($assimpLibrary.Files)) {
+    $binaryRelativePath = [string]$runtimeFile.Path -replace '/', [string][System.IO.Path]::DirectorySeparatorChar
+    $binaryPath = Join-Path (Join-Path (Get-AppRoot) 'External-Libraries') $binaryRelativePath
+    $binaryHash = if (Test-Path -LiteralPath $binaryPath -PathType Leaf) { (Get-FileHash -LiteralPath $binaryPath -Algorithm SHA256).Hash } else { '' }
+    Assert-Equal "bundled runtime hash matches the reviewed manifest: $([System.IO.Path]::GetFileName($binaryPath))" ([string]$runtimeFile.Sha256) $binaryHash
+}
+$bundledAssimp = Get-ThreeDToolStatus
+Assert-True 'the signed bundled Assimp CLI is discovered and its glb2 exporter is verified' ($bundledAssimp.Available -and $bundledAssimp.Path -eq (Join-Path (Get-AppRoot) 'External-Libraries\Assimp\bin\assimp.exe')) $bundledAssimp.Reason
+$objRoot = Join-Path (Get-TestWork) 'obj-dependency-fixture'
+[void](New-Item -ItemType Directory -Path $objRoot -Force)
+$objPath = Join-Path $objRoot 'sample.obj'
+$mtlPath = Join-Path $objRoot 'sample.mtl'
+$texturePath = Join-Path $objRoot 'diffuse.png'
+[System.IO.File]::WriteAllText($objPath, "mtllib sample.mtl`nv 0 0 0`nvt 0 0`nvn 0 0 1`nf 1/1/1 1/1/1 1/1/1`n", (New-Object System.Text.UTF8Encoding($false)))
+[System.IO.File]::WriteAllText($mtlPath, "newmtl material`nmap_Kd diffuse.png`n", (New-Object System.Text.UTF8Encoding($false)))
+[System.IO.File]::WriteAllBytes($texturePath, [byte[]]@(1, 2, 3))
+$objDeps = Get-ObjDependencyReport -Path $objPath
+Assert-True 'OBJ dependency scan detects UVs, normals, MTL and referenced textures' ($objDeps.HasUv -and $objDeps.HasNormals -and $objDeps.MaterialFiles.Count -eq 1 -and $objDeps.TextureReferences.Count -eq 1 -and $objDeps.MissingDependencies.Count -eq 0)
+$assimpArgs = @(New-AssimpExportArguments -InputPath 'C:\Models\sample model.obj' -OutputPath 'C:\Models\sample model.glb')
+Assert-True 'Assimp GLB command uses token arguments and explicitly requests glTF 2 binary' (($assimpArgs -join '|') -eq 'export|C:\Models\sample model.obj|C:\Models\sample model.glb|-fglb2')
+$samplePlan = New-WebMSampleEstimateJob @{ WebMSettings = @{ InputPath = 'video.mp4'; Duration = 12.0; VideoTokens = @('-c:v', 'libvpx-vp9'); AudioTokens = @(); Resolution = 'keep' } }
+Assert-True 'integrated WebM estimate plans exactly three short temporary encodes without an output media path' ($samplePlan.Stages.Count -eq 3 -and $samplePlan.OutputKind -eq 'Estimate' -and -not $samplePlan.OutputPath -and $samplePlan.TempFiles.Count -eq 3 -and @($samplePlan.Stages | Where-Object { $_.Arguments -contains '-t' }).Count -eq 3)
+$jsonChunk = '{"asset":{"version":"2.0"},"meshes":[{"primitives":[{"attributes":{"POSITION":0,"NORMAL":1,"TEXCOORD_0":2}}]}],"images":[{"bufferView":0,"mimeType":"image/png"}],"materials":[{}]}'
+$jsonBytes = [System.Text.Encoding]::UTF8.GetBytes($jsonChunk)
+$padding = (4 - ($jsonBytes.Length % 4)) % 4
+$glbFixture = Join-Path $objRoot 'valid fixture.glb'
+$glbStream = New-Object System.IO.MemoryStream
+$glbWriter = New-Object System.IO.BinaryWriter($glbStream)
+$glbWriter.Write([System.Text.Encoding]::ASCII.GetBytes('glTF')); $glbWriter.Write([uint32]2); $glbWriter.Write([uint32](12 + 8 + $jsonBytes.Length + $padding)); $glbWriter.Write([uint32]($jsonBytes.Length + $padding)); $glbWriter.Write([uint32]0x4E4F534A); $glbWriter.Write($jsonBytes); for ($padIndex = 0; $padIndex -lt $padding; $padIndex++) { $glbWriter.Write([byte]0x20) }; $glbWriter.Flush(); [System.IO.File]::WriteAllBytes($glbFixture, $glbStream.ToArray()); $glbWriter.Dispose(); $glbStream.Dispose()
+$goodGlbWarnings = @(Get-ObjGlbWarnings -ObjPath $objPath -GlbPath $glbFixture -DependencyReport $objDeps)
+Assert-True 'GLB validator accepts retained material, UV, normals and embedded texture data' ($goodGlbWarnings.Count -eq 0) ($goodGlbWarnings -join '; ')
+$missingGlbWarnings = @(Get-ObjGlbWarnings -ObjPath $objPath -GlbPath $glbFixture -DependencyReport ([pscustomobject]@{ HasUv = $false; HasNormals = $false; MaterialFiles = @(); TextureReferences = @(); MissingDependencies = @() }))
+Assert-Equal 'GLB validator handles optional geometry and material properties safely' 0 $missingGlbWarnings.Count
 Set-TestGroup 'Check & Maintain FFmpeg Setup'
 $ui = Invoke-Flow { Start-MaintenanceTool } @((New-ScreenRule 'Step \d of 5' '02' ), (New-ScreenRule 'Check & Maintain FFmpeg Setup' '01' 1))
 $flat = Get-FlatText $ui.Output

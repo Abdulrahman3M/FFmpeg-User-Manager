@@ -1,0 +1,38 @@
+{
+  "SchemaVersion": 1,
+  "Libraries": [
+    {
+      "Id": "assimp",
+      "Name": "Assimp",
+      "CurrentVersion": "6.0.5",
+      "MetadataUri": "https://api.github.com/repos/assimp/assimp/releases/latest",
+      "MetadataSource": "Official Assimp GitHub stable-release API",
+      "PackageMetadataUri": "https://packages.msys2.org/api/search?query=mingw-w64-clang-x86_64-assimp&qtype=binpkg",
+      "PackageMetadataSource": "Official MSYS2 Packages API (Clang64 binary package search)",
+      "PackageSource": "MSYS2 official Clang64 package repository",
+      "PackageName": "mingw-w64-clang-x86_64-assimp",
+      "PackageBaseName": "mingw-w64-assimp",
+      "PackageRealName": "assimp",
+      "PackageRepository": "clang64",
+      "PackageVersion": "6.0.5-2",
+      "PackageArchiveSha256": "B414AD389494F79BA0DDAC10F8649FF8FE37E487D04D20C06605CD322DCEFA25",
+      "RuntimePackages": [
+        { "Name": "Assimp", "Version": "6.0.5-2", "License": "BSD-3-Clause", "LicenseFile": "Assimp/licenses/assimp/LICENSE", "ArchiveSha256": "B414AD389494F79BA0DDAC10F8649FF8FE37E487D04D20C06605CD322DCEFA25", "Dependencies": ["libc++ (provides cc-libs)", "minizip", "zlib-ng-compat (provides zlib)"] },
+        { "Name": "libc++", "Version": "22.1.7-1", "License": "Apache-2.0 WITH LLVM-exception", "LicenseFile": "Assimp/licenses/libc++/LICENSE", "ArchiveSha256": "78E8C200990390E28609D7BD37CD0D07BE4225F4F2608CAD4C88B539197F743B", "Dependencies": ["libunwind"], "Provides": ["cc-libs", "gcc-libs"] },
+        { "Name": "libunwind", "Version": "22.1.7-1", "License": "Apache-2.0 WITH LLVM-exception", "LicenseFile": "Assimp/licenses/libunwind/LICENSE", "ArchiveSha256": "41386918EBD696C5C68AE2D481AC94D21B2CE42E6682450F3312F86DB33EBBF6", "Dependencies": [] },
+        { "Name": "minizip", "Version": "1.3.2-2", "License": "zlib", "LicenseFile": "Assimp/licenses/minizip/LICENSE", "ArchiveSha256": "7524E26C3808C3A35B32802AFCED63CFEE91163D1D28378ACF28C289CFD3B1DE", "Dependencies": ["bzip2", "zlib-ng-compat (provides zlib)"] },
+        { "Name": "bzip2", "Version": "1.0.8-3", "License": "bzip2 permissive license", "LicenseFile": "Assimp/licenses/bzip2/LICENSE", "ArchiveSha256": "95BABF857EAA0853F1099201B95AA3EA7E1F3C64B29AFB75E447F630A7701FD9", "Dependencies": ["libc++ (provides the clang64 gcc-libs virtual package)"] },
+        { "Name": "zlib-ng-compat", "Version": "2.3.3-2", "License": "zlib", "LicenseFile": "Assimp/licenses/zlib-ng-compat/LICENSE.md", "ArchiveSha256": "1734D3FB5032243ABF9A38A3E5884A823A23A47832172E7D341C2C460CA10DCF", "Dependencies": [] }
+      ],
+      "Files": [
+        { "Path": "Assimp/bin/assimp.exe", "Sha256": "2CA2A636C0C9F49EBAEB6B29A3F08EF833C4730C43DA12A55C2716571F545E5C" },
+        { "Path": "Assimp/bin/libassimp-6.dll", "Sha256": "17C4255F78CEE84B33BFB77A7104232F72B128578FDFCC54B117E8F0CAC18C90" },
+        { "Path": "Assimp/bin/libbz2-1.dll", "Sha256": "22289ED41EFBE633F798047DE836B31170336E5E40E7E7B586C915BDBDA7FCD9" },
+        { "Path": "Assimp/bin/libc++.dll", "Sha256": "8A9DEAAC6D2F4D2DE468A544D1F35CD0DD4BCDE03CDA3CFB76FB9674749828D4" },
+        { "Path": "Assimp/bin/libminizip-1.dll", "Sha256": "1E6FADEC742816171C239AC628B8FEEA68795199DDC7B57530D2BD2A27DC06F2" },
+        { "Path": "Assimp/bin/libunwind.dll", "Sha256": "8D5FDCD740E124D9C8E0ECB5FBF1D2D47576D4E9BC40E0D01AE5757AE6719A1F" },
+        { "Path": "Assimp/bin/zlib1.dll", "Sha256": "0AC7AACA42E6BB645262B2679440B54FABDA5C3724497D75BEB4DDAA1FD8C32C" }
+      ]
+    }
+  ]
+}

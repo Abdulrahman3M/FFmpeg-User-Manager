@@ -9,10 +9,10 @@ Start-FFmpegTUI.ps1 --> src/Import-Modules.ps1 --> Core/App.psm1 (Start-FFmpegTu
         | TUI (screens)      | FFmpeg (engine)       | Workflows          |
         | Theme  Renderer    | FFmpegManager         | WorkflowCommon     |
         | Input  Menu Dialog | FFmpegCapabilities    | ConvertVideo ...   |
-        | Wizard ProgressView| MediaProbe            | (31 workflow files)|
+        | Wizard ProgressView| MediaProbe            | (32 workflow files)|
         |                    | FFmpegCommandBuilder  |                    |
         |                    | FFmpegProgress        |                    |
-        +--------------------+ Core: Environment Paths Validation ProcessRunner
+        +--------------------+ Core: Environment Paths Validation ProcessRunner ExternalLibraries
 ```
 
 `FFmpeg-User-Manager.bat` (repository root) is a thin Windows launcher: it finds `Start-FFmpegTUI.ps1`, prefers `pwsh.exe`, falls back to `powershell.exe`, and forwards arguments and the exit code. The application version comes from the root `VERSION` file (`Get-AppVersion`).
@@ -20,11 +20,13 @@ Start-FFmpegTUI.ps1 --> src/Import-Modules.ps1 --> Core/App.psm1 (Start-FFmpegTu
 All modules are imported into the global session state by `Import-FFTuiModules` (ordered, fail-fast), so exported
 functions can call each other. Module-private state uses `$script:` variables.
 
+`Core/ExternalLibraries.psm1` validates `External-Libraries/manifest.json`, compares Semantic Versions and package rebuild revisions, and performs bounded HTTPS GETs only to allowlisted official upstream and package-manager metadata endpoints. Startup reports stable updates but never downloads or replaces package files. Bundled executable and DLL paths are resolved from the project tree.
+
 ## Core
 
 | Module | Responsibility |
 |---|---|
-| `App.psm1` | Startup sequence, FFmpeg missing/install/update screens, capability scan, main menu, status screen, top-level error containment, terminal cleanup. |
+| `App.psm1` | Startup sequence, FFmpeg missing/install/update screens, bounded read-only external-library update checks, capability scan, main menu, status screen, top-level error containment, terminal cleanup. |
 | `Maintenance.psm1` | The guided *Check & Maintain FFmpeg Setup* tool; reuses the install/update/icon flows and asks before every step. |
 | `Environment.psm1` | Runtime info (5.1 vs 7), interactive/ANSI/Unicode detection, terminal size, `config/defaults.json` loading. `Test-IsWindows` guards `$IsWindows` (absent in 5.1). |
 | `Paths.psm1` | Path cleaning (`"..."`, `'...'`, `& '...'`), resolution, input-file checks (missing, folder, empty, locked, denied), file-name validation (reserved names, illegal chars), size/duration formatting, open-folder, optional native picker. |
@@ -105,12 +107,14 @@ On Windows the console output encoding is switched to UTF-8 at startup (`Set-Con
   not of what exists), container catalog, target-size bitrate calculation.
 * **FFmpegProgress** - runs one stage as a child process with `-progress pipe:1`, parses time/speed/size, supports cooperative cancel
   (`q` on stdin, then kill), collects stderr for the details view.
-* **Workflow modules** (`src/Workflows/`) - one module per tool group. `CompressionPlanning` and `CompressionWorkflow` power the existing Compress Media route; `UpscaleImage` reuses the shared image-format and image-encoding helpers. Other groups include `RemuxStreams`, `MetadataChapters`, `ImagesAndVisuals`, `AudioEffects`,
+* **Workflow modules** (`src/Workflows/`) - one module per tool group. `CompressionPlanning` and `CompressionWorkflow` power Compress Media; `UpscaleImage` reuses shared image helpers; `WebMediaOptimization` handles WebM, WebP, size estimates and OBJ-to-GLB. Other groups include `RemuxStreams`, `MetadataChapters`, `ImagesAndVisuals`, `AudioEffects`,
   `VideoEnhance`, `CaptureMedia`, `AnalyzeMedia`, `BatchConvert` and `AdvancedTools` (see [Workflows.md](Workflows.md) for the category map). Read-only analysis runs FFmpeg to a null
   output and parses its log (pure parsers, unit tested); batch conversion reuses the single-file job builders; the custom command splits typed options into tokens (`ConvertFrom-ArgumentText`) and validates
   encoders/formats against the installed build.
 * **WorkflowCommon** - shared steps (input+probe, output folder/name/collision, container, video/audio encode, time range, resolution, frame rate),
   shared job builders (`New-VideoProcessJob`, `New-AudioProcessJob`), opt-in actual byte/reduction/target metrics and the job runner/result screens.
+
+`ExternalLibraries.psm1` validates the external-library manifest and performs bounded, read-only stable-version checks against official upstream and package-manager metadata; it never downloads or replaces binaries. `WebMediaOptimization.psm1` reuses the shared job lifecycle for capability-driven WebM and WebP conversion, approximate bitrate/representative-sample size estimates, and OBJ-to-GLB conversion. Assimp is bundled under `External-Libraries/` with its runtime DLLs and license texts. A stage describes the bundled executable plus tokenized arguments without invoking a shell. Its GLB output is validated before finalization.
 
 ## Data flow of one job
 

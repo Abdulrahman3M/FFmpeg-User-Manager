@@ -629,7 +629,7 @@ function Invoke-FFJob {
     <#
       Runs a job (Stages, Output, Summary) with progress, cancellation, and result/failure screens.
       Returns 'Again' | 'Menu'.
-      Job: @{ Stages=@(@{Name;Arguments|Factory;DurationSec}); OutputPath; OutputKind='File'|'Folder'; OverwriteOutput;
+      Job: @{ Stages=@(@{Name;Arguments|Factory;DurationSec}); OutputPath; OutputKind='File'|'Folder'|'Network'|'Estimate'; OverwriteOutput;
               EnsureDirs; TempFiles; SourceSize; Title }
     #>
     param([Parameter(Mandatory)]$Job)
@@ -641,7 +641,7 @@ function Invoke-FFJob {
         $stageResults = @()
         $existedBefore = $false
         $outPath = [string]$Job.OutputPath
-        if ($outPath -and @('Folder', 'Network') -notcontains $Job.OutputKind) { $existedBefore = Test-Path -LiteralPath $outPath }
+        if ($outPath -and @('Folder', 'Network', 'Estimate') -notcontains $Job.OutputKind) { $existedBefore = Test-Path -LiteralPath $outPath }
         try {
             foreach ($d in @($Job.EnsureDirs)) { if ($d -and -not (Test-Path -LiteralPath $d -PathType Container)) { [void](New-Item -ItemType Directory -Path $d -Force -ErrorAction Stop) } }
         } catch {
@@ -678,14 +678,35 @@ function Invoke-FFJob {
                     $k = Read-TuiKey
                     $isQ = ($k.Name -eq 'CtrlC') -or ($k.Name -eq 'Esc')
                     if ($isQ) {
-                        $yes = Show-Confirm -Title 'Cancel this job?' -Lines @('FFmpeg will be stopped. The output file may be incomplete.') -Default $false -YesLabel 'Yes, cancel the job' -NoLabel 'No, keep going'
+                        $processLabel = if ($st.ContainsKey('Executable')) { 'The external converter will be stopped. Its temporary output will be removed.' } else { 'FFmpeg will be stopped. The output file may be incomplete.' }
+                        $yes = Show-Confirm -Title 'Cancel this job?' -Lines @($processLabel) -Default $false -YesLabel 'Yes, cancel the job' -NoLabel 'No, keep going'
                         if ($yes) { return $true }
                     }
                 }
                 return $false
             }.GetNewClosure()
             $script:JobTick = 0
-            $r = Invoke-FFmpegStage -FfmpegPath $ff -Arguments $tokens -TotalSec $total -OnTick $onTick
+            if ($st.ContainsKey('Executable') -and $st.Executable) {
+                $externalTick = {
+                    param($elapsed, $lastLine)
+                    $script:JobTick++
+                    $extra = @(); if ($lastLine) { $extra = @([string]$lastLine) }
+                    Show-JobProgress -Title $(if ($Job.Title) { [string]$Job.Title } else { 'Processing' }) -StageText $(if (@($Job.Stages).Count -gt 1) { $stageText } else { '' }) -Percent $null -Elapsed $swAll.Elapsed -Tick $script:JobTick -Status $stageName -ExtraLines $extra
+                    if (Test-TuiKeyAvailable) {
+                        $k = Read-TuiKey
+                        if ($k.Name -eq 'Esc' -or $k.Name -eq 'CtrlC') {
+                            $yes = Show-Confirm -Title 'Cancel this job?' -Lines @('The external converter will be stopped. Its temporary output will be removed.') -Default $false -YesLabel 'Yes, cancel the job' -NoLabel 'No, keep going'
+                            if ($yes) { return $true }
+                        }
+                    }
+                    return $false
+                }.GetNewClosure()
+                $timeout = 1800; if ($st.ContainsKey('TimeoutSec') -and $st.TimeoutSec) { $timeout = [int]$st.TimeoutSec }
+                $r = Invoke-ExternalStreaming -FilePath ([string]$st.Executable) -Arguments $tokens -TimeoutSec $timeout -OnTick $externalTick
+                if ($r.TimedOut) { $r.Error = 'The external converter exceeded the allowed processing time.' }
+            } else {
+                $r = Invoke-FFmpegStage -FfmpegPath $ff -Arguments $tokens -TotalSec $total -OnTick $onTick
+            }
             $stageResults += , $r
             if ($r.Cancelled) { $cancelled = $true; break }
             $stageFailed = ((-not $r.Started) -or $r.ExitCode -ne 0)
@@ -704,7 +725,11 @@ function Invoke-FFJob {
         Restore-JobCursor
         $lastR = $null; if ($stageResults.Count -gt 0) { $lastR = $stageResults[$stageResults.Count - 1] }
         $tokensText = ''
-        foreach ($st in @($Job.Stages)) { $tokensText += ('[' + $st.Name + '] ' + (Format-FFmpegCommandLine @($st.Arguments)) + "`n") }
+        foreach ($st in @($Job.Stages)) {
+            if ($st.ContainsKey('Executable') -and $st.Executable) { $shown = '"' + [string]$st.Executable + '" ' + (ConvertTo-ProcessArgumentString @($st.Arguments)) }
+            else { $shown = Format-FFmpegCommandLine @($st.Arguments) }
+            $tokensText += ('[' + $st.Name + '] ' + $shown + "`n")
+        }
         Remove-JobTempFiles $Job
         if ($cancelled) {
             $lines = @('The job was cancelled.')
@@ -735,7 +760,16 @@ function Invoke-FFJob {
         $rows = @()
         $resultTitle = 'Completed successfully'
         $resultKind = 'Success'
-        if ($Job.OutputKind -eq 'Folder') {
+        if ($Job.OutputKind -eq 'Estimate') {
+            $resultTitle = 'Estimate complete'
+            $resultKind = 'Info'
+            $lines = @('Estimate only; no full output media was created.')
+            if ($Job.ContainsKey('EstimateResult') -and $Job.EstimateResult) {
+                $est = $Job.EstimateResult
+                $lines += ('Estimated size: ' + (Format-FileSize $est.ExpectedBytes))
+                $lines += ('Likely range: {0} to {1}' -f (Format-FileSize $est.LowBytes), (Format-FileSize $est.HighBytes))
+            }
+        } elseif ($Job.OutputKind -eq 'Folder') {
             $count = 0
             if ($Job.ContainsKey('CountOutputs') -and $Job.CountOutputs) { $count = [int](& $Job.CountOutputs) }
             $lines += $outPath
@@ -778,7 +812,13 @@ function Invoke-FFJob {
         while ($true) {
             $doneActions = @(@('O', 'Open output folder'), @('R', 'Run again'), @('M', 'Main menu'))
             if ($Job.OutputKind -eq 'Network') { $doneActions = @(@('R', 'Run again'), @('M', 'Main menu')) }
+            if ($Job.OutputKind -eq 'Estimate') { $doneActions = @(@('C', 'Continue with conversion'), @('H', 'Change settings'), @('M', 'Cancel / main menu')) }
             $act = Show-Notice -Title $resultTitle -Lines $lines -Kind $resultKind -Actions $doneActions
+            if ($Job.OutputKind -eq 'Estimate') {
+                if ($act -eq 'C') { return 'Continue' }
+                if ($act -eq 'H') { return 'Change' }
+                return 'Menu'
+            }
             if ($act -eq 'O') { $target = $outPath; [void](Open-OutputFolder -Path $target); continue }
             if ($act -eq 'R') { return 'Again' }
             return 'Menu'

@@ -1,6 +1,9 @@
 # Release packages and generated output
 dist/
 *.zip
+External-Libraries/.cache/
+External-Libraries/.stage/
+External-Libraries/.stage-*/
 
 # Test output and scratch files
 tests/_*.ps1

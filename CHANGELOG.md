@@ -8,11 +8,16 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-16
+
 ### Added
 - Compression now has one Simple / Advanced workflow for video, audio, JPEG, PNG and WebP, with six Simple strategies, byte-based target-size/reduction planning, codec-aware controls, pre-encode target/risk summaries, bounded image quality search with honest missed-target reporting, and measured results.
 - A main-menu Upscale Image workflow enlarges JPEG, PNG and WebP with Lanczos, supports custom resolution bounds, preserves aspect ratio and format-supported alpha, reports measured output dimensions, and explains that interpolation cannot restore missing detail.
 - Batch Convert accepts an ordered multiple-file list as well as a folder scan, supports an explicit sub-folder choice, and uses a shared queue model with completed, failed and skipped totals.
 - Batch output collision handling now offers safe auto-rename in addition to Skip and explicit Overwrite.
+- **Web Media Optimization** (main menu 30): capability-driven WebM conversion with bitrate or three-representative-sample size estimates, video bitrate size planning, batch lossy/lossless WebP conversion, and validated OBJ-to-GLB export through bundled Assimp 6.0.5.
+- Bundled Assimp with its complete runtime dependency tree and third-party license texts; startup performs bounded, read-only checks of official upstream release and MSYS2 package-manager metadata.
+- WebM and WebP results report measured file sizes; the WebM sample estimate encodes only representative temporary clips and never claims an output size guarantee.
 
 ### Changed
 - A failed batch conversion is recorded and no longer stops later independent files in the same sequential queue.
@@ -81,7 +86,7 @@ First official release (pre-release series 0.x): the complete application as dev
 ### Changed
 - On first start in a Windows console that is not recognized as emoji-capable, the app offers colorful emoji icons (with a preview). The answer is remembered per Windows account (`%APPDATA%\FFmpeg-User-Manager\settings.json`), so it is asked only once; FFmpeg Status / Settings has an *Icon style* option to change it. `FFTUI_ICONS` still overrides.
 - Wizard summary, dialogs, FFmpeg status and media-information screens use numbered options instead of letter keys; the job-cancel key is `Esc`.
-- Main menu grew from 19 to 29 numbered options (Exit is the last number).
+- Main menu grew from 19 to 30 numbered options (Exit is the last number).
 - The `.bat` launcher switches the console to UTF-8 (code page 65001) while the app runs and restores it afterwards.
 - Screenshots in `docs/images/` were recaptured for the new layout.
 

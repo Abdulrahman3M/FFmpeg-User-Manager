@@ -21,6 +21,11 @@ $pkg = Join-Path $stage 'FFmpeg-User-Manager'
 try {
     foreach ($f in 'FFmpeg-User-Manager.bat', 'Start-FFmpegTUI.ps1', 'VERSION', 'README.md', 'CHANGELOG.md', 'LICENSE', 'NOTICE') { Copy-Item -LiteralPath (Join-Path $root $f) -Destination $pkg }
     foreach ($d in 'config', 'src', 'docs') { Copy-Item -LiteralPath (Join-Path $root $d) -Destination $pkg -Recurse }
+    $externalRoot = Join-Path $root 'External-Libraries'
+    $externalPackage = Join-Path $pkg 'External-Libraries'
+    [void](New-Item -ItemType Directory -Path $externalPackage -Force)
+    foreach ($f in 'README.md', 'manifest.json') { Copy-Item -LiteralPath (Join-Path $externalRoot $f) -Destination $externalPackage }
+    Copy-Item -LiteralPath (Join-Path $externalRoot 'Assimp') -Destination $externalPackage -Recurse
     $zip = Join-Path $OutputDirectory ($name + '.zip')
     if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
     Compress-Archive -Path $pkg -DestinationPath $zip -CompressionLevel Optimal

@@ -18,14 +18,16 @@ foreach ($sf in $srcFiles) {
         $name = $c.GetCommandName()
         if (-not $name) { continue }
         if ($name -in @('Invoke-Expression', 'iex')) { $iex += "$($sf.Name):$($c.Extent.StartLineNumber)" }
-        if ($name -in @('Invoke-WebRequest', 'Invoke-RestMethod', 'iwr', 'irm', 'curl', 'wget', 'Start-BitsTransfer')) { $net += "$($sf.Name):$($c.Extent.StartLineNumber)" }
+        if ($name -in @('Invoke-WebRequest', 'Invoke-RestMethod', 'iwr', 'irm', 'curl', 'wget', 'Start-BitsTransfer') -and -not ($name -eq 'Invoke-RestMethod' -and $sf.Name -eq 'ExternalLibraries.psm1')) { $net += "$($sf.Name):$($c.Extent.StartLineNumber)" }
         if ($name -in @('Remove-Item', 'rm', 'del', 'Move-Item', 'Rename-Item')) { $rm += "$($sf.Name):$($c.Extent.StartLineNumber)" }
     }
     $txt = Get-Content -LiteralPath $sf.FullName -Raw
     if ($txt -match 'System\.Net\.WebClient|System\.Net\.Http|Net\.WebRequest') { $net += "$($sf.Name): .NET web client" }
 }
 Assert-True 'Invoke-Expression / iex is never used' ($iex.Count -eq 0) ($iex -join ', ')
-Assert-True 'no network download code (no telemetry, no downloads outside winget)' ($net.Count -eq 0) ($net -join ', ')
+Assert-True 'no network download or telemetry code exists outside the bounded official library metadata check' ($net.Count -eq 0) ($net -join ', ')
+$libraryManagerText = Get-Content -LiteralPath (Join-Path $root 'src/Core/ExternalLibraries.psm1') -Raw
+Assert-True 'library metadata requests are time-bounded, fixed to official upstream/package endpoints and read-only' (($libraryManagerText -match 'Invoke-RestMethod -Uri \(\[string\]\$library\.MetadataUri\).*?-TimeoutSec 8') -and ($libraryManagerText -match 'Invoke-RestMethod -Uri \(\[string\]\$library\.PackageMetadataUri\).*?-TimeoutSec 8') -and ($libraryManagerText -match 'endpoint\.Host -ne ''api\.github\.com''') -and ($libraryManagerText -match 'packageEndpoint\.Host -ne ''packages\.msys2\.org''') -and ($libraryManagerText -notmatch '(?i)Invoke-WebRequest|Start-BitsTransfer|DownloadFile|DownloadString'))
 $allowedRm = @('WorkflowCommon.psm1', 'Paths.psm1')
 $badRm = @($rm | Where-Object { $allowedRm -notcontains ($_ -split ':')[0] })
 Assert-True 'file deletion is limited to temp files, probe files and empty failed outputs' ($badRm.Count -eq 0) ($badRm -join ', ')
@@ -78,17 +80,17 @@ foreach ($sf in $srcFiles) { $t = Get-Content -LiteralPath $sf.FullName -Raw; if
 Assert-True 'no Mandatory [string[]] parameters that reject empty tokens' ($emptyStrArr.Count -eq 0) ($emptyStrArr -join ', ')
 
 Set-TestGroup 'Static: structure'
-foreach ($m in @('Core/App', 'Core/Environment', 'Core/ProcessRunner', 'Core/Validation', 'Core/Paths', 'FFmpeg/FFmpegManager', 'FFmpeg/FFmpegCapabilities', 'FFmpeg/FFmpegCommandBuilder', 'FFmpeg/FFmpegProgress', 'FFmpeg/MediaProbe', 'TUI/Theme', 'TUI/Renderer', 'TUI/Input', 'TUI/Menu', 'TUI/Wizard', 'TUI/Dialog', 'TUI/ProgressView')) {
+foreach ($m in @('Core/App', 'Core/Environment', 'Core/ExternalLibraries', 'Core/ProcessRunner', 'Core/Validation', 'Core/Paths', 'FFmpeg/FFmpegManager', 'FFmpeg/FFmpegCapabilities', 'FFmpeg/FFmpegCommandBuilder', 'FFmpeg/FFmpegProgress', 'FFmpeg/MediaProbe', 'TUI/Theme', 'TUI/Renderer', 'TUI/Input', 'TUI/Menu', 'TUI/Wizard', 'TUI/Dialog', 'TUI/ProgressView')) {
     Assert-True "module exists: $m" (Test-Path -LiteralPath (Join-Path (Join-Path $root 'src') ($m + '.psm1')))
 }
-foreach ($m in @('ConvertVideo', 'ConvertAudio', 'ExtractAudio', 'TrimMedia', 'MergeMedia', 'CompressMedia', 'CompressionPlanning', 'CompressionWorkflow', 'UpscaleImage', 'ResizeVideo', 'VideoToGif', 'ExtractFrames', 'AudioTools', 'SubtitleTools', 'FrameRate', 'Filters', 'TransformVideo', 'OverlayTools', 'PlaybackSpeed', 'RemuxStreams', 'MetadataChapters', 'ImagesAndVisuals', 'AudioEffects', 'VideoEnhance', 'CaptureMedia', 'AnalyzeMedia', 'BatchConvert', 'AdvancedTools', 'StreamingHls', 'MediaInfo')) {
+foreach ($m in @('ConvertVideo', 'ConvertAudio', 'ExtractAudio', 'TrimMedia', 'MergeMedia', 'CompressMedia', 'CompressionPlanning', 'CompressionWorkflow', 'UpscaleImage', 'ResizeVideo', 'VideoToGif', 'ExtractFrames', 'AudioTools', 'SubtitleTools', 'FrameRate', 'Filters', 'TransformVideo', 'OverlayTools', 'PlaybackSpeed', 'RemuxStreams', 'MetadataChapters', 'ImagesAndVisuals', 'AudioEffects', 'VideoEnhance', 'CaptureMedia', 'AnalyzeMedia', 'BatchConvert', 'AdvancedTools', 'StreamingHls', 'MediaInfo', 'WebMediaOptimization')) {
     Assert-True "workflow module exists: $m" (Test-Path -LiteralPath (Join-Path (Join-Path (Join-Path $root 'src') 'Workflows') ($m + '.psm1')))
 }
-foreach ($fn in @('Start-ConvertVideoWorkflow', 'Start-ConvertAudioWorkflow', 'Start-ExtractAudioWorkflow', 'Start-TrimWorkflow', 'Start-MergeWorkflow', 'Start-CompressWorkflow', 'Start-UpscaleImageWorkflow', 'Start-ResizeWorkflow', 'Start-GifWorkflow', 'Start-ExtractFramesWorkflow', 'Start-AudioToolsWorkflow', 'Start-SubtitleToolsWorkflow', 'Start-FrameRateWorkflow', 'Start-FiltersWorkflow', 'Start-TransformWorkflow', 'Start-OverlayWorkflow', 'Start-SpeedWorkflow', 'Start-StreamingWorkflow', 'Start-MediaInfoWorkflow', 'Start-RemuxStreamsWorkflow', 'Start-MetadataChaptersWorkflow', 'Start-ImagesAndVisualsWorkflow', 'Start-VideoEnhanceWorkflow', 'Start-CaptureWorkflow', 'Start-AnalyzeWorkflow', 'Start-BatchWorkflow', 'Start-AdvancedWorkflow', 'Start-MaintenanceTool', 'Show-FFmpegStatus')) {
+foreach ($fn in @('Start-ConvertVideoWorkflow', 'Start-ConvertAudioWorkflow', 'Start-ExtractAudioWorkflow', 'Start-TrimWorkflow', 'Start-MergeWorkflow', 'Start-CompressWorkflow', 'Start-UpscaleImageWorkflow', 'Start-WebMediaOptimizationWorkflow', 'Start-ResizeWorkflow', 'Start-GifWorkflow', 'Start-ExtractFramesWorkflow', 'Start-AudioToolsWorkflow', 'Start-SubtitleToolsWorkflow', 'Start-FrameRateWorkflow', 'Start-FiltersWorkflow', 'Start-TransformWorkflow', 'Start-OverlayWorkflow', 'Start-SpeedWorkflow', 'Start-StreamingWorkflow', 'Start-MediaInfoWorkflow', 'Start-RemuxStreamsWorkflow', 'Start-MetadataChaptersWorkflow', 'Start-ImagesAndVisualsWorkflow', 'Start-VideoEnhanceWorkflow', 'Start-CaptureWorkflow', 'Start-AnalyzeWorkflow', 'Start-BatchWorkflow', 'Start-AdvancedWorkflow', 'Start-MaintenanceTool', 'Show-FFmpegStatus')) {
     Assert-True "menu target is wired: $fn" ($null -ne (Get-Command $fn -ErrorAction SilentlyContinue))
 }
 $wired = @(Get-MainMenuItems | Where-Object { $_.Value -ne 'Quit' } | ForEach-Object { $_.Value })
-Assert-Equal 'every main-menu item maps to an action' 29 $wired.Count
+Assert-Equal 'every main-menu item maps to an action' 30 $wired.Count
 $cfg = Get-Content -LiteralPath (Join-Path $root 'config/defaults.json') -Raw | ConvertFrom-Json
 Assert-True 'config/defaults.json is valid and holds only defaults' ($cfg.winget.packageId -eq 'Gyan.FFmpeg' -and $cfg.presets.gifFps.Count -gt 3)
 Assert-True 'config stores no secrets or user paths' ((Get-Content -LiteralPath (Join-Path $root 'config/defaults.json') -Raw) -notmatch '(?i)password|token|secret|apikey|C:\\Users')
@@ -224,6 +226,9 @@ $zf = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
 try {
     $names = @($zf.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
     Assert-True 'package contains the launcher, entry script, version and sources' (($names -contains 'FFmpeg-User-Manager/FFmpeg-User-Manager.bat') -and ($names -contains 'FFmpeg-User-Manager/Start-FFmpegTUI.ps1') -and ($names -contains 'FFmpeg-User-Manager/VERSION') -and ($names -contains 'FFmpeg-User-Manager/LICENSE') -and ($names -contains 'FFmpeg-User-Manager/NOTICE') -and ($names -contains 'FFmpeg-User-Manager/src/Core/App.psm1'))
+    $bundleEntries = @('External-Libraries/manifest.json', 'External-Libraries/Assimp/bin/assimp.exe', 'External-Libraries/Assimp/bin/libassimp-6.dll', 'External-Libraries/Assimp/bin/libc++.dll', 'External-Libraries/Assimp/bin/libunwind.dll', 'External-Libraries/Assimp/bin/libminizip-1.dll', 'External-Libraries/Assimp/bin/libbz2-1.dll', 'External-Libraries/Assimp/bin/zlib1.dll', 'External-Libraries/Assimp/licenses/assimp/LICENSE', 'External-Libraries/Assimp/licenses/libc++/LICENSE', 'External-Libraries/Assimp/licenses/libunwind/LICENSE', 'External-Libraries/Assimp/licenses/minizip/LICENSE', 'External-Libraries/Assimp/licenses/bzip2/LICENSE', 'External-Libraries/Assimp/licenses/zlib-ng-compat/LICENSE.md')
+    Assert-True 'release package includes the complete bundled Assimp runtime, manifest and all dependency license texts' (@($bundleEntries | Where-Object { $names -notcontains ('FFmpeg-User-Manager/' + $_) }).Count -eq 0)
+    Assert-True 'release package excludes package caches and extraction staging directories' (@($names | Where-Object { $_ -match 'External-Libraries/\.(cache|stage)(-|/)' }).Count -eq 0)
     Assert-True 'package excludes tests, Git data, dist output and development files' (@($names | Where-Object { $_ -match '/tests/|/\.git|/dist/|/tools/|AGENTS\.md' }).Count -eq 0)
 } finally { $zf.Dispose() }
 # public-release hygiene

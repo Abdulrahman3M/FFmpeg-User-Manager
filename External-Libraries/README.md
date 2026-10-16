@@ -1,0 +1,9 @@
+# External libraries
+
+This folder contains redistributable libraries that the application needs at runtime. `manifest.json` is the inventory of upstream and package-manager versions, official update metadata, verified package archive SHA-256 values, bundled runtime file hashes, license identifiers and shipped license-text paths.
+
+Assimp 6.0.5 is bundled for OBJ-to-GLB conversion. It was obtained as the signed `mingw-w64-clang-x86_64-assimp` package from the official MSYS2 Clang64 repository. The six-package runtime dependency tree and dependency edges are recorded in the manifest; package signatures and integrity were checked by pacman before extraction. Clang64's virtual `cc-libs` and `gcc-libs` requirements are satisfied by its Apache-2.0-with-LLVM-exception `libc++` package, not by the separate GNU GCC runtime package. Only the executable, required DLLs and license texts are shipped. Package caches and extraction staging folders are not release content.
+
+At startup, unless update checks are skipped, the application makes bounded HTTPS requests to the official Assimp stable-release API and the official MSYS2 Packages API for the exact Clang64 binary package. It compares both upstream versions and package rebuild revisions, and reports an available update; it never downloads a package, executes remote content, or replaces bundled files. Offline/network errors are non-fatal. A maintainer choosing to update must use a reviewed, verifiable package-manager route, inspect the complete new runtime dependency tree and license obligations, replace the old package files, refresh this manifest and notices, update packaging/tests/docs, and run the complete verification suite.
+
+Keep each bundled package's full license text in `Assimp/licenses/`. The project remains under Apache-2.0; the third-party terms remain applicable to their respective components.
