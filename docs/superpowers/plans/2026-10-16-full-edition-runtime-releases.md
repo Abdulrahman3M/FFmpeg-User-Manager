@@ -58,13 +58,15 @@
 
 **Files:** `src/Core/ExternalLibraries.psm1`, `src/Core/App.psm1`, `src/FFmpeg/FFmpegManager.psm1`, `tests/Unit/Manager.Tests.ps1`, new `tests/Unit/ExternalLibraries.Tests.ps1`, `tests/Unit/Static.Tests.ps1`.
 
-**Interfaces:** Reuse bounded official upstream checks and `Invoke-ExternalCapture` token-array process execution. Download only with winget to an isolated staging directory; activate via same-volume rename with rollback. Keep startup checks read-only and updates user-initiated.
+**Interfaces:** Reuse bounded official upstream checks and the existing token-array process runner. Use its streaming callback for download progress and cancellation because the x64 archive is large; activate via same-volume rename with rollback. Keep startup checks read-only and updates user-initiated.
 
-- [ ] Add mock-driven failing tests for candidate verification, declined update, success, each activation failure/rollback, and cleanup without deleting the active runtime.
-- [ ] Run focused tests and confirm the expected failures.
-- [ ] Implement staged download, hash/source/version checks, candidate smoke/capability checks, activation/rollback, and safe old-version cleanup.
-- [ ] Add a numbered, described consent flow for bundled runtime updates; preserve existing non-fatal behavior on offline/unknown status.
-- [ ] Run focused tests and static safety/PowerShell-5.1 checks.
+- [x] Add mock-driven failing tests for candidate verification, declined update, success, each activation failure/rollback, and cleanup without deleting the active runtime.
+- [x] Run focused tests and confirm the expected failures.
+- [x] Implement staged download, hash/source/version checks, candidate smoke/capability checks, activation/rollback, and safe old-version cleanup.
+- [x] Add a numbered, described consent flow for bundled runtime updates; preserve existing non-fatal behavior on offline/unknown status.
+- [x] Run focused tests and static safety/PowerShell-5.1 checks.
+
+Task 3 verification (2026-10-16): ExternalLibraries passed with 27 PASS / 0 FAIL / 0 UNVERIFIED on PowerShell 5.1.26100.9444 and PowerShell 7.6.5. Static safety/compatibility passed with 198 PASS / 0 FAIL / 0 UNVERIFIED on both. Live upstream DNS and real WinGet acquisition were not available/performed; the official installer manifest format was checked, parsing and hash verification are covered with fixtures, and no system package was installed or updated. Assimp checks remain read-only because a compatible package replacement transaction and dependency-license review are not approved/configured.
 
 ### Task 4: Full/Lite reproducible packaging and release validation
 

@@ -11,6 +11,7 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 ### Added
 - The canonical external-runtime manifest now records FFmpeg alongside Assimp, and FFmpeg/ffprobe resolve as a single validated bundled, explicitly configured custom, or system pair without mixing sources.
 - Full-runtime self-checking now reports the selected runtime's executables, manifest-required encoders/filters, version and PE architecture before a package is accepted.
+- Bundled FFmpeg updates are explicit opt-in and cancellable: WinGet downloads an exact x64 package into isolated staging, the official installer SHA-256 and runtime/license/capability requirements are checked, and the runtime plus manifest are activated transactionally with rollback.
 
 ## [0.2.0] - 2026-10-16
 

@@ -111,24 +111,53 @@ function Invoke-UpdateFlow {
 
 function Invoke-ExternalLibraryUpdateFlow {
     # Read-only check against official upstream and package-manager metadata recorded in External-Libraries/manifest.json.
-    try { $run = Invoke-WithSpinner -Title 'Checking bundled library updates' -Message 'Checking official upstream and package-manager metadata... (Esc to skip)' -Operation { param($tick) Get-ExternalLibraryUpdateStatuses -OnTick $tick } }
-    catch {
-        $warning = 'Bundled library updates could not be checked; continuing with the included versions.'
-        $script:StartupNotice = (($script:StartupNotice + ' ' + $warning).Trim())
-        return
+    param([object[]]$Statuses)
+    if ($PSBoundParameters.ContainsKey('Statuses')) { $statuses = @($Statuses) }
+    else {
+        try { $run = Invoke-WithSpinner -Title 'Checking bundled library updates' -Message 'Checking official upstream and package-manager metadata... (Esc to skip)' -Operation { param($tick) Get-ExternalLibraryUpdateStatuses -OnTick $tick } }
+        catch {
+            $warning = 'Bundled library updates could not be checked; continuing with the included versions.'
+            $script:StartupNotice = (($script:StartupNotice + ' ' + $warning).Trim())
+            return
+        }
+        if ($run.Cancelled) { $script:StartupNotice = (($script:StartupNotice + ' The bundled library update check was skipped.').Trim()); return }
+        $statuses = @($run.Result)
     }
-    if ($run.Cancelled) { $script:StartupNotice = (($script:StartupNotice + ' The bundled library update check was skipped.').Trim()); return }
-    $statuses = @($run.Result)
     $available = @($statuses | Where-Object { $_.State -eq 'UpdateAvailable' })
     foreach ($library in $available) {
-        $null = Show-Notice -Title ($library.Name + ' update available') -Lines @(
-            ('Bundled: ' + $library.CurrentVersion),
-            ('Latest stable: ' + $library.LatestVersion),
-            ('Bundled package: ' + $library.PackageVersion),
-            ('Latest package: ' + $library.LatestPackageVersion),
-            ('Source: ' + $library.Source),
-            'This check changed no files. A library update requires a reviewed package-manager refresh and compatibility test.'
-        ) -Kind Warning -Actions @(, @('C', 'Continue without updating'))
+        if ([string]$library.Id -ne 'ffmpeg') {
+            $null = Show-Notice -Title ($library.Name + ' update available') -Lines @(
+                ('Bundled: ' + $library.CurrentVersion),
+                ('Latest stable: ' + $library.LatestVersion),
+                ('Bundled package: ' + $library.PackageVersion),
+                ('Latest package: ' + $library.LatestPackageVersion),
+                ('Source: ' + $library.Source),
+                'This startup check is read-only. No compatible staged updater is configured for this library, so no files will be downloaded or changed.'
+            ) -Kind Warning
+            continue
+        }
+        $packageUpdateAvailable = $false
+        if (Test-SemVer ([string]$library.LatestPackageVersion)) { $packageUpdateAvailable = (Compare-SemVerPrecedence -Left ([string]$library.LatestPackageVersion) -Right ([string]$library.PackageVersion)) -gt 0 }
+        if (-not $packageUpdateAvailable) {
+            $null = Show-Notice -Title 'FFmpeg release update available' -Lines @(
+                ('Bundled: ' + $library.CurrentVersion),
+                ('Latest upstream: ' + $library.LatestVersion),
+                ('Bundled WinGet package: ' + $library.PackageVersion),
+                'No newer stable x64 WinGet package was verified. The bundled runtime will not be changed.'
+            ) -Kind Warning
+            continue
+        }
+        $choice = Show-Menu -Title 'FFmpeg update available' -Subtitle 'This downloads Gyan.FFmpeg.Shared from the official WinGet source and replaces only the bundled Full Edition runtime; system FFmpeg is not changed.' -Items @(
+            @{ Value = 'Update'; Label = 'Download and update bundled FFmpeg'; Desc = ('Explicitly authorizes downloading package ' + $library.LatestPackageVersion + ' (x64) and accepting the WinGet source/package agreements for this GPL-3.0 build. The app verifies its official SHA-256, licenses, version and required capabilities before activation; failure keeps the current runtime.'); Icon = 'Update' },
+            @{ Value = 'Keep'; Label = 'Keep the current FFmpeg version'; Desc = 'Make no download or file changes and continue with the installed runtime.'; Icon = 'Back' }
+        )
+        if (($choice.Action -eq 'Select') -and ($choice.Item.Value -eq 'Update')) {
+            $updateRun = Invoke-WithSpinner -Title 'Updating bundled FFmpeg' -Message 'WinGet is downloading the exact verified x64 package to isolated staging; the active runtime remains untouched. Esc cancels the download.' -Operation { param($tick) Update-BundledFFmpeg -PackageVersion ([string]$library.LatestPackageVersion) -Confirmed:$true -OnTick $tick }
+            $update = $updateRun.Result
+            $kind = 'Error'
+            if ($update.State -eq 'Updated') { $kind = 'Success' } elseif ($update.State -in @('UpdatedWithBackup', 'Cancelled')) { $kind = 'Warning' }
+            $null = Show-Notice -Title ('FFmpeg update ' + $update.State) -Lines @($update.Message, ('Runtime version: ' + $update.Version)) -Kind $kind
+        }
     }
     $unknown = @($statuses | Where-Object { $_.State -eq 'Unknown' })
     if ($unknown.Count -gt 0) {
@@ -387,4 +416,4 @@ function Start-FFmpegTuiApp {
     return $exit
 }
 
-Export-ModuleMember -Function Invoke-IconStyleFlow, Show-FFmpegMissingFlow, Invoke-UpdateFlow, Initialize-CapabilityScan, Show-FFmpegStatus, Get-MainMenuItems, Invoke-MainMenuAction, Start-MainMenu, Start-FFmpegTuiApp, Invoke-WithSpinner
+Export-ModuleMember -Function Invoke-IconStyleFlow, Show-FFmpegMissingFlow, Invoke-UpdateFlow, Invoke-ExternalLibraryUpdateFlow, Initialize-CapabilityScan, Show-FFmpegStatus, Get-MainMenuItems, Invoke-MainMenuAction, Start-MainMenu, Start-FFmpegTuiApp, Invoke-WithSpinner
