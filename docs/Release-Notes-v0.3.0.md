@@ -1,6 +1,6 @@
 # FFmpeg User Manager v0.3.0
 
-**A backward-compatible MINOR release** in the 0.x pre-release series, prepared locally from v0.2.0. The source commit and Full/Lite packages have not been pushed or published. The last published release remains v0.1.0.
+**A backward-compatible MINOR release** in the 0.x pre-release series, succeeding v0.2.0. This release is published as `v0.3.0` on the official project repository.
 
 ## Highlights
 
@@ -8,7 +8,7 @@
 - **Lite Edition:** smaller Windows x64 package with no external runtime executable or DLL. It uses the supported custom/system runtime resolution path.
 - **Safe maintenance:** FFmpeg updates require explicit consent, use the pinned WinGet package, stage and verify a candidate, activate transactionally and retain/restore the known-good runtime on failure.
 - **Reproducible packaging:** Full and Lite share one source revision and app version. The builder checks runtime hashes, byte sizes, PE architecture, licenses and FFmpeg build flags; output includes edition metadata and SHA-256 checksums.
-- **Release validation:** the manual-only Windows Server 2025 workflow extracts both editions under a Unicode/spaced path, starts the supported entry points and exercises Full OBJ-to-GLB conversion. It was not run for this local preparation.
+- **Release validation:** both locally built editions were extracted under a Unicode/spaced path, launched through their supported entry points and checked for runtime contents. Full OBJ-to-GLB integration conversion was exercised successfully. The manual-only GitHub Actions release workflow was not run.
 
 ## Runtime versions and licenses
 
@@ -33,4 +33,4 @@ OBJ material/texture retention still depends on source data and exporter behavio
 
 ## Downloads
 
-The prepared release asset names are `FFmpeg-User-Manager-v0.3.0-Full-Windows-x64.zip` (recommended), `FFmpeg-User-Manager-v0.3.0-Lite-Windows-x64.zip`, and `SHA256SUMS-v0.3.0.txt`. These are local preparation names, not published download links. No Git tag or GitHub Release was created.
+Download assets: `FFmpeg-User-Manager-v0.3.0-Full-Windows-x64.zip` (recommended), `FFmpeg-User-Manager-v0.3.0-Lite-Windows-x64.zip`, and `SHA256SUMS-v0.3.0.txt`. Verify the ZIP checksum against the published checksum file before extracting. Full bundles FFmpeg/ffprobe under GPL-3.0 and Assimp with its dependency licenses; Lite bundles no external runtime executables or DLLs. Review the known security advisories above before using Full with untrusted media.

@@ -308,8 +308,8 @@ Details, pre-release labels and the release checklist: [docs/Versioning-and-Rele
 
 ## Releases
 
-Official releases provide both `FFmpeg-User-Manager-vX.Y.Z-Full-Windows-x64.zip` and `FFmpeg-User-Manager-vX.Y.Z-Lite-Windows-x64.zip`, plus SHA-256 checksums. Full is recommended. The release workflow is manual and publication still requires owner approval.
-The current **source-code version is v0.3.0** (see [`VERSION`](VERSION) and [CHANGELOG.md](CHANGELOG.md)); this release is prepared locally and is not published. The last previously documented published GitHub Release is **v0.1.0**. Local commits and release artifacts do not publish a GitHub Release. To use a published release, download its edition ZIP, extract it completely and follow [Installation](#installation).
+Official releases provide both Full and Lite Windows x64 ZIPs plus SHA-256 checksums. Full is recommended and includes verified FFmpeg/ffprobe and Assimp runtimes; Lite is smaller and uses a user-installed runtime. Download the current release from [GitHub Releases](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/releases/latest), verify its checksum, extract the ZIP completely and follow [Installation](#installation). Review the release notes for the edition comparison, compatibility evidence and known FFmpeg advisories.
+The current **source-code version is v0.3.0** (see [`VERSION`](VERSION) and [CHANGELOG.md](CHANGELOG.md)); its annotated tag and release assets are available from the official repository.
 
 ## Documentation
 
@@ -320,7 +320,7 @@ The current **source-code version is v0.3.0** (see [`VERSION`](VERSION) and [CHA
 | [docs/Testing.md](docs/Testing.md) | Test suite, compatibility matrix, manual checks |
 | [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md) | SemVer rules, tags, changelog and release process |
 | [docs/Release-Notes-v0.2.0.md](docs/Release-Notes-v0.2.0.md) | Locally prepared v0.2.0 changes and verification |
-| [docs/Release-Notes-v0.3.0.md](docs/Release-Notes-v0.3.0.md) | Locally prepared Full/Lite runtime and release changes, compatibility and known limitations |
+| [docs/Release-Notes-v0.3.0.md](docs/Release-Notes-v0.3.0.md) | Full/Lite runtime and release changes, compatibility and known limitations |
 | [docs/Licensing.md](docs/Licensing.md) | Why Apache-2.0, what it means, third-party components review |
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Third-party runtime licenses, attribution and sources |
 | [docs/images/README.md](docs/images/README.md) | How the screenshots were captured |
@@ -351,7 +351,7 @@ The Full Edition redistributes the exact Gyan FFmpeg 9.0.2 build under GPL-3.0, 
 
 ## Project status
 
-**Pre-release series (source version v0.3.0; latest published release v0.1.0).** All workflows listed above are implemented. The latest full Windows verification results for Windows PowerShell 5.1 and PowerShell 7.6.5 are in [docs/Testing.md](docs/Testing.md). The launcher is tested with the real `cmd` interpreter.
+**Pre-release series (source version and latest published release v0.3.0).** All workflows listed above are implemented. The latest full Windows verification results for Windows PowerShell 5.1 and PowerShell 7.6.5 are in [docs/Testing.md](docs/Testing.md). The launcher is tested with the real `cmd` interpreter.
 **Not yet verified by any automated run and therefore not claimed:** rendering in a real Windows Terminal / classic console, real `winget` installs and updates, the native file picker and Explorer integration,
 and screen / webcam / microphone recording on real devices. `tools/Test-WindowsLocal.ps1` lists these checks. Version 1.0.0 is reserved until they are done (see
 [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md)). Details: [docs/Testing.md](docs/Testing.md).

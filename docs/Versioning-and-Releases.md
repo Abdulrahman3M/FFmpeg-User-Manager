@@ -36,7 +36,7 @@ Tags such as `release-1`, `final`, `build7` are not used.
 
 The file [`VERSION`](../VERSION) in the repository root is the single source of truth (first line, a SemVer string, no `v` prefix).
 
-Version `0.3.0` is a locally prepared MINOR release for the backward-compatible Full/Lite runtime resolution, transactional FFmpeg maintenance and reproducible release-package features. Its source and release packages are not pushed or published; the last published release remains `v0.1.0` until an owner-approved publication. The preceding locally prepared `0.2.0` feature set is retained in the changelog and historical release notes.
+Version `0.3.0` is the published MINOR release for the backward-compatible Full/Lite runtime resolution, transactional FFmpeg maintenance and reproducible release-package features. The preceding `0.2.0` feature set is retained in the changelog and historical release notes.
 
 * The application reads it (`Get-AppVersion`) and shows it in the header, on the FFmpeg Status screen and with `Start-FFmpegTUI.ps1 -Version`.
 * Release archive names and the Git tag are derived from it (`FFmpeg-User-Manager-v<VERSION>-Full-Windows-x64.zip`, `FFmpeg-User-Manager-v<VERSION>-Lite-Windows-x64.zip`, `v<VERSION>`); the checksum file is `SHA256SUMS-v<VERSION>.txt`.
@@ -66,7 +66,7 @@ in `Added / Changed / Fixed / Removed` (omit empty sections). On release, rename
 14. Verify the downloadable archive starts correctly after extraction (including into a folder with spaces).
 15. Confirm the repository visibility is unchanged (it stays Private unless the owner explicitly decides otherwise).
 
-Official releases are never published automatically for every commit.
+Official releases are never published automatically for every commit. Publication is performed by an authorized maintainer after reviewing the release contents and assets.
 
 ## Release package
 

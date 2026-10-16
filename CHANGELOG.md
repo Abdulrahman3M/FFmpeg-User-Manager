@@ -19,7 +19,7 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 - The README and release notes now distinguish Full/Lite, document evidence-based OS compatibility, and disclose known FFmpeg 9.0.2 security advisories.
 
 ### Changed
-- Prepared the backward-compatible runtime/release feature set as MINOR version 0.3.0; no tag or public release was created.
+- Published the backward-compatible runtime/release feature set as MINOR version 0.3.0 with Full and Lite packages and SHA-256 checksums.
 
 ## [0.2.0] - 2026-10-16
 
