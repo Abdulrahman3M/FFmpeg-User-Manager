@@ -109,6 +109,16 @@ function Invoke-UpdateFlow {
     if ($Interactive -and $st.State -in @('Unknown', 'Unmanaged')) { $null = Show-Notice -Title 'Update status' -Lines @($st.Message) -Kind Info }
 }
 
+function Refresh-FFmpegRuntimeAfterBundleUpdate {
+    param([Parameter(Mandatory)][string]$ExpectedVersion, [scriptblock]$Detect)
+    $detection = $null
+    if ($Detect) { $detection = & $Detect } else { $detection = Find-FFmpegInstallation }
+    $actualVersion = ''
+    if ([string]$detection.Version -match '^(?<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))') { $actualVersion = $Matches.version }
+    $ready = ($detection.Status -eq 'Ready' -and $detection.Source -eq 'Bundled' -and [string]::Equals($actualVersion, $ExpectedVersion, [StringComparison]::OrdinalIgnoreCase))
+    return [pscustomobject]@{ Ready = $ready; Status = [string]$detection.Status; Source = [string]$detection.Source; Version = [string]$detection.Version; ExpectedVersion = $ExpectedVersion }
+}
+
 function Invoke-ExternalLibraryUpdateFlow {
     # Read-only check against official upstream and package-manager metadata recorded in External-Libraries/manifest.json.
     param([object[]]$Statuses)
@@ -154,8 +164,12 @@ function Invoke-ExternalLibraryUpdateFlow {
         if (($choice.Action -eq 'Select') -and ($choice.Item.Value -eq 'Update')) {
             $updateRun = Invoke-WithSpinner -Title 'Updating bundled FFmpeg' -Message 'WinGet is downloading the exact verified x64 package to isolated staging; the active runtime remains untouched. Esc cancels the download.' -Operation { param($tick) Update-BundledFFmpeg -PackageVersion ([string]$library.LatestPackageVersion) -Confirmed:$true -OnTick $tick }
             $update = $updateRun.Result
+            if ($update.State -in @('Updated', 'UpdatedWithBackup')) {
+                $refresh = Refresh-FFmpegRuntimeAfterBundleUpdate -ExpectedVersion ([string]$update.Version)
+                if (-not $refresh.Ready) { $update.State = 'UpdatedRefreshWarning'; $update.Message += ' The runtime files were activated, but application version state could not be refreshed; restart the application before continuing.' }
+            }
             $kind = 'Error'
-            if ($update.State -eq 'Updated') { $kind = 'Success' } elseif ($update.State -in @('UpdatedWithBackup', 'Cancelled')) { $kind = 'Warning' }
+            if ($update.State -eq 'Updated') { $kind = 'Success' } elseif ($update.State -in @('UpdatedWithBackup', 'UpdatedRefreshWarning', 'Cancelled')) { $kind = 'Warning' }
             $null = Show-Notice -Title ('FFmpeg update ' + $update.State) -Lines @($update.Message, ('Runtime version: ' + $update.Version)) -Kind $kind
         }
     }
@@ -416,4 +430,4 @@ function Start-FFmpegTuiApp {
     return $exit
 }
 
-Export-ModuleMember -Function Invoke-IconStyleFlow, Show-FFmpegMissingFlow, Invoke-UpdateFlow, Invoke-ExternalLibraryUpdateFlow, Initialize-CapabilityScan, Show-FFmpegStatus, Get-MainMenuItems, Invoke-MainMenuAction, Start-MainMenu, Start-FFmpegTuiApp, Invoke-WithSpinner
+Export-ModuleMember -Function Invoke-IconStyleFlow, Show-FFmpegMissingFlow, Invoke-UpdateFlow, Invoke-ExternalLibraryUpdateFlow, Refresh-FFmpegRuntimeAfterBundleUpdate, Initialize-CapabilityScan, Show-FFmpegStatus, Get-MainMenuItems, Invoke-MainMenuAction, Start-MainMenu, Start-FFmpegTuiApp, Invoke-WithSpinner

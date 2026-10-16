@@ -87,6 +87,30 @@ Assert-True 'second activation rename failure rolls back the known-good runtime 
 Set-ExternalLibraryHooks -Reset
 [System.IO.Directory]::Delete($fixture.Base, $true)
 
+$fixture = New-ExternalSwapFixture -Name 'first-manifest-move-failure'
+$fileMoveCalls = 0
+Set-ExternalLibraryHooks -MoveFile { param($from, $to) $script:fileMoveCalls++; if ($script:fileMoveCalls -eq 1) { throw 'injected first manifest move failure' }; [System.IO.File]::Move($from, $to) }
+$firstManifestMoveResult = Invoke-ExternalRuntimeSwap -ActivePath $fixture.Active -CandidatePath $fixture.Candidate -ActiveManifestPath $fixture.Manifest -CandidateManifestPath $fixture.CandidateManifest -ValidateCandidate { param($path) return $true } -ValidateActive { param($path) return $true }
+Assert-True 'first manifest move failure restores the old runtime and leaves the original manifest intact' ($firstManifestMoveResult.State -eq 'Failed' -and (Test-Path -LiteralPath $fixture.Active) -and [System.IO.File]::ReadAllText((Join-Path (Join-Path $fixture.Active 'bin') 'runtime.txt')) -eq 'known-good' -and [System.IO.File]::ReadAllText($fixture.Manifest) -eq 'old-manifest' -and (Test-Path -LiteralPath $fixture.CandidateManifest)) ($firstManifestMoveResult | ConvertTo-Json -Compress)
+Set-ExternalLibraryHooks -Reset
+[System.IO.Directory]::Delete($fixture.Base, $true)
+
+$fixture = New-ExternalSwapFixture -Name 'second-manifest-move-failure'
+$fileMoveCalls = 0
+Set-ExternalLibraryHooks -MoveFile { param($from, $to) $script:fileMoveCalls++; if ($script:fileMoveCalls -eq 2) { throw 'injected candidate manifest move failure' }; [System.IO.File]::Move($from, $to) }
+$secondManifestMoveResult = Invoke-ExternalRuntimeSwap -ActivePath $fixture.Active -CandidatePath $fixture.Candidate -ActiveManifestPath $fixture.Manifest -CandidateManifestPath $fixture.CandidateManifest -ValidateCandidate { param($path) return $true } -ValidateActive { param($path) return $true }
+Assert-True 'second manifest move failure restores the old manifest and runtime' ($secondManifestMoveResult.State -eq 'Failed' -and (Test-Path -LiteralPath $fixture.Active) -and [System.IO.File]::ReadAllText((Join-Path (Join-Path $fixture.Active 'bin') 'runtime.txt')) -eq 'known-good' -and [System.IO.File]::ReadAllText($fixture.Manifest) -eq 'old-manifest' -and [System.IO.File]::ReadAllText($fixture.CandidateManifest) -eq 'candidate-manifest') ($secondManifestMoveResult | ConvertTo-Json -Compress)
+Set-ExternalLibraryHooks -Reset
+[System.IO.Directory]::Delete($fixture.Base, $true)
+
+$fixture = New-ExternalSwapFixture -Name 'rollback-runtime-move-failure'
+$directoryMoveCalls = 0
+Set-ExternalLibraryHooks -MoveDirectory { param($from, $to) $script:directoryMoveCalls++; if ($script:directoryMoveCalls -eq 2 -or $script:directoryMoveCalls -eq 3) { throw 'injected activation/rollback runtime move failure' }; [System.IO.Directory]::Move($from, $to) }
+$rollbackMoveResult = Invoke-ExternalRuntimeSwap -ActivePath $fixture.Active -CandidatePath $fixture.Candidate -ActiveManifestPath $fixture.Manifest -CandidateManifestPath $fixture.CandidateManifest -ValidateCandidate { param($path) return $true } -ValidateActive { param($path) return $true }
+Assert-True 'failed runtime rollback reports recovery-required and preserves the known-good runtime backup' ($rollbackMoveResult.State -eq 'RollbackFailed' -and -not (Test-Path -LiteralPath $fixture.Active) -and (Test-Path -LiteralPath $rollbackMoveResult.BackupPath) -and [System.IO.File]::ReadAllText((Join-Path (Join-Path $rollbackMoveResult.BackupPath 'bin') 'runtime.txt')) -eq 'known-good' -and [System.IO.File]::ReadAllText($fixture.Manifest) -eq 'old-manifest' -and [System.IO.File]::Exists($rollbackMoveResult.BackupManifestPath) -eq $false) ($rollbackMoveResult | ConvertTo-Json -Compress)
+Set-ExternalLibraryHooks -Reset
+[System.IO.Directory]::Delete($fixture.Base, $true)
+
 $fixture = New-ExternalSwapFixture -Name 'post-activation-failure'
 $activeChecks = 0
 $postActivationResult = Invoke-ExternalRuntimeSwap -ActivePath $fixture.Active -CandidatePath $fixture.Candidate -ActiveManifestPath $fixture.Manifest -CandidateManifestPath $fixture.CandidateManifest -ValidateCandidate { param($path) return $true } -ValidateActive { param($path) $script:activeChecks++; return ($script:activeChecks -eq 2) }
@@ -164,6 +188,11 @@ $flowAction = { Invoke-ExternalLibraryUpdateFlow -Statuses $script:flowStatusFix
 $flowUi = Invoke-Ui -Action $flowAction -Keys '02'
 Assert-True 'bundled FFmpeg update is a numbered, described, explicit opt-in and Keep performs no download' ($flowUi.Output.Contains('01') -and $flowUi.Output.Contains('02') -and $flowUi.Output.Contains('Download and update bundled FFmpeg') -and $flowUi.Output.Contains('Keep the current FFmpeg version') -and $flowUi.Output.Contains('Explicitly authorizes downloading package') -and $script:flowDownloadCalls -eq 0)
 Set-ExternalLibraryHooks -Reset
+
+$script:runtimeDetectionCalls = 0
+$refreshedRuntime = Refresh-FFmpegRuntimeAfterBundleUpdate -ExpectedVersion '10.0.0' -Detect { $script:runtimeDetectionCalls++; return [pscustomobject]@{ Status = 'Ready'; Source = 'Bundled'; Version = '10.0.0-full_build-www.gyan.dev' } }
+$staleRuntime = Refresh-FFmpegRuntimeAfterBundleUpdate -ExpectedVersion '10.0.0' -Detect { return [pscustomobject]@{ Status = 'Ready'; Source = 'Bundled'; Version = '9.0.2-full_build-www.gyan.dev' } }
+Assert-True 'successful bundled update refresh accepts the newly detected bundled version and rejects stale state' ($refreshedRuntime.Ready -and $script:runtimeDetectionCalls -eq 1 -and -not $staleRuntime.Ready -and $staleRuntime.ExpectedVersion -eq '10.0.0')
 
 $manifest = Get-ExternalLibraryManifest
 $libraries = @($manifest.Libraries)

@@ -101,7 +101,7 @@ On Windows it uses `cmd.exe`; on Linux it uses Wine if installed (`apt install w
 
 No binary fixtures are committed. Tiny clips are synthesized with FFmpeg `lavfi` sources at run time in a temp folder that is removed afterwards
 (see `tests/Fixtures/README.md`). Names contain spaces, `( ) & '`, Arabic and Cyrillic.
-Package-manager operations are **mocked** (`Set-FFManagerHooks`); nothing on the machine is installed, updated or removed. Network-stream tests use a bounded raw TCP server on 127.0.0.1.
+Package-manager operations are **mocked** (`Set-FFManagerHooks` for FFmpeg lifecycle tests and `Set-ExternalLibraryHooks` for bundled-library update tests); nothing on the machine is installed, updated or removed. Network-stream tests use a bounded raw TCP server on 127.0.0.1.
 
 ## How the UI is driven
 

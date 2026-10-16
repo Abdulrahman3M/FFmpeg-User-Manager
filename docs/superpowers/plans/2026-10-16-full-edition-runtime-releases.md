@@ -66,7 +66,7 @@
 - [x] Add a numbered, described consent flow for bundled runtime updates; preserve existing non-fatal behavior on offline/unknown status.
 - [x] Run focused tests and static safety/PowerShell-5.1 checks.
 
-Task 3 verification (2026-10-16): ExternalLibraries passed with 27 PASS / 0 FAIL / 0 UNVERIFIED on PowerShell 5.1.26100.9444 and PowerShell 7.6.5. Static safety/compatibility passed with 198 PASS / 0 FAIL / 0 UNVERIFIED on both. Live upstream DNS and real WinGet acquisition were not available/performed; the official installer manifest format was checked, parsing and hash verification are covered with fixtures, and no system package was installed or updated. Assimp checks remain read-only because a compatible package replacement transaction and dependency-license review are not approved/configured.
+Task 3 verification (2026-10-16): ExternalLibraries passed with 31 PASS / 0 FAIL / 0 UNVERIFIED on PowerShell 5.1.26100.9444 and PowerShell 7.6.5, including manifest-move and rollback-failure recovery cases and the post-update runtime-state refresh check. Static safety/compatibility passed with 199 PASS / 0 FAIL / 0 UNVERIFIED on both. Live upstream DNS and real WinGet acquisition were not available/performed; the official installer manifest format was checked, parsing and hash verification are covered with fixtures, and no system package was installed or updated. Assimp checks remain read-only because a compatible package replacement transaction and dependency-license review are not approved/configured.
 
 ### Task 4: Full/Lite reproducible packaging and release validation
 
