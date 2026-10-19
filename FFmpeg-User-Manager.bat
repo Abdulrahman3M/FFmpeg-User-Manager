@@ -1,10 +1,12 @@
 @echo off
 rem ======================================================================
 rem  FFmpeg User Manager - Windows launcher
-rem  Double-click this file (or run it from any terminal) to start the app.
+rem  Double-click this file (or run it from any terminal) to start the app in Windows Terminal when available.
 rem  Launcher logic only: it locates Start-FFmpegTUI.ps1 next to this file,
 rem  picks PowerShell 7 (pwsh.exe) when available, otherwise Windows
-rem  PowerShell 5.1, and passes all arguments through. No system policy is changed.
+rem  PowerShell 5.1, and passes all arguments through. A start outside Windows
+rem  Terminal opens a new Windows Terminal window at the same integrity level.
+rem  No system policy is changed.
 rem  Optional: set FFUM_POWERSHELL to a full path to force a specific PowerShell,
 rem  and FFUM_TRACE=1 to print which one is used.
 rem  (No parenthesized blocks: paths such as "C:\Program Files (x86)\..." would break them.)
@@ -59,6 +61,23 @@ goto :finish
 
 :run
 rem --- -ExecutionPolicy Bypass applies to this launched process only; machine/user policy is never modified
+rem --- keep an existing Windows Terminal tab; otherwise prefer a new WT window (including elevated starts)
+if defined WT_SESSION goto :run_here
+set "FFUM_WT="
+for %%W in (wt.exe) do set "FFUM_WT=%%~$PATH:W"
+if defined FFUM_WT goto :run_windows_terminal
+echo.
+echo NOTICE: Windows Terminal was not found. Starting in the current console instead.
+goto :run_here
+
+:run_windows_terminal
+if defined FFUM_TRACE echo Launcher terminal: %FFUM_WT%
+rem --- Invoke PowerShell directly. Do not pass the trailing-backslash ROOT as a quoted -d argument.
+"%FFUM_WT%" -w new "%FFUM_PS%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%FFUM_ENTRY%" %*
+set "FFUM_RC=%ERRORLEVEL%"
+goto :finish
+
+:run_here
 if defined FFUM_TRACE echo Launcher runtime: %FFUM_PS%
 "%FFUM_PS%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%FFUM_ENTRY%" %*
 set "FFUM_RC=%ERRORLEVEL%"

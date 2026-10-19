@@ -4,6 +4,35 @@ Assert-Equal 'Changing only an ANSI selection role changes one row' '1' (@(Get-C
 Assert-Equal 'Moving selected row repaints old and new rows' '0,1' (@(Get-ChangedFrameRows -Previous @('Selected','Normal') -Current @('Normal','Selected')) -join ',')
 Assert-Equal 'Shrinking the frame erases the trailing row' '1' (@(Get-ChangedFrameRows -Previous @('A','B') -Current @('A')) -join ',')
 Assert-Equal 'Adding a row repaints only that row' '1' (@(Get-ChangedFrameRows -Previous @('A') -Current @('A','B')) -join ',')
+Assert-True 'A changed terminal viewport requests a redraw without a key press' (Test-UiViewportChanged -Before @{ Width = 80; Height = 24 } -After @{ Width = 120; Height = 40 })
+Assert-True 'The same terminal viewport does not request a redraw' (-not (Test-UiViewportChanged -Before @{ Width = 80; Height = 24 } -After @{ Width = 80; Height = 24 }))
+$savedOut = [Console]::Out
+$frameCapture = New-Object System.IO.StringWriter
+try {
+    [Console]::SetOut($frameCapture)
+    Initialize-Renderer -Ansi $true -Unicode $true -Sink Console -Width 80 -Height 24
+    Start-Frame
+    Write-Ui -Text 'Question'
+    Write-Ui -Text 'Key hints'
+    Write-UiBlank
+    Write-Ui -Text '> '
+    Stop-Frame
+    $frameDraw = $frameCapture.ToString()
+    Set-LastFrameRow -Text 'prompt with typed input'
+    Start-Frame
+    Write-Ui -Text 'Question'
+    Write-Ui -Text 'Key hints'
+    Write-UiBlank
+    Write-Ui -Text '> '
+    Stop-Frame
+    $frameRedraw = $frameCapture.ToString().Substring($frameDraw.Length)
+} finally {
+    [Console]::SetOut($savedOut)
+    Initialize-Renderer -Ansi $false -Unicode $true -Sink Buffer -Width 100 -Height 40
+}
+Assert-True 'ANSI frame leaves the cursor on the final managed row for inline text input' $frameDraw.EndsWith(([string][char]27 + '[4;1H'))
+$promptRowMoves = [regex]::Matches($frameRedraw, [regex]::Escape(([string][char]27) + '[4;1H')).Count
+Assert-Equal 'live input invalidates the cached prompt row so the next frame erases it' 2 $promptRowMoves
 
 # Unit tests: TUI components (menu, line editor, wizard, layout, theme, icons).
 Set-TestGroup 'Menu: numbering, navigation and shortcuts'
@@ -170,6 +199,7 @@ Assert-True 'colors are centralized (no ForegroundColor/ANSI codes outside Theme
 Set-TestGroup 'Line editor'
 $ui = Invoke-Ui { Read-TuiLine -Prompt '> ' } 'hello{Enter}'
 Assert-Equal 'typed text is returned' 'hello' $ui.Value.Text
+Assert-True 'line editor does not emit an unmanaged newline after Enter' (-not $ui.Output.EndsWith("`n"))
 $ui = Invoke-Ui { Read-TuiLine -Prompt '> ' } 'helo{Left}l{Enter}'
 Assert-Equal 'Left + insert edits in the middle' 'hello' $ui.Value.Text
 $ui = Invoke-Ui { Read-TuiLine -Prompt '> ' } 'abcd{BS}{BS}{Enter}'
@@ -182,6 +212,9 @@ $ui = Invoke-Ui { Read-TuiLine -Prompt '> ' } 'abc{Esc}'
 Assert-Equal 'Escape returns Back' 'Back' $ui.Value.Status
 $ui = Invoke-Ui { Read-TuiLine -Prompt '> ' -Initial 'seed' } '{Enter}'
 Assert-Equal 'initial text is preserved' 'seed' $ui.Value.Text
+$fileStep = @{ Id = 'f'; Type = 'File'; Prompt = 'Input file'; Help = 'Type a file path.'; Example = 'C:\\Media\\clip.mp4' }
+$ui = Invoke-Ui { Read-TextStep -Step $fileStep -W (New-WizardState -Title 'Text frame test') } ((Join-Path (Get-TestWork) 'missing.mp4') + '{Enter}' + '{Esc}')
+Assert-Contains 'text question input controls are part of the managed frame' (Get-LastFrame $ui.Output) 'Enter Confirm'
 $unicodeInput = -join [char[]]@(0x0422, 0x0435, 0x0441, 0x0442, 0x002D, 0x0627, 0x062E, 0x062A, 0x0628, 0x0627, 0x0631, 0x002D, 0x65E5, 0x672C)
 $ui = Invoke-Ui { Read-TuiLine -Prompt '> ' } ($unicodeInput + '{Enter}')
 Assert-Equal 'Unicode input round-trips' $unicodeInput $ui.Value.Text

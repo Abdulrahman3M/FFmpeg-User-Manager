@@ -756,14 +756,20 @@ function Invoke-FFJob {
             if ($act -eq 'R') { continue }
         }
         # ---- success
-        $lines = @('Output:')
+        $inputLines = @()
+        if ($Job.ContainsKey('InputPaths')) {
+            $inputPaths = @($Job.InputPaths | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+            if ($inputPaths.Count -gt 0) { $inputLines += 'Input:'; $inputLines += @($inputPaths | ForEach-Object { [string]$_ }) }
+        }
+        $lines = @($inputLines)
+        if ((@('File', 'Folder') -contains [string]$Job.OutputKind) -and $outPath) { $lines += 'Output:'; $lines += $outPath }
         $rows = @()
         $resultTitle = 'Completed successfully'
         $resultKind = 'Success'
         if ($Job.OutputKind -eq 'Estimate') {
             $resultTitle = 'Estimate complete'
             $resultKind = 'Info'
-            $lines = @('Estimate only; no full output media was created.')
+            $lines = @($inputLines) + @('Estimate only; no full output media was created.')
             if ($Job.ContainsKey('EstimateResult') -and $Job.EstimateResult) {
                 $est = $Job.EstimateResult
                 $lines += ('Estimated size: ' + (Format-FileSize $est.ExpectedBytes))
@@ -772,7 +778,6 @@ function Invoke-FFJob {
         } elseif ($Job.OutputKind -eq 'Folder') {
             $count = 0
             if ($Job.ContainsKey('CountOutputs') -and $Job.CountOutputs) { $count = [int](& $Job.CountOutputs) }
-            $lines += $outPath
             if ($count -gt 0) { $lines += ''; $lines += "Files created: $count" }
             if ($Job.ContainsKey('BatchQueue') -and $Job.BatchQueue) {
                 $q = Get-BatchQueueSummary $Job.BatchQueue
@@ -782,9 +787,8 @@ function Invoke-FFJob {
                 if ($q.Failed -gt 0) { $resultTitle = 'Batch completed with failures'; $resultKind = 'Warning' }
             }
         } elseif ($Job.OutputKind -eq 'Network') {
-            $lines = @('Sent to:', [string]$Job.OutputDisplay)
+            $lines = @($inputLines) + @('Sent to:', [string]$Job.OutputDisplay)
         } else {
-            $lines += $outPath
             if (Test-Path -LiteralPath $outPath) {
                 $newSize = (New-Object System.IO.FileInfo($outPath)).Length
                 $lines += ''; $lines += 'Size:'; $lines += (Format-FileSize $newSize)

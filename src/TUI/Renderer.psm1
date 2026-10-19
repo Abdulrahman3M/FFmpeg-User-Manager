@@ -14,6 +14,7 @@ $script:FrameActive = $false
 $script:PendingFrame = New-Object System.Text.StringBuilder
 $script:PreviousFrame = @()
 $script:PreviousViewport = ''
+$script:LastFrameCursorRow = -1
 
 function Get-ChangedFrameRows {
     # Compare styled ANSI text, not just the displayed characters.
@@ -25,9 +26,17 @@ function Get-ChangedFrameRows {
     }
 }
 
+function Test-UiViewportChanged {
+    # Kept separate from terminal access so the resize decision is deterministic and unit-testable.
+    param($Before, $After)
+    if ($null -eq $Before -or $null -eq $After) { return $true }
+    return (([int]$Before.Width -ne [int]$After.Width) -or ([int]$Before.Height -ne [int]$After.Height))
+}
+
 function Reset-FrameCache {
     $script:PreviousFrame = @()
     $script:PreviousViewport = ''
+    $script:LastFrameCursorRow = -1
 }
 function Write-FrameChunk {
     param([AllowEmptyString()][string]$Text)
@@ -204,10 +213,12 @@ function Stop-Frame {
                     [Console]::Out.Write(' ' * [Math]::Max(0, $width - 1))
                 }
             }
+            [Console]::SetCursorPosition(0, [Math]::Max(0, $top - 1))
         } catch { }
         return
     }
     if (-not $script:FrameActive) { return }
+    $script:LastFrameCursorRow = -1
     try {
         $pending = $script:PendingFrame.ToString()
         $rows = @($pending -split "`n")
@@ -229,9 +240,25 @@ function Stop-Frame {
         }
         $script:PreviousFrame = $rows
         $script:PreviousViewport = $viewport
+        # Frame painting uses absolute cursor moves and may finish while clearing old trailing rows.
+        # Return to the final row of the new frame so a following line editor writes inside the frame.
+        if ($rows.Count -gt 0 -and $size.Height -gt 1) {
+            $cursorRow = [Math]::Min($rows.Count - 1, $size.Height - 2)
+            $script:LastFrameCursorRow = $cursorRow
+            [Console]::Out.Write($script:ESC + '[' + ($cursorRow + 1) + ';1H')
+        }
     } finally {
         $script:FrameActive = $false
         [void]$script:PendingFrame.Clear()
+    }
+}
+
+function Set-LastFrameRow {
+    # Synchronize the renderer cache after a live control edits a row directly on the terminal.
+    param([AllowEmptyString()][string]$Text)
+    if ($script:Sink -ne 'Console' -or -not $script:Ansi) { return }
+    if ($script:LastFrameCursorRow -ge 0 -and $script:LastFrameCursorRow -lt $script:PreviousFrame.Count) {
+        $script:PreviousFrame[$script:LastFrameCursorRow] = $Text
     }
 }
 
@@ -390,4 +417,4 @@ function Format-ProgressBar {
     return @(($ch * $filled), (($b.H) * ($Width - $filled)))
 }
 
-Export-ModuleMember -Function Get-ChangedFrameRows, Clear-LineRemainder, Set-CursorColumn, Set-HeaderInfo, Write-PlainError, Initialize-Renderer, Test-AnsiMode, Get-CapturedOutput, Clear-CapturedOutput, Get-UiSize, Get-UiWidth, Test-CompactLayout, Get-TextWidth, Limit-Text, Limit-PathText, Split-TextLines, Write-Raw, Write-Ui, Write-UiSegments, Write-UiBlank, Start-Frame, Stop-Frame, Clear-Ui, Show-Cursor, Hide-Cursor, Enter-AltScreen, Restore-TerminalState, Write-Rule, Write-Header, Write-KeyHints, Write-KeyValueTable, Write-Panel, Format-ProgressBar
+Export-ModuleMember -Function Get-ChangedFrameRows, Test-UiViewportChanged, Clear-LineRemainder, Set-CursorColumn, Set-LastFrameRow, Set-HeaderInfo, Write-PlainError, Initialize-Renderer, Test-AnsiMode, Get-CapturedOutput, Clear-CapturedOutput, Get-UiSize, Get-UiWidth, Test-CompactLayout, Get-TextWidth, Limit-Text, Limit-PathText, Split-TextLines, Write-Raw, Write-Ui, Write-UiSegments, Write-UiBlank, Start-Frame, Stop-Frame, Clear-Ui, Show-Cursor, Hide-Cursor, Enter-AltScreen, Restore-TerminalState, Write-Rule, Write-Header, Write-KeyHints, Write-KeyValueTable, Write-Panel, Format-ProgressBar

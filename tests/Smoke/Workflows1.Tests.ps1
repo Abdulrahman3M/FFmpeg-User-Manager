@@ -18,6 +18,9 @@ Set-TestGroup 'Workflow 1: Convert Video Format'
 $out = Join-Path $W 'w video_converted.mp4'
 $ui = Invoke-Flow { Start-ConvertVideoWorkflow } @((New-Rule 'Input video' "$vid{Enter}"), $DONE, $FAIL)
 Assert-JobOk 'MP4 -> MP4 defaults (auto codec, copy audio)' $ui $out
+$resultText = Get-FlatText $ui.Output
+Assert-Contains 'success screen shows the full input path' $resultText ("Input: $vid")
+Assert-Contains 'success screen labels and shows the full output path' $resultText ("Output: $out")
 $j = Get-ProbeJson $out
 Assert-True 'output keeps H.264 + AAC and 320x240' ((Get-StreamOf $j 'video')[0].codec_name -eq 'h264' -and (Get-StreamOf $j 'video')[0].width -eq 320 -and (Get-StreamOf $j 'audio').Count -eq 1)
 Assert-True 'source file untouched after conversion' (Test-Path -LiteralPath $vid)

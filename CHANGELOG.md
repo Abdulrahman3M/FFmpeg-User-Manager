@@ -8,6 +8,14 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-19
+
+### Fixed
+- Text-entry wizard prompts and live input stay on the final row of the managed frame; confirming, backing out, browsing, resizing, and running again no longer leave stale paths or stray lines elsewhere in the terminal.
+- Successful job results show the selected full input path(s) and the output path together near the top of the result screen.
+- Interactive screens detect terminal size changes while idle and redraw automatically; resizing no longer requires an arrow-key press to refresh the layout.
+- The Windows launcher prefers Windows Terminal for starts outside it, including "Run As Administrator", and preserves existing Terminal sessions. It invokes PowerShell directly through `wt.exe`, avoiding the malformed quoted trailing-backslash directory argument and the unsuccessful environment-variable re-entry workaround. The owner confirmed successful elevated Windows Terminal launch on 2026-10-19.
+
 ## [0.3.0] - 2026-10-16
 
 ### Added

@@ -15,7 +15,7 @@ Start-FFmpegTUI.ps1 --> src/Import-Modules.ps1 --> Core/App.psm1 (Start-FFmpegTu
         +--------------------+ Core: Environment Paths Validation ProcessRunner ExternalLibraries
 ```
 
-`FFmpeg-User-Manager.bat` (repository root) is a thin Windows launcher: it finds `Start-FFmpegTUI.ps1`, prefers `pwsh.exe`, falls back to `powershell.exe`, and forwards arguments and the exit code. The application version comes from the root `VERSION` file (`Get-AppVersion`).
+`FFmpeg-User-Manager.bat` (repository root) is a thin Windows launcher: it finds `Start-FFmpegTUI.ps1`, prefers `pwsh.exe`, falls back to `powershell.exe`, and forwards arguments. Outside Windows Terminal it invokes `wt.exe -w new` directly with the quoted PowerShell executable and absolute entry-script path. It does not use `start`, a secondary `cmd.exe`, environment-variable re-entry, or a quoted trailing-backslash directory argument. When `WT_SESSION` is present it stays in the existing terminal. If Windows Terminal is unavailable it explains the legacy-console fallback. The owner confirmed successful elevated Windows Terminal launch on 2026-10-19. The application version comes from `VERSION` (`Get-AppVersion`).
 
 All modules are imported into the global session state by `Import-FFTuiModules` (ordered, fail-fast), so exported
 functions can call each other. Module-private state uses `$script:` variables.
@@ -39,7 +39,7 @@ The manifest is the canonical version, architecture, edition-policy, source, int
 
 ### Flicker-Free Centralized Frame Rendering
 
-The Renderer composes a logical ANSI frame in memory via `Start-Frame`, semantic `Write-Ui` / `Write-UiSegments` calls and `Stop-Frame`. It compares the complete rendered ANSI text (including colors and styles) row-by-row to the last committed frame. Only changed rows are positioned with CSI `row;1H` and emitted with CSI `K`, while removed rows are erased with CSI `2K`. Stable frames require zero writes; the old and new selection rows are usually the only changed ones. The frame cache is invalidated at explicit clears, alternate-screen transitions, renderer initialization and terminal resize. Non-VT terminals use safe console cursor positioning with legacy clear fallback, and scripted `Buffer` output remains unchanged. Emoji/symbol/ASCII icons and muted descriptions are not removed. Physical flicker and right-edge/Unicode behavior remain subject to Windows Terminal/conhost manual validation.
+The Renderer composes a logical ANSI frame in memory via `Start-Frame`, semantic `Write-Ui` / `Write-UiSegments` calls and `Stop-Frame`. It compares the complete rendered ANSI text (including colors and styles) row-by-row to the last committed frame. Only changed rows are positioned with CSI `row;1H` and emitted with CSI `K`, while removed rows are erased with CSI `2K`. Stable frames require zero writes; the old and new selection rows are usually the only changed ones. While idle, the shared key reader polls for a terminal viewport change and returns a resize event, so the active screen redraws without waiting for a key press; the frame cache is then invalidated at the resize. Text questions include their hints and input row in that same logical frame; the renderer leaves the cursor on that row, and the live line editor synchronizes its edited text with the frame cache so a later screen always erases the old path. Non-VT terminals use safe console cursor positioning with legacy clear fallback, and scripted `Buffer` output remains unchanged. Emoji/symbol/ASCII icons and muted descriptions are not removed. Physical flicker and right-edge/Unicode behavior remain subject to Windows Terminal/conhost manual validation.
 
 
 * **Theme** - the only place with color values. Semantic roles: `PrimaryAccent SecondaryAccent Title NormalText DimText
@@ -74,7 +74,7 @@ Every choice carries a description and every question help text (and an example 
 | `OnAnswer` | Side effects after acceptance, e.g. probing or `$W.Goto = 'stepId'`. |
 
 The `Build` scriptblock turns answers into a **job**: `Summary` rows, `Stages` (each with `Arguments` or a `Factory`, `DurationSec`),
-`OutputPath`, `OutputKind`, `TempFiles`, notes. `Start-StandardWorkflow` runs wizard -> `Invoke-FFJob` -> repeat on "Run again".
+`OutputPath`, `OutputKind`, `TempFiles`, notes. `Invoke-Wizard` carries top-level file/list/folder answers to the job as `InputPaths`; the shared success screen displays those source paths and the output path together. `Start-StandardWorkflow` runs wizard -> `Invoke-FFJob` -> repeat on "Run again".
 
 **Scoping rule:** step scriptblocks run later inside the Wizard module. A block that reads a local variable of the function that
 created it must end with `.GetNewClosure()` (enforced by a static test). Never name a local `$w`: variable names are

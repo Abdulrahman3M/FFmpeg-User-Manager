@@ -144,11 +144,15 @@ function Read-TextStep {
         elseif ($Step.ContainsKey('Optional') -and $Step.Optional) { Write-Ui -Text '   Optional - press Enter to skip.' -Role DimText }
         if ($error1) { Write-Ui -Text ('   ' + (Get-Icon 'Fail') + ' ' + $error1) -Role Error }
         Write-UiBlank
-        Stop-Frame
         $hint = @(@('Enter', 'Confirm'), @('Esc', 'Back'), @('Ctrl+U', 'Clear'))
         if ($browse) { $hint += , @('Tab', 'Browse...') }
         Write-KeyHints $hint
+        # The text controls are part of the same logical frame as the question.  That makes the
+        # next frame erase them instead of leaving old prompts behind after validation or reruns.
+        Write-Ui -Text '> ' -Role PrimaryAccent
+        Stop-Frame
         $line = Read-TuiLine -Prompt '> ' -Initial $initText -AllowBrowse:$browse
+        if ($line.Status -eq 'Resize') { $initText = $line.Text; continue }
         if ($line.Status -eq 'Back') { return @{ Status = 'Back'; Value = $null } }
         if ($line.Status -eq 'Quit') { return @{ Status = 'Quit'; Value = $null } }
         if ($line.Status -eq 'Browse') {
@@ -428,6 +432,19 @@ function Invoke-Wizard {
                     if ($history.Count -eq 0) { return $final }
                     $i = $history[$history.Count - 1]; $history.RemoveAt($history.Count - 1)
                     continue
+                }
+                # Carry real user-selected sources to the shared result screen. Only top-level
+                # file/list/folder questions are inputs; nested custom output-folder choices are not.
+                if ($job -is [hashtable]) {
+                    $inputPaths = New-Object System.Collections.Generic.List[string]
+                    foreach ($sourceStep in $Steps) {
+                        if (-not $sourceStep.ContainsKey('Type') -or @('File', 'Files', 'Directory') -notcontains [string]$sourceStep.Type) { continue }
+                        if (-not $W.Answers.ContainsKey([string]$sourceStep.Id)) { continue }
+                        foreach ($sourcePath in @($W.Answers[[string]$sourceStep.Id])) {
+                            if (-not [string]::IsNullOrWhiteSpace([string]$sourcePath)) { $inputPaths.Add([string]$sourcePath) }
+                        }
+                    }
+                    if ($inputPaths.Count -gt 0) { $job.InputPaths = $inputPaths.ToArray() }
                 }
                 $act = Show-WizardSummary $W $job
                 if ($act -eq 'Quit') { return $final }

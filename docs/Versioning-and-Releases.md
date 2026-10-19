@@ -38,6 +38,8 @@ The file [`VERSION`](../VERSION) in the repository root is the single source of 
 
 Version `0.3.0` is the published MINOR release for the backward-compatible Full/Lite runtime resolution, transactional FFmpeg maintenance and reproducible release-package features. The preceding `0.2.0` feature set is retained in the changelog and historical release notes.
 
+Version `0.3.1` is a PATCH release for compatible launcher, terminal resize, wizard-input lifecycle and result-path display reliability fixes accumulated after `0.3.0`.
+
 * The application reads it (`Get-AppVersion`) and shows it in the header, on the FFmpeg Status screen and with `Start-FFmpegTUI.ps1 -Version`.
 * Release archive names and the Git tag are derived from it (`FFmpeg-User-Manager-v<VERSION>-Full-Windows-x64.zip`, `FFmpeg-User-Manager-v<VERSION>-Lite-Windows-x64.zip`, `v<VERSION>`); the checksum file is `SHA256SUMS-v<VERSION>.txt`.
 * The README version badge is a static image and must equal `VERSION`; `tests/Unit/Static.Tests.ps1` fails when they differ, or when `VERSION` is not valid SemVer.

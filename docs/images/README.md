@@ -7,7 +7,7 @@ How they were captured (honest note): the app was driven through a pseudo-termin
 interpreted by a terminal emulator library and drawn with a monospace font in a headless browser. Nothing was mocked up or edited by hand.
 Windows Terminal will look very similar but fonts, emoji and window chrome differ slightly. `main-menu-console-safe.png` is the same application started with `FFTUI_ICONS=symbol`,
 which is the icon set the classic Windows console selects automatically; it is drawn here with a Linux monospace font, **not** captured from a real Windows console.
-The current `main-menu.png` and `main-menu-console-safe.png` predate both `07 Upscale Image` and `30 Web Media Optimization`; they do not show the current 31-option menu. Other screenshots show screens that are not affected by these menu entries. This checkout cannot safely capture a real terminal window, so the images remain historical illustrations rather than a current menu inventory. Native captures must come from the real application and may replace the two menu images (keep the same file names).
+The current `main-menu.png` and `main-menu-console-safe.png` predate both `07 Upscale Image` and `30 Web Media Optimization`; they do not show the current 31-option menu. `completed.png` also predates the current success summary, which now shows the input path(s) and output path. This checkout cannot safely capture a real terminal window, so the images remain historical illustrations rather than current UI references. Native captures must come from the real application and may replace the existing files (keep the same file names); do not recreate or edit screenshots to imitate the UI.
 
 | File | Screen |
 |---|---|
@@ -17,4 +17,4 @@ The current `main-menu.png` and `main-menu-console-safe.png` predate both `07 Up
 | `conversion-wizard.png` | A wizard question (Convert Video Format, output format) with the *Source* panel, numbered options and a description under each |
 | `video-to-gif.png` | Video to GIF wizard (palette quality question) |
 | `processing.png` | Live progress while FFmpeg encodes |
-| `completed.png` | Result screen with output path, size comparison and next actions |
+| `completed.png` | Historical result-screen capture with output path, size comparison and next actions; it does not yet show the current input/output path summary |

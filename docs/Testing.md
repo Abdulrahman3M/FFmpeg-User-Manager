@@ -4,8 +4,9 @@
 
 | Environment | Result (actual, from the logs) | Run / commit |
 |---|---|---|
-| Windows PowerShell 5.1.26100.9444 on the local Windows host | **1662 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-16; loopback checks run with local-network permission |
-| PowerShell 7.6.5 on the local Windows host | **1662 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-16; loopback checks run with local-network permission |
+| Windows PowerShell 5.1.26100.9444 on the local Windows host | **1673 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-19; loopback checks run with local-network permission |
+| Windows PowerShell 5.1.26100.9444 on the local Windows host (TUI fix checks) | **385 PASS, 0 FAIL, 0 UNVERIFIED** | `-Suite Unit -Filter Tui` (287) + `-Suite Smoke -Filter Workflows1` (98), 2026-10-19 |
+| PowerShell 7.6.5 on the local Windows host | **1673 PASS, 0 FAIL, 0 UNVERIFIED** | full `tests/Run-Tests.ps1`, 2026-10-19; loopback checks run with local-network permission |
 | Windows PowerShell 5.1 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7 on a Windows runner | **1323 PASS, 0 FAIL, 1 UNVERIFIED** | GitHub Actions run [38545320395](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/actions/runs/38545320395), renderer commit `704fec00` |
 | PowerShell 7.4 on Linux (FFmpeg 6.1, Wine for the `.bat` tests) | **1261 PASS, 0 FAIL, 5 UNVERIFIED** | local run, commit `3f96e26` |
@@ -23,11 +24,13 @@ The following matrix is for the current Windows x64 Full/Lite package and its ru
 
 Windows 11 checks used build 26100. Full package evidence includes bundled FFmpeg/ffprobe launch/version/capability checks and actual OBJ-to-GLB conversion from an extracted Unicode/spaced path. Lite evidence includes its extracted launcher and correct system/custom/missing runtime resolution tests; it contains no FFmpeg or Assimp runtime binaries. Detailed package and per-file integrity evidence is in the release-package tests and `External-Libraries/manifest.json`.
 
-Latest full local verification (2026-10-16): Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 each completed `tests/Run-Tests.ps1` with **1662 PASS, 0 FAIL, 0 UNVERIFIED**. This includes the three checks previously reported as UNVERIFIED: the missing-ffprobe PATH sandbox uses isolated file copies; loopback HTTP inspect/save tests pass through the bounded raw TCP server with local-network permission; and a live FFmpeg child exits when its parent PowerShell process is terminated. Both runtimes also completed actual OBJ-to-GLB conversion through the workflow, validated the GLB 2.0 geometry/material/texture references, and confirmed that source OBJ/MTL/texture files were unchanged. The app reports when a texture remains external instead of claiming that it is embedded. The preceding 1581-check run is superseded by this run, which additionally covers the Task 5 governance/release assertions and isolated runtime-state cleanup between packaging tests.
+Latest full local verification for v0.3.1 (2026-10-19): Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 each completed `tests/Run-Tests.ps1` with **1673 PASS, 0 FAIL, 0 UNVERIFIED**. This includes the bounded loopback HTTP checks (run with local-network permission) and all real FFmpeg workflow tests. The owner visually confirmed the repaired Windows Terminal prompt and result layout on 2026-10-19; the owner-confirmed UI check is separate from automated test coverage.
+
+Previous full dual-runtime verification (2026-10-16): Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 each completed `tests/Run-Tests.ps1` with **1662 PASS, 0 FAIL, 0 UNVERIFIED**. This included the missing-ffprobe PATH sandbox using isolated file copies, loopback HTTP inspect/save tests through the bounded raw TCP server, and verification that a live FFmpeg child exits when its parent PowerShell process is terminated. Both runtimes also completed actual OBJ-to-GLB conversion through the workflow, validated GLB 2.0 geometry/material/texture references, and confirmed that source OBJ/MTL/texture files were unchanged. The app reports when a texture remains external instead of claiming it is embedded. The preceding 1581-check run was superseded by this dual-runtime verification, which additionally covered the Task 5 governance/release assertions and isolated runtime-state cleanup between packaging tests.
 
 History of the Windows work (same suite): run #12 established 1263 PASS / 0 FAIL / 1 UNVERIFIED under both Windows runtimes at commit `3f96e26`; run #3 (first diagnosable run) PowerShell 7 1034 PASS / 35 FAIL / 3 UNVERIFIED, PowerShell 5.1 893 PASS / 40 FAIL / 5 UNVERIFIED -> run #12 above. The causes are listed in the investigation table below.
 
-The latest result above supersedes the earlier 2026-10-15 full run (1386 PASS / 0 FAIL / 3 UNVERIFIED), which preceded the PATH-copy, loopback, process-job and Assimp end-to-end verification fixes. Physical rapid-arrow/no-flicker behavior still requires Windows Terminal and classic conhost observation.
+The 2026-10-19 full run supersedes the earlier 2026-10-15 full run (1386 PASS / 0 FAIL / 3 UNVERIFIED), which preceded the PATH-copy, loopback, process-job and Assimp end-to-end verification fixes. The owner visually confirmed the updated resize-driven layout and input/result placement in Windows Terminal on 2026-10-19. Separate rapid-arrow/no-flicker behavior in classic conhost is not claimed as manually verified.
 
 Remaining UNVERIFIED items (never reported as PASS):
 
@@ -108,7 +111,9 @@ be provoked in the current environment (with the reason printed). FFmpeg + ffpro
 
 ## Launcher tests and Wine
 
-`tests/Smoke/Launcher.Tests.ps1` runs the batch file in a sandbox with dummy `pwsh.exe` / `powershell.exe` files on `PATH` (detection) and a `.cmd` stub selected through `FFUM_POWERSHELL` (execution and exit codes). On Windows the stub is a small executable compiled with the .NET Framework compiler that ships with Windows, because a batch file started from a batch file without `call` never returns to the caller.
+Launcher correction verification (2026-10-19): the focused launcher suite completed with **23 PASS, 0 FAIL, 0 UNVERIFIED** on both PowerShell 7.6.5 and Windows PowerShell 5.1.26100.9444. The full PowerShell 7 suite was started but stopped after progress stalled in the local HTTP streaming checks in `Workflows4.Tests.ps1`; no full-suite success is claimed for this change. Native Windows Terminal normal/elevated launch remains UNVERIFIED by this session.
+
+`tests/Smoke/Launcher.Tests.ps1` runs the batch file under real `cmd.exe`. A test-only `wt.exe` parses the received executable and arguments and executes that child, instead of merely logging text. Tests cover a Unicode project directory, runtime argument preservation, and reaching an entry script through the real PowerShell runtime. This checks the dispatch boundary but does not emulate Windows Terminal internals or prove elevated/native window behavior. Windows test executables use the installed .NET Framework compiler; no download is needed.
 On Windows it uses `cmd.exe`; on Linux it uses Wine if installed (`apt install wine64`), otherwise the cases are reported `UNVERIFIED`. Running the real PowerShell application through the launcher on Windows remains a manual check.
 
 ## Fixture strategy

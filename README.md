@@ -2,7 +2,7 @@
 
 <img src="docs/images/repository-cover.jpg" alt="FFmpeg User Manager cover" width="760">
 
-# FFmpeg User Manager `v0.3.0`
+# FFmpeg User Manager `v0.3.1`
 
 **A modern interactive PowerShell TUI for FFmpeg on Windows.**
 Convert, compress, upscale images, trim, merge, extract, resize, make GIFs, slideshows and recordings, manage subtitles, metadata and streams, analyze and batch-process media - without writing FFmpeg commands.
@@ -10,7 +10,7 @@ Convert, compress, upscale images, trim, merge, extract, resize, make GIFs, slid
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?logo=powershell&logoColor=white)
 ![FFmpeg](https://img.shields.io/badge/requires-FFmpeg-007808?logo=ffmpeg&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Version](https://img.shields.io/badge/version-0.3.1-blue)
 ![Status](https://img.shields.io/badge/status-pre--release-orange)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
@@ -22,7 +22,7 @@ Convert, compress, upscale images, trim, merge, extract, resize, make GIFs, slid
 
 ## Overview
 
-**Navigation rendering:** In VT-capable interactive terminals, menu navigation uses a centralized ANSI in-place renderer with differential changed-row updates. Ordinary arrow keys do not clear the complete screen, and color/icon/description styling is preserved. A legacy console cursor-based fallback is retained. This requires a real Windows Terminal/conhost visual check; scripted tests alone cannot establish that every host is flicker-free.
+**Navigation rendering:** In VT-capable interactive terminals, menu navigation uses a centralized ANSI in-place renderer with differential changed-row updates. Ordinary arrow keys do not clear the complete screen, and color/icon/description styling is preserved. The layout also redraws automatically when the terminal is resized, without waiting for another key press. A legacy console cursor-based fallback is retained. This requires a real Windows Terminal/conhost visual check; scripted tests alone cannot establish that every host is flicker-free.
 
 
 FFmpeg User Manager turns FFmpeg into a guided, keyboard-driven terminal application. You pick what you want to do, answer a few plain-English
@@ -62,7 +62,7 @@ This project gives beginners a safe, visual way to use the common 95% of FFmpeg,
 |---|
 | <img src="docs/images/main-menu-console-safe.png" alt="Main menu with the console-safe symbol icons used in the classic Windows console" width="560"> |
 
-> The screenshots are real frames of the running application, captured in a Linux terminal (see [docs/images/README.md](docs/images/README.md)). The main-menu image predates the new `07 Upscale Image` entry; it is retained until a fresh real-application capture is available. Windows Terminal looks very similar.
+> The screenshots are real frames of the running application, captured in a Linux terminal (see [docs/images/README.md](docs/images/README.md)). The main-menu image predates the new `07 Upscale Image` entry, and the completed-result image predates the new `Input:` / `Output:` path summary; both remain historical until fresh real-application captures are available. Windows Terminal looks very similar.
 > The last one shows the symbol icon set that the classic Windows console uses, so icons are visible even where emoji cannot be drawn.
 > The main-menu captures predate the Web Media Optimization entry and do not show the current menu inventory; see the screenshot note in [docs/images/README.md](docs/images/README.md).
 
@@ -182,10 +182,12 @@ The Gyan FFmpeg provider describes its builds as requiring Windows 10 or later, 
 
 `FFmpeg-User-Manager.bat` is the recommended Windows entry point. You do not have to type any PowerShell command.
 
-* It finds its own folder, so it works from Explorer, Command Prompt, PowerShell or Windows Terminal, in folders with spaces or parentheses.
+* It finds its own folder, so it works from Explorer, Command Prompt, PowerShell or Windows Terminal, including folders with spaces, command characters and Unicode names.
+* When started outside Windows Terminal, including through **Run As Administrator**, it opens a new Windows Terminal window at the same privilege level and runs the app there. A start already inside Windows Terminal stays in the current terminal window.
+* If Windows Terminal is unavailable, the launcher explains that it is using the current console instead.
 * It starts `Start-FFmpegTUI.ps1` with **PowerShell 7 (`pwsh.exe`) if available, otherwise Windows PowerShell 5.1**.
 * It uses a process-scoped `-ExecutionPolicy Bypass` for that single run only; your machine or user execution policy is never changed.
-* It passes arguments through (for example `FFmpeg-User-Manager.bat -SkipUpdateCheck`) and returns the application's exit code.
+* It passes arguments through (for example `FFmpeg-User-Manager.bat -SkipUpdateCheck`). When already running in Windows Terminal, it returns the application's exit code; when it dispatches a separate Windows Terminal window, the original launcher returns the terminal-launch result instead.
 * It contains launcher logic only. FFmpeg detection, installation, updates and all media logic live in the PowerShell application.
 
 Advanced: set the environment variable `FFUM_POWERSHELL` to a full path to force a specific PowerShell, or `FFUM_TRACE=1` to print which one is used.
@@ -309,7 +311,7 @@ Details, pre-release labels and the release checklist: [docs/Versioning-and-Rele
 ## Releases
 
 Official releases provide both Full and Lite Windows x64 ZIPs plus SHA-256 checksums. Full is recommended and includes verified FFmpeg/ffprobe and Assimp runtimes; Lite is smaller and uses a user-installed runtime. Download the current release from [GitHub Releases](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/releases/latest), verify its checksum, extract the ZIP completely and follow [Installation](#installation). Review the release notes for the edition comparison, compatibility evidence and known FFmpeg advisories.
-The current **source-code version is v0.3.0** (see [`VERSION`](VERSION) and [CHANGELOG.md](CHANGELOG.md)); its annotated tag and release assets are available from the official repository.
+The current **source-code version is v0.3.1** (see [`VERSION`](VERSION) and [CHANGELOG.md](CHANGELOG.md)); check the official [GitHub Releases](https://github.com/Abdulrahman3M/FFmpeg-User-Manager/releases) page for published downloads.
 
 ## Documentation
 
@@ -321,6 +323,7 @@ The current **source-code version is v0.3.0** (see [`VERSION`](VERSION) and [CHA
 | [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md) | SemVer rules, tags, changelog and release process |
 | [docs/Release-Notes-v0.2.0.md](docs/Release-Notes-v0.2.0.md) | Locally prepared v0.2.0 changes and verification |
 | [docs/Release-Notes-v0.3.0.md](docs/Release-Notes-v0.3.0.md) | Full/Lite runtime and release changes, compatibility and known limitations |
+| [docs/Release-Notes-v0.3.1.md](docs/Release-Notes-v0.3.1.md) | Windows Terminal launcher, resize and TUI input/result display fixes |
 | [docs/Licensing.md](docs/Licensing.md) | Why Apache-2.0, what it means, third-party components review |
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Third-party runtime licenses, attribution and sources |
 | [docs/images/README.md](docs/images/README.md) | How the screenshots were captured |
@@ -351,7 +354,7 @@ The Full Edition redistributes the exact Gyan FFmpeg 9.0.2 build under GPL-3.0, 
 
 ## Project status
 
-**Pre-release series (source version and latest published release v0.3.0).** All workflows listed above are implemented. The latest full Windows verification results for Windows PowerShell 5.1 and PowerShell 7.6.5 are in [docs/Testing.md](docs/Testing.md). The launcher is tested with the real `cmd` interpreter.
+**Pre-release series (source version v0.3.1; previous published release v0.3.0).** All workflows listed above are implemented. The latest full Windows verification results for Windows PowerShell 5.1 and PowerShell 7.6.5 are in [docs/Testing.md](docs/Testing.md). The launcher is tested with the real `cmd` interpreter.
 **Not yet verified by any automated run and therefore not claimed:** rendering in a real Windows Terminal / classic console, real `winget` installs and updates, the native file picker and Explorer integration,
 and screen / webcam / microphone recording on real devices. `tools/Test-WindowsLocal.ps1` lists these checks. Version 1.0.0 is reserved until they are done (see
 [docs/Versioning-and-Releases.md](docs/Versioning-and-Releases.md)). Details: [docs/Testing.md](docs/Testing.md).

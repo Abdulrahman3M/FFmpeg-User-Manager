@@ -101,10 +101,21 @@ function Read-TuiKey {
         if ($script:Queue.Count -eq 0) { throw 'Scripted input exhausted.' }
         return $script:Queue.Dequeue()
     }
+    # Console.ReadKey blocks indefinitely, so a resize would otherwise remain invisible until the
+    # next key press. Polling KeyAvailable lets every screen receive a Resize event and redraw.
+    $viewport = Get-UiSize
     while ($true) {
-        $info = [Console]::ReadKey($true)
-        $k = Convert-ConsoleKey $info
-        if ($k.Name -ne 'Other') { return $k }
+        try {
+            if ([Console]::KeyAvailable) {
+                $info = [Console]::ReadKey($true)
+                $k = Convert-ConsoleKey $info
+                if ($k.Name -ne 'Other') { return $k }
+                continue
+            }
+        } catch { }
+        Start-Sleep -Milliseconds 50
+        $currentViewport = Get-UiSize
+        if (Test-UiViewportChanged -Before $viewport -After $currentViewport) { return (New-KeyEvent 'Resize') }
     }
 }
 
@@ -127,17 +138,23 @@ function Read-TuiLine {
         Write-Ui -Text $Prompt -Role PrimaryAccent -NoNewline
         Write-Ui -Text $shown -Role NormalText -NoNewline
         Clear-LineRemainder -Used ((Get-TextWidth $Prompt) + (Get-TextWidth $shown))
-        if (-not $scriptedOrBuffer) { Set-CursorColumn ((Get-TextWidth $Prompt) + $pos - $off) }
+        if (-not $scriptedOrBuffer) {
+            Set-LastFrameRow -Text ($Prompt + $shown)
+            Set-CursorColumn ((Get-TextWidth $Prompt) + $pos - $off)
+        }
     }
     Show-Cursor
     & $render
     while ($true) {
         $k = Read-TuiKey
         switch ($k.Name) {
-            'Enter' { Write-Raw "`n"; return [pscustomobject]@{ Status = 'Ok'; Text = $buf.ToString() } }
-            'Esc' { Write-Raw "`n"; return [pscustomobject]@{ Status = 'Back'; Text = $buf.ToString() } }
-            'CtrlC' { Write-Raw "`n"; return [pscustomobject]@{ Status = 'Quit'; Text = $buf.ToString() } }
-            'Tab' { if ($AllowBrowse) { Write-Raw "`n"; return [pscustomobject]@{ Status = 'Browse'; Text = $buf.ToString() } } }
+            'Resize' { return [pscustomobject]@{ Status = 'Resize'; Text = $buf.ToString() } }
+            # The wizard owns this row as part of its frame. Do not emit a newline here; the next
+            # frame redraw replaces the prompt and input without leaving a stale line below it.
+            'Enter' { return [pscustomobject]@{ Status = 'Ok'; Text = $buf.ToString() } }
+            'Esc' { return [pscustomobject]@{ Status = 'Back'; Text = $buf.ToString() } }
+            'CtrlC' { return [pscustomobject]@{ Status = 'Quit'; Text = $buf.ToString() } }
+            'Tab' { if ($AllowBrowse) { return [pscustomobject]@{ Status = 'Browse'; Text = $buf.ToString() } } }
             'ClearLine' { [void]$buf.Clear(); $pos = 0 }
             'Backspace' { if ($pos -gt 0) { [void]$buf.Remove($pos - 1, 1); $pos-- } }
             'Delete' { if ($pos -lt $buf.Length) { [void]$buf.Remove($pos, 1) } }
