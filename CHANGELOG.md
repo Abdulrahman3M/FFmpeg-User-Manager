@@ -11,6 +11,7 @@ The current version is the content of the [`VERSION`](VERSION) file. Released ve
 ## [0.3.1] - 2026-10-19
 
 ### Fixed
+- FFmpeg WinGet acquisition now accepts its renamed, nested installer ZIP only when its exact manifest-pinned SHA-256 matches; release packaging and opt-in bundled updates both reject missing/ambiguous archives before runtime verification.
 - Text-entry wizard prompts and live input stay on the final row of the managed frame; confirming, backing out, browsing, resizing, and running again no longer leave stale paths or stray lines elsewhere in the terminal.
 - Successful job results show the selected full input path(s) and the output path together near the top of the result screen.
 - Interactive screens detect terminal size changes while idle and redraw automatically; resizing no longer requires an arrow-key press to refresh the layout.

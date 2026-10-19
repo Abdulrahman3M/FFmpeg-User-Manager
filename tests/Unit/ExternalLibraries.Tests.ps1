@@ -131,7 +131,7 @@ $script:updateMetadataFixture = [pscustomobject]@{ PackageId = 'Gyan.FFmpeg.Shar
 $script:preparedArchiveFixture = $preparedArchive
 $script:runtimeCheckFixture = $true
 Set-AppRoot $fixture.Base
-Set-ExternalLibraryHooks -PackageMetadata { param($version) return $script:updateMetadataFixture } -Download { param($version, $destination, $metadata) $targetArchive = Join-Path $destination $metadata.InstallerFileName; [System.IO.File]::Copy($script:preparedArchiveFixture, $targetArchive); return [pscustomobject]@{ Path = $targetArchive; ExitCode = 0; Started = $true; TimedOut = $false } } -RuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = [bool]$script:runtimeCheckFixture; Detail = 'mocked complete runtime verification' } }
+Set-ExternalLibraryHooks -PackageMetadata { param($version) return $script:updateMetadataFixture } -Download { param($version, $destination, $metadata) $targetArchive = Join-Path (Join-Path $destination 'Gyan.FFmpeg.Shared_10.0.0') 'FFmpeg (Shared)_10.0.0_X64_portable_en-US.zip'; [void](New-Item -ItemType Directory -Path (Split-Path -Parent $targetArchive) -Force); [System.IO.File]::Copy($script:preparedArchiveFixture, $targetArchive); return [pscustomobject]@{ Path = $targetArchive; ExitCode = 0; Started = $true; TimedOut = $false } } -RuntimeCheck { param($ffmpegPath, $ffprobePath, $version) return [pscustomobject]@{ Ready = [bool]$script:runtimeCheckFixture; Detail = 'mocked complete runtime verification' } }
 $updateResult = Update-BundledFFmpeg -PackageVersion '10.0.0' -Confirmed:$true
 $updatedManifest = Get-Content -LiteralPath (Join-Path $fixture.ExternalRoot 'manifest.json') -Raw | ConvertFrom-Json
 $updatedFFmpeg = @($updatedManifest.Libraries | Where-Object { $_.Id -eq 'ffmpeg' }) | Select-Object -First 1
@@ -228,6 +228,20 @@ Installers:
 $wingetInstallerSource = 'https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/g/Gyan/FFmpeg/Shared/9.0.2/Gyan.FFmpeg.Shared.installer.yaml'
 $parsedInstaller = ConvertFrom-FFmpegWingetInstallerManifest -Yaml $wingetInstallerYaml -PackageVersion '9.0.2' -MetadataSource $wingetInstallerSource
 Assert-True 'WinGet installer metadata parser pins official source, package, x64 ZIP filename and SHA-256' ($parsedInstaller.PackageId -eq 'Gyan.FFmpeg.Shared' -and $parsedInstaller.InstallerFileName -eq 'ffmpeg-9.0.2-full_build-shared.zip' -and $parsedInstaller.InstallerSha256 -eq '8D31E162F1616E37AAB3FA2DB991B97E1B8DBEB1C8465FD81A81BE16FF91B328' -and $parsedInstaller.MetadataSource -eq $wingetInstallerSource)
+$nestedWingetRoot = Join-Path (Get-TestWork) 'winget nested download'
+$nestedWingetDir = Join-Path $nestedWingetRoot 'Gyan.FFmpeg.Shared_9.0.2'
+[void](New-Item -ItemType Directory -Path $nestedWingetDir -Force)
+$nestedWingetArchive = Join-Path $nestedWingetDir 'FFmpeg (Shared)_9.0.2_X64_portable_en-US.zip'
+[System.IO.File]::WriteAllText($nestedWingetArchive, 'verified-archive-fixture')
+$nestedWingetArchiveHash = (Get-FileHash -LiteralPath $nestedWingetArchive -Algorithm SHA256).Hash
+$resolvedWingetArchive = Resolve-FFmpegInstallerArchivePath -DownloadRoot $nestedWingetRoot -ExpectedSha256 $nestedWingetArchiveHash
+Assert-Equal 'WinGet release acquisition resolves the exact installer from its package-version subfolder' ([System.IO.Path]::GetFullPath($nestedWingetArchive)) $resolvedWingetArchive
+$duplicateWingetArchive = Join-Path (Join-Path $nestedWingetRoot 'duplicate') 'FFmpeg (Shared)_9.0.2_X64_portable_en-US.zip'
+[void](New-Item -ItemType Directory -Path (Split-Path -Parent $duplicateWingetArchive) -Force)
+[System.IO.File]::WriteAllText($duplicateWingetArchive, 'verified-archive-fixture')
+$ambiguousWingetRejected = $false
+try { $null = Resolve-FFmpegInstallerArchivePath -DownloadRoot $nestedWingetRoot -ExpectedSha256 $nestedWingetArchiveHash } catch { $ambiguousWingetRejected = $true }
+Assert-True 'WinGet release acquisition rejects ambiguous duplicate installer archives' $ambiguousWingetRejected
 $rejectedInstallerYaml = $wingetInstallerYaml.Replace('Gyan.FFmpeg.Shared', 'Other.Package')
 $rejectedInstallerManifest = $false
 try { $null = ConvertFrom-FFmpegWingetInstallerManifest -Yaml $rejectedInstallerYaml -PackageVersion '9.0.2' -MetadataSource $wingetInstallerSource } catch { $rejectedInstallerManifest = $true }

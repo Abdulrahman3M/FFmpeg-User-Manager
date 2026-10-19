@@ -9,6 +9,7 @@ This backward-compatible PATCH release improves Windows Terminal launching and i
 - Wizard text prompts keep the active input line on the expected row within the managed screen frame. Confirming, navigating back, browsing, resizing and choosing Run Again no longer leave stale input paths or duplicate old prompt rows behind.
 - Successful result screens show `Input:` and `Output:` paths together near the result summary, rather than leaving an old input path stranded at the bottom of the terminal.
 - Regression coverage and documentation were updated for the launcher, idle resize handling, prompt/input lifecycle and result path layout.
+- Full-edition release acquisition now resolves WinGet's renamed FFmpeg archive by the exact pinned SHA-256 (including its package/version subfolder), while rejecting missing or duplicate hash matches before license and runtime validation. The same handling protects the explicit bundled-runtime update flow.
 
 ## Editions and dependencies
 
@@ -18,6 +19,6 @@ Both editions use the same source revision and version. The release package buil
 
 ## Verification and limitations
 
-The owner confirmed the repaired TUI layout visually on 2026-10-19. Automated regression tests cover the input lifecycle, resize redraw logic, result summary and launcher command construction. Full Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 suites each completed with **1673 PASS, 0 FAIL, 0 UNVERIFIED**; details are recorded in [Testing.md](Testing.md).
+The owner confirmed the repaired TUI layout visually on 2026-10-19. Automated regression tests cover the input lifecycle, resize redraw logic, result summary, launcher command construction and WinGet's nested release archive path. Full Windows PowerShell 5.1.26100.9444 and PowerShell 7.6.5 suites each completed on 2026-10-20 with **1675 PASS, 0 FAIL, 0 UNVERIFIED**; details are recorded in [Testing.md](Testing.md).
 
 The existing compatibility matrix and known FFmpeg 9.0.2 advisories from v0.3.0 remain applicable. This release does not change supported operating systems or claim additional platform compatibility. See [v0.3.0 release notes](Release-Notes-v0.3.0.md), [Testing](Testing.md) and [Licensing](Licensing.md).
